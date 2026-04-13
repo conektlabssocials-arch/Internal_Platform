@@ -1317,8 +1317,8 @@ export const createPhase1McpServer = (
     );
     const planDocumentTypes =
       actor.role === 'admin'
-        ? (['PlanProposal', 'Quotation', 'InternalCostSheet'] as const)
-        : (['PlanProposal', 'Quotation'] as const);
+        ? (['PlanProposal', 'PlanProposalV2', 'Quotation', 'InternalCostSheet'] as const)
+        : (['PlanProposal', 'PlanProposalV2', 'Quotation'] as const);
 
     server.registerTool(
       'generate_plan_document',
