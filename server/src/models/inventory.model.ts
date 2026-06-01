@@ -1,0 +1,201 @@
+import mongoose, { Schema } from 'mongoose';
+import type { HydratedDocument, InferSchemaType } from 'mongoose';
+
+export const inventoryCategories = ['OOH', 'DOOH', 'Auto', 'Bus', 'Mobile Van'] as const;
+export const availabilityStatuses = ['available', 'booked', 'hold', 'unknown'] as const;
+export const inventoryStatuses = ['active', 'inactive'] as const;
+export const confirmationStatuses = ['fresh', 'stale', 'never_confirmed'] as const;
+export const illuminationTypes = ['Lit', 'Non-lit', 'Backlit', 'Frontlit', 'NA'] as const;
+
+const locationSchema = new Schema(
+  {
+    latitude: Number,
+    longitude: Number,
+    address: {
+      type: String,
+      trim: true,
+    },
+    city: {
+      type: String,
+      trim: true,
+    },
+    area: {
+      type: String,
+      trim: true,
+    },
+    source: {
+      type: String,
+      enum: ['manual', 'map_picker', 'reverse_geocode'],
+      default: 'manual',
+    },
+  },
+  { _id: false },
+);
+
+const inventorySchema = new Schema(
+  {
+    inventoryCode: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+    category: {
+      type: String,
+      enum: inventoryCategories,
+      required: true,
+    },
+    subType: {
+      type: String,
+      trim: true,
+    },
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    city: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    area: {
+      type: String,
+      trim: true,
+    },
+    location: locationSchema,
+    photos: {
+      type: [String],
+      default: [],
+    },
+    ownerName: {
+      type: String,
+      trim: true,
+    },
+    ownerPhone: {
+      type: String,
+      trim: true,
+    },
+    supplierName: {
+      type: String,
+      trim: true,
+    },
+    internalCost: Number,
+    sellingPrice: Number,
+    minSpend: Number,
+    minDurationDays: Number,
+    availabilityStatus: {
+      type: String,
+      enum: availabilityStatuses,
+      default: 'unknown',
+    },
+    status: {
+      type: String,
+      enum: inventoryStatuses,
+      default: 'active',
+    },
+    tags: {
+      type: [String],
+      default: [],
+    },
+    internalNotes: {
+      type: String,
+      trim: true,
+    },
+    lastConfirmedAt: Date,
+    confirmedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    confirmationNote: {
+      type: String,
+      trim: true,
+    },
+    confirmationStatus: {
+      type: String,
+      enum: confirmationStatuses,
+      default: 'never_confirmed',
+    },
+    width: Number,
+    height: Number,
+    totalSqFt: Number,
+    illumination: {
+      type: String,
+      enum: illuminationTypes,
+    },
+    facingDirection: {
+      type: String,
+      trim: true,
+    },
+    trafficDirection: {
+      type: String,
+      trim: true,
+    },
+    estimatedTraffic: {
+      type: String,
+      trim: true,
+    },
+    loopLengthSeconds: Number,
+    spotsPerHour: Number,
+    screenSpecs: {
+      type: String,
+      trim: true,
+    },
+    numberOfVehicles: Number,
+    route: {
+      type: String,
+      trim: true,
+    },
+    depot: {
+      type: String,
+      trim: true,
+    },
+    brandingType: {
+      type: String,
+      trim: true,
+    },
+    ratePerVehiclePerMonth: Number,
+    operatorName: {
+      type: String,
+      trim: true,
+    },
+    itinerary: {
+      type: String,
+      trim: true,
+    },
+    operationDays: Number,
+    hasLedScreen: Boolean,
+    hasAudioSystem: Boolean,
+    hasCanopy: Boolean,
+    ratePerDay: Number,
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
+inventorySchema.pre('save', function calculateTotalSqFt(next) {
+  if (this.width && this.height) {
+    this.totalSqFt = this.width * this.height;
+  }
+
+  next();
+});
+
+export type InventoryCategory = (typeof inventoryCategories)[number];
+export type AvailabilityStatus = (typeof availabilityStatuses)[number];
+export type InventoryStatus = (typeof inventoryStatuses)[number];
+export type ConfirmationStatus = (typeof confirmationStatuses)[number];
+export type IlluminationType = (typeof illuminationTypes)[number];
+export type InventorySchema = InferSchemaType<typeof inventorySchema>;
+export type InventoryDocument = HydratedDocument<InventorySchema>;
+
+export const InventoryModel = mongoose.model<InventorySchema>('Inventory', inventorySchema);

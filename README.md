@@ -65,6 +65,8 @@ MONGO_URI=mongodb://127.0.0.1:27017/conekt_ads_internal
 CLIENT_URL=http://localhost:5173
 GOOGLE_CLIENT_ID=your_google_oauth_client_id
 GOOGLE_ALLOWED_DOMAIN=conektads.com
+GEOCODING_PROVIDER=nominatim
+MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
 JWT_SECRET=replace_this_secret
 JWT_EXPIRES_IN=8h
 COOKIE_NAME=conekt_ads_token
@@ -79,6 +81,7 @@ The client also needs:
 
 ```env
 VITE_GOOGLE_CLIENT_ID=your_google_oauth_client_id
+VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
 ```
 
 ## Auth Setup
@@ -111,12 +114,15 @@ admin@conektads.com
 - Google auth route: `POST /api/auth/google`
 - Auth routes: `POST /api/auth/logout`, `GET /api/auth/me`
 - User management routes for admin/member access
+- Inventory CRUD routes with filtering, auto-generated codes, confirmation, and admin-only activate/deactivate
+- Reverse geocoding route for map-picked inventory locations
 - React + Vite frontend shell
 - Tailwind CSS setup
 - TypeScript setup for both frontend and backend
 - Sidebar, topbar, and main content layout
 - Protected frontend routes
 - Login page and Settings users section
+- Inventory page with filters, table, code preview, map picker, add/edit form, and confirmation modal
 - Placeholder pages for the first internal modules
 
 ## What To Build Next
