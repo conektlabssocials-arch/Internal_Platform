@@ -96,7 +96,13 @@ export class AuthService implements IAuthService {
     }
 
     const allowedDomain = process.env.GOOGLE_ALLOWED_DOMAIN;
-
+    console.log("allowedDomain", allowedDomain)
+console.log('Google token claims:', {
+  email: payload.email,
+  emailVerified: payload.email_verified,
+  hostedDomain: payload.hd,
+  audience: payload.aud,
+});
     if (allowedDomain && payload.hd !== allowedDomain) {
       throw new HttpError(403, 'Google Workspace account is not allowed');
     }
