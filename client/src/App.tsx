@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import AppLayout from './components/layout/AppLayout';
+import AdminRoute from './routes/AdminRoute';
 import ProtectedRoute from './routes/ProtectedRoute';
 import Campaigns from './pages/Campaigns';
 import CRM from './pages/CRM';
@@ -9,7 +10,8 @@ import Inventory from './pages/Inventory';
 import Login from './pages/Login';
 import Operations from './pages/Operations';
 import Plans from './pages/Plans';
-import Settings from './pages/Settings';
+import PlatformSettings from './pages/PlatformSettings';
+import Users from './pages/Users';
 
 const App = () => {
   return (
@@ -28,7 +30,16 @@ const App = () => {
         <Route path="campaigns" element={<Campaigns />} />
         <Route path="plans" element={<Plans />} />
         <Route path="operations" element={<Operations />} />
-        <Route path="settings" element={<Settings />} />
+        <Route path="settings" element={<Navigate to="/settings/platform" replace />} />
+        <Route path="settings/platform" element={<PlatformSettings />} />
+        <Route
+          path="settings/users"
+          element={
+            <AdminRoute>
+              <Users />
+            </AdminRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
