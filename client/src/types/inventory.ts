@@ -1,4 +1,4 @@
-export type InventoryCategory = 'OOH' | 'DOOH' | 'Auto' | 'Bus' | 'Mobile Van';
+export type CategoryGroup = 'Outdoor' | 'Auto' | 'Bus' | 'Mobile Van';
 export type AvailabilityStatus = 'available' | 'booked' | 'hold' | 'unknown';
 export type InventoryStatus = 'active' | 'inactive';
 export type ConfirmationStatus = 'fresh' | 'stale' | 'never_confirmed';
@@ -7,17 +7,15 @@ export type IlluminationType = 'Lit' | 'Non-lit' | 'Backlit' | 'Frontlit' | 'NA'
 export type InventoryItem = {
   id: string;
   inventoryCode: string;
-  category: InventoryCategory;
-  subType?: string;
+  categoryGroup: CategoryGroup;
+  subCategory: string;
   title: string;
   city: string;
-  area?: string;
+  area: string;
   location?: {
     latitude?: number;
     longitude?: number;
     address?: string;
-    city?: string;
-    area?: string;
     source?: 'manual' | 'map_picker' | 'reverse_geocode';
   };
   photos: string[];
@@ -61,7 +59,8 @@ export type InventoryItem = {
 
 export type InventoryFilters = {
   search?: string;
-  category?: string;
+  categoryGroup?: string;
+  subCategory?: string;
   city?: string;
   area?: string;
   status?: string;
@@ -82,6 +81,14 @@ export type ConfirmInventoryPayload = {
   sellingPrice?: number;
 };
 
+export type InventorySummaryItem = {
+  categoryGroup: CategoryGroup;
+  total: number;
+  available: number;
+  stale: number;
+  neverConfirmed: number;
+};
+
 export type InventoryListResponse = {
   data: InventoryItem[];
   pagination: {
@@ -90,6 +97,10 @@ export type InventoryListResponse = {
     total: number;
     totalPages: number;
   };
+};
+
+export type InventorySummaryResponse = {
+  data: InventorySummaryItem[];
 };
 
 export type ReverseGeocodeResponse = {

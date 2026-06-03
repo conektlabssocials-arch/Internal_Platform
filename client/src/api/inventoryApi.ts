@@ -5,6 +5,7 @@ import type {
   InventoryItem,
   InventoryListResponse,
   InventoryPayload,
+  InventorySummaryResponse,
   ReverseGeocodeResponse,
 } from '../types/inventory';
 
@@ -29,13 +30,17 @@ export const getInventory = (params?: InventoryFilters) => {
   return apiRequest<InventoryListResponse>(`/inventory${toQueryString(params)}`);
 };
 
+export const getInventorySummary = () => {
+  return apiRequest<InventorySummaryResponse>('/inventory/summary');
+};
+
 export const getInventoryById = async (id: string) => {
   const response = await apiRequest<InventoryResponse>(`/inventory/${id}`);
   return response.data;
 };
 
 export const getInventoryCodePreview = async (params: {
-  category: string;
+  categoryGroup: string;
   city: string;
   area: string;
 }) => {

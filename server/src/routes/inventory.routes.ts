@@ -11,8 +11,9 @@ const authMiddleware = container.resolve(AuthMiddleware);
 
 router.use(authMiddleware.requireAuth);
 
-router.get('/', asyncHandler(inventoryController.getInventory));
+router.get('/summary', asyncHandler(inventoryController.getInventorySummary));
 router.get('/preview-code', asyncHandler(inventoryController.getPreviewCode));
+router.get('/', asyncHandler(inventoryController.getInventory));
 router.get('/:id', asyncHandler(inventoryController.getInventoryById));
 router.post('/', asyncHandler(inventoryController.postInventory));
 router.patch('/:id', asyncHandler(inventoryController.patchInventory));

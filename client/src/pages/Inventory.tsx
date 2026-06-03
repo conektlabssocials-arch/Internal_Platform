@@ -8,31 +8,37 @@ import {
   deactivateInventory,
   getInventory,
   getInventoryCodePreview,
+  getInventorySummary,
   reverseGeocode,
   updateInventory,
 } from '../api/inventoryApi';
+import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard';
 import LocationPicker from '../components/map/LocationPicker';
+import {
+  INVENTORY_CATEGORIES,
+  INVENTORY_CATEGORY_DESCRIPTIONS,
+  INVENTORY_CATEGORY_GROUPS,
+} from '../constants/inventoryCategories';
 import { useAuth } from '../context/AuthContext';
 import type {
   AvailabilityStatus,
+  CategoryGroup,
   ConfirmationStatus,
   ConfirmInventoryPayload,
-  InventoryCategory,
   InventoryFilters,
   InventoryItem,
   InventoryPayload,
   InventoryStatus,
+  InventorySummaryItem,
 } from '../types/inventory';
 
-const categories: InventoryCategory[] = ['OOH', 'DOOH', 'Auto', 'Bus', 'Mobile Van'];
 const availabilityStatuses: AvailabilityStatus[] = ['available', 'booked', 'hold', 'unknown'];
 const inventoryStatuses: InventoryStatus[] = ['active', 'inactive'];
 const confirmationStatuses: ConfirmationStatus[] = ['fresh', 'stale', 'never_confirmed'];
 
 type InventoryFormState = {
-  inventoryCode: string;
-  category: InventoryCategory;
-  subType: string;
+  categoryGroup: CategoryGroup;
+  subCategory: string;
   title: string;
   city: string;
   area: string;
@@ -81,10 +87,9 @@ type ConfirmFormState = {
   sellingPrice: string;
 };
 
-const emptyForm: InventoryFormState = {
-  inventoryCode: '',
-  category: 'OOH',
-  subType: '',
+const createEmptyForm = (categoryGroup: CategoryGroup = 'Outdoor'): InventoryFormState => ({
+  categoryGroup,
+  subCategory: INVENTORY_CATEGORIES[categoryGroup][0],
   title: '',
   city: '',
   area: '',
@@ -124,7 +129,7 @@ const emptyForm: InventoryFormState = {
   hasAudioSystem: false,
   hasCanopy: false,
   ratePerDay: '',
-};
+});
 
 const emptyConfirmForm: ConfirmFormState = {
   confirmationNote: '',
@@ -160,6 +165,8 @@ const currency = (value?: number) => {
   }).format(value);
 };
 
+const labelize = (value: string) => value.replace('_', ' ');
+
 const confirmationBadgeClass = (status: ConfirmationStatus) => {
   if (status === 'fresh') {
     return 'bg-emerald-50 text-emerald-700';
@@ -172,16 +179,13 @@ const confirmationBadgeClass = (status: ConfirmationStatus) => {
   return 'bg-rose-50 text-rose-700';
 };
 
-const labelize = (value: string) => value.replace('_', ' ');
-
 const itemToForm = (item: InventoryItem): InventoryFormState => ({
-  ...emptyForm,
-  inventoryCode: item.inventoryCode,
-  category: item.category,
-  subType: item.subType || '',
+  ...createEmptyForm(item.categoryGroup),
+  categoryGroup: item.categoryGroup,
+  subCategory: item.subCategory,
   title: item.title,
   city: item.city,
-  area: item.area || '',
+  area: item.area,
   address: item.location?.address || '',
   latitude: item.location?.latitude?.toString() || '',
   longitude: item.location?.longitude?.toString() || '',
@@ -221,22 +225,20 @@ const itemToForm = (item: InventoryItem): InventoryFormState => ({
 });
 
 const formToPayload = (form: InventoryFormState): InventoryPayload => ({
-  category: form.category,
-  subType: form.subType,
+  categoryGroup: form.categoryGroup,
+  subCategory: form.subCategory,
   title: form.title,
   city: form.city,
   area: form.area,
-  location: {
-    address: form.address,
-    latitude: numberOrUndefined(form.latitude),
-    longitude: numberOrUndefined(form.longitude),
-    city: form.city,
-    area: form.area,
-    source:
-      numberOrUndefined(form.latitude) !== undefined && numberOrUndefined(form.longitude) !== undefined
-        ? 'map_picker'
-        : 'manual',
-  },
+  location:
+    form.categoryGroup === 'Outdoor'
+      ? {
+          address: form.address,
+          latitude: numberOrUndefined(form.latitude),
+          longitude: numberOrUndefined(form.longitude),
+          source: 'map_picker',
+        }
+      : undefined,
   photos: splitCsv(form.photosText),
   ownerName: form.ownerName,
   ownerPhone: form.ownerPhone,
@@ -274,6 +276,8 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
 
 const Inventory = () => {
   const { isAdmin } = useAuth();
+  const [selectedCategory, setSelectedCategory] = useState<CategoryGroup | null>(null);
+  const [summary, setSummary] = useState<InventorySummaryItem[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [filters, setFilters] = useState<InventoryFilters>({ page: 1, limit: 20 });
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
@@ -282,7 +286,7 @@ const Inventory = () => {
   const [error, setError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  const [form, setForm] = useState<InventoryFormState>(emptyForm);
+  const [form, setForm] = useState<InventoryFormState>(createEmptyForm());
   const [previewCode, setPreviewCode] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [geocodeLoading, setGeocodeLoading] = useState(false);
@@ -290,19 +294,39 @@ const Inventory = () => {
   const [confirmingItem, setConfirmingItem] = useState<InventoryItem | null>(null);
   const [confirmForm, setConfirmForm] = useState<ConfirmFormState>(emptyConfirmForm);
 
-  const category = form.category;
-  const showOutdoorFields = category === 'OOH' || category === 'DOOH';
-  const showVehicleFields = category === 'Auto' || category === 'Bus';
-  const showMobileVanFields = category === 'Mobile Van';
+  const totalSqFt = useMemo(() => {
+    const width = numberOrUndefined(form.width);
+    const height = numberOrUndefined(form.height);
+    return width !== undefined && height !== undefined ? width * height : undefined;
+  }, [form.width, form.height]);
 
-  const filterParams = useMemo(() => filters, [filters]);
-
-  const loadInventory = async () => {
+  const loadSummary = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const response = await getInventory(filterParams);
+      const response = await getInventorySummary();
+      setSummary(response.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load inventory summary');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadInventory = async () => {
+    if (!selectedCategory) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await getInventory({
+        ...filters,
+        categoryGroup: selectedCategory,
+      });
       setItems(response.data);
       setPagination(response.pagination);
     } catch (err) {
@@ -313,11 +337,16 @@ const Inventory = () => {
   };
 
   useEffect(() => {
-    loadInventory();
-  }, [filterParams]);
+    if (selectedCategory) {
+      loadInventory();
+      return;
+    }
+
+    loadSummary();
+  }, [selectedCategory, filters]);
 
   useEffect(() => {
-    if (!formOpen || editingItem || !form.category || !form.city.trim() || !form.area.trim()) {
+    if (!formOpen || editingItem || !form.categoryGroup || !form.city.trim() || !form.area.trim()) {
       setPreviewCode('');
       return;
     }
@@ -329,7 +358,7 @@ const Inventory = () => {
 
       try {
         const nextPreviewCode = await getInventoryCodePreview({
-          category: form.category,
+          categoryGroup: form.categoryGroup,
           city: form.city,
           area: form.area,
         });
@@ -354,7 +383,22 @@ const Inventory = () => {
       isCancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [editingItem, form.area, form.category, form.city, formOpen]);
+  }, [editingItem, form.area, form.categoryGroup, form.city, formOpen]);
+
+  const showOverview = !selectedCategory;
+
+  const refreshCurrentView = async () => {
+    if (selectedCategory) {
+      await loadInventory();
+    } else {
+      await loadSummary();
+    }
+  };
+
+  const openCategory = (categoryGroup: CategoryGroup) => {
+    setSelectedCategory(categoryGroup);
+    setFilters({ page: 1, limit: 20 });
+  };
 
   const updateFilter = (key: keyof InventoryFilters, value: string) => {
     setFilters((current) => ({
@@ -365,8 +409,9 @@ const Inventory = () => {
   };
 
   const openCreateForm = () => {
+    const categoryGroup = selectedCategory || 'Outdoor';
     setEditingItem(null);
-    setForm(emptyForm);
+    setForm(createEmptyForm(categoryGroup));
     setPreviewCode('');
     setGeocodeError('');
     setFormOpen(true);
@@ -383,29 +428,40 @@ const Inventory = () => {
   const closeForm = () => {
     setFormOpen(false);
     setEditingItem(null);
-    setForm(emptyForm);
+    setForm(createEmptyForm(selectedCategory || 'Outdoor'));
     setPreviewCode('');
     setGeocodeError('');
   };
 
   const validateForm = () => {
-    if (!form.title.trim() || !form.city.trim() || !form.area.trim()) {
-      return 'Title, city, and area are required';
+    if (!form.categoryGroup || !form.subCategory || !form.title.trim()) {
+      return 'Category, subcategory, and title are required';
     }
 
-    if ((form.category === 'OOH' || form.category === 'DOOH') && (!form.latitude || !form.longitude)) {
-      return 'Please pick an exact map location for OOH and DOOH inventory';
+    if (!form.city.trim() || !form.area.trim()) {
+      return 'City and area are required';
     }
 
-    if (form.category === 'Auto' && !form.numberOfVehicles.trim() && !form.route.trim()) {
+    if (!form.width.trim() || !form.height.trim()) {
+      return 'Width and height are required';
+    }
+
+    if (
+      form.categoryGroup === 'Outdoor' &&
+      (!form.address.trim() || !form.latitude.trim() || !form.longitude.trim())
+    ) {
+      return 'Outdoor inventory requires address and exact map location';
+    }
+
+    if (form.categoryGroup === 'Auto' && !form.numberOfVehicles.trim() && !form.route.trim()) {
       return 'Auto inventory requires number of vehicles or route';
     }
 
-    if (form.category === 'Bus' && !form.route.trim() && !form.depot.trim()) {
+    if (form.categoryGroup === 'Bus' && !form.route.trim() && !form.depot.trim()) {
       return 'Bus inventory requires route or depot';
     }
 
-    if (form.category === 'Mobile Van' && !form.itinerary.trim()) {
+    if (form.categoryGroup === 'Mobile Van' && !form.itinerary.trim()) {
       return 'Mobile Van inventory requires itinerary';
     }
 
@@ -461,7 +517,7 @@ const Inventory = () => {
       }
 
       closeForm();
-      await loadInventory();
+      await refreshCurrentView();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save inventory');
     } finally {
@@ -500,7 +556,7 @@ const Inventory = () => {
       await confirmInventory(confirmingItem.id, payload);
       setConfirmingItem(null);
       setConfirmForm(emptyConfirmForm);
-      await loadInventory();
+      await refreshCurrentView();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to confirm inventory');
     } finally {
@@ -518,326 +574,598 @@ const Inventory = () => {
         await activateInventory(item.id);
       }
 
-      await loadInventory();
+      await refreshCurrentView();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update inventory status');
     }
   };
 
+  const setFormCategoryGroup = (categoryGroup: CategoryGroup) => {
+    setForm((current) => ({
+      ...current,
+      categoryGroup,
+      subCategory: INVENTORY_CATEGORIES[categoryGroup][0],
+      address: categoryGroup === 'Outdoor' ? current.address : '',
+      latitude: categoryGroup === 'Outdoor' ? current.latitude : '',
+      longitude: categoryGroup === 'Outdoor' ? current.longitude : '',
+    }));
+  };
+
   return (
-    <section>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Inventory</h1>
-          <p className="mt-2 text-slate-600">Manage media inventory and reconfirm availability.</p>
+    <section className="space-y-6">
+      <div className="rounded-lg border border-slate-200 bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Inventory</h1>
+            <p className="mt-2 text-slate-600">
+              {showOverview
+                ? 'Choose a category to manage inventory.'
+                : `Manage ${selectedCategory} inventory.`}
+            </p>
+          </div>
+          {!showOverview ? (
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+            >
+              Add Inventory
+            </button>
+          ) : null}
         </div>
-        <button
-          type="button"
-          onClick={openCreateForm}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          Add Inventory
-        </button>
       </div>
 
       {error ? (
-        <div className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-5">
-        <input
-          value={filters.search || ''}
-          onChange={(event) => updateFilter('search', event.target.value)}
-          placeholder="Search inventory"
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-        />
-        <select
-          value={filters.category || ''}
-          onChange={(event) => updateFilter('category', event.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-        >
-          <option value="">All categories</option>
-          {categories.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-        <input
-          value={filters.city || ''}
-          onChange={(event) => updateFilter('city', event.target.value)}
-          placeholder="City"
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-        />
-        <select
-          value={filters.status || ''}
-          onChange={(event) => updateFilter('status', event.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-        >
-          <option value="">All statuses</option>
-          {inventoryStatuses.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filters.confirmationStatus || ''}
-          onChange={(event) => updateFilter('confirmationStatus', event.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-        >
-          <option value="">All confirmations</option>
-          {confirmationStatuses.map((item) => (
-            <option key={item} value={item}>
-              {labelize(item)}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        {loading ? (
-          <p className="p-5 text-sm text-slate-500">Loading inventory...</p>
-        ) : items.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="font-medium text-slate-900">No inventory found.</p>
-            <p className="mt-1 text-sm text-slate-500">Add your first inventory item.</p>
+      {showOverview ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-slate-900">Inventory Categories</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Select a category to view and manage its inventory.
+            </p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Code</th>
-                  <th className="px-4 py-3 font-medium">Title</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">City</th>
-                  <th className="px-4 py-3 font-medium">Area</th>
-                  <th className="px-4 py-3 font-medium">Selling Price</th>
-                  <th className="px-4 py-3 font-medium">Availability</th>
-                  <th className="px-4 py-3 font-medium">Confirmation</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-4 py-4 font-medium text-slate-900">{item.inventoryCode}</td>
-                    <td className="min-w-56 px-4 py-4 text-slate-700">{item.title}</td>
-                    <td className="px-4 py-4 text-slate-600">{item.category}</td>
-                    <td className="px-4 py-4 text-slate-600">{item.city}</td>
-                    <td className="px-4 py-4 text-slate-600">{item.area || '-'}</td>
-                    <td className="px-4 py-4 text-slate-600">{currency(item.sellingPrice)}</td>
-                    <td className="px-4 py-4 capitalize text-slate-600">
-                      {item.availabilityStatus}
-                    </td>
-                    <td className="px-4 py-4">
-                      <span
-                        className={[
-                          'whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium capitalize',
-                          confirmationBadgeClass(item.confirmationStatus),
-                        ].join(' ')}
-                      >
-                        {labelize(item.confirmationStatus)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 capitalize text-slate-600">{item.status}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(item)}
-                          className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                        >
-                          View/Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openConfirmModal(item)}
-                          className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                        >
-                          Confirm
-                        </button>
-                        {isAdmin ? (
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(item)}
-                            className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                          >
-                            {item.status === 'active' ? 'Deactivate' : 'Activate'}
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {INVENTORY_CATEGORY_GROUPS.map((categoryGroup) => {
+              const summaryItem = summary.find((item) => item.categoryGroup === categoryGroup);
 
-      <p className="mt-3 text-sm text-slate-500">
-        Showing {items.length} of {pagination.total} inventory items.
-      </p>
-
-      {formOpen ? (
-        <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/40 px-4 py-8">
-          <div className="mx-auto max-w-5xl overflow-hidden rounded-lg bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold">
-                  {editingItem ? 'Edit Inventory' : 'Add Inventory'}
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">Fill the core inventory fields.</p>
-              </div>
-              <button
-                type="button"
-                onClick={closeForm}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700"
-              >
-                Close
-              </button>
-            </div>
-
-            <form onSubmit={submitForm} className="mt-6 space-y-6">
-              <div>
-                <h3 className="mb-3 font-semibold text-slate-900">1. Category</h3>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <SelectField label="Category" value={form.category} options={categories} onChange={(value) => setForm({ ...form, category: value as InventoryCategory })} />
-                  <TextField label="Title" value={form.title} onChange={(value) => setForm({ ...form, title: value })} required />
-                  <TextField label="Sub Type" value={form.subType} onChange={(value) => setForm({ ...form, subType: value })} />
-                </div>
-              </div>
-
-              <div>
-                <h3 className="mb-3 font-semibold text-slate-900">
-                  {showOutdoorFields ? '2. Pick Exact Site Location' : '2. Optional Base Location / Depot Pin'}
-                </h3>
-                <LocationPicker
-                  compact={!showOutdoorFields}
-                  latitude={numberOrUndefined(form.latitude)}
-                  longitude={numberOrUndefined(form.longitude)}
-                  onChange={handleLocationChange}
+              return (
+                <InventoryCategoryCard
+                  key={categoryGroup}
+                  categoryGroup={categoryGroup}
+                  total={summaryItem?.total || 0}
+                  available={summaryItem?.available || 0}
+                  stale={summaryItem?.stale || 0}
+                  neverConfirmed={summaryItem?.neverConfirmed || 0}
+                  description={INVENTORY_CATEGORY_DESCRIPTIONS[categoryGroup]}
+                  onClick={() => openCategory(categoryGroup)}
                 />
-                {geocodeLoading ? (
-                  <p className="mt-2 text-xs text-slate-500">Looking up address...</p>
-                ) : null}
-                {geocodeError ? (
-                  <p className="mt-2 text-xs text-amber-700">{geocodeError}</p>
-                ) : null}
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <ReadOnlyField
-                  label="Inventory Code Preview"
-                  value={
-                    editingItem
-                      ? form.inventoryCode
-                      : previewLoading
-                        ? 'Loading...'
-                        : previewCode || 'Fill category, city, and area'
-                  }
-                  helper="Final code will be generated automatically on save."
-                />
-                <TextField label="City" value={form.city} onChange={(value) => setForm({ ...form, city: value })} required />
-                <TextField label="Area" value={form.area} onChange={(value) => setForm({ ...form, area: value })} required />
-                <TextField label="Address" value={form.address} onChange={(value) => setForm({ ...form, address: value })} />
-                <TextField label="Latitude" value={form.latitude} onChange={(value) => setForm({ ...form, latitude: value })} />
-                <TextField label="Longitude" value={form.longitude} onChange={(value) => setForm({ ...form, longitude: value })} />
-                <TextField label="Owner Name" value={form.ownerName} onChange={(value) => setForm({ ...form, ownerName: value })} />
-                <TextField label="Owner Phone" value={form.ownerPhone} onChange={(value) => setForm({ ...form, ownerPhone: value })} />
-                <TextField label="Supplier Name" value={form.supplierName} onChange={(value) => setForm({ ...form, supplierName: value })} />
-                <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => setForm({ ...form, internalCost: value })} />
-                <TextField label="Selling Price" value={form.sellingPrice} onChange={(value) => setForm({ ...form, sellingPrice: value })} />
-                <TextField label="Min Spend" value={form.minSpend} onChange={(value) => setForm({ ...form, minSpend: value })} />
-                <TextField label="Min Duration Days" value={form.minDurationDays} onChange={(value) => setForm({ ...form, minDurationDays: value })} />
-                <SelectField label="Availability" value={form.availabilityStatus} options={availabilityStatuses} onChange={(value) => setForm({ ...form, availabilityStatus: value as AvailabilityStatus })} />
-                <SelectField label="Status" value={form.status} options={inventoryStatuses} onChange={(value) => setForm({ ...form, status: value as InventoryStatus })} />
-                <TextField label="Photo URLs" value={form.photosText} onChange={(value) => setForm({ ...form, photosText: value })} />
-                <TextField label="Tags" value={form.tagsText} onChange={(value) => setForm({ ...form, tagsText: value })} />
-                <TextField label="Internal Notes" value={form.internalNotes} onChange={(value) => setForm({ ...form, internalNotes: value })} />
-              </div>
-
-              {showOutdoorFields ? (
-                <FormSection title="OOH / DOOH">
-                  <TextField label="Width" value={form.width} onChange={(value) => setForm({ ...form, width: value })} />
-                  <TextField label="Height" value={form.height} onChange={(value) => setForm({ ...form, height: value })} />
-                  <SelectField label="Illumination" value={form.illumination} options={['Lit', 'Non-lit', 'Backlit', 'Frontlit', 'NA']} onChange={(value) => setForm({ ...form, illumination: value })} />
-                  <TextField label="Facing Direction" value={form.facingDirection} onChange={(value) => setForm({ ...form, facingDirection: value })} />
-                  <TextField label="Traffic Direction" value={form.trafficDirection} onChange={(value) => setForm({ ...form, trafficDirection: value })} />
-                  <TextField label="Estimated Traffic" value={form.estimatedTraffic} onChange={(value) => setForm({ ...form, estimatedTraffic: value })} />
-                  <TextField label="Loop Length Seconds" value={form.loopLengthSeconds} onChange={(value) => setForm({ ...form, loopLengthSeconds: value })} />
-                  <TextField label="Spots Per Hour" value={form.spotsPerHour} onChange={(value) => setForm({ ...form, spotsPerHour: value })} />
-                  <TextField label="Screen Specs" value={form.screenSpecs} onChange={(value) => setForm({ ...form, screenSpecs: value })} />
-                </FormSection>
-              ) : null}
-
-              {showVehicleFields ? (
-                <FormSection title="Auto / Bus">
-                  <TextField label="Number Of Vehicles" value={form.numberOfVehicles} onChange={(value) => setForm({ ...form, numberOfVehicles: value })} />
-                  <TextField label="Route" value={form.route} onChange={(value) => setForm({ ...form, route: value })} />
-                  <TextField label="Depot" value={form.depot} onChange={(value) => setForm({ ...form, depot: value })} />
-                  <TextField label="Branding Type" value={form.brandingType} onChange={(value) => setForm({ ...form, brandingType: value })} />
-                  <TextField label="Rate Per Vehicle / Month" value={form.ratePerVehiclePerMonth} onChange={(value) => setForm({ ...form, ratePerVehiclePerMonth: value })} />
-                  <TextField label="Operator Name" value={form.operatorName} onChange={(value) => setForm({ ...form, operatorName: value })} />
-                </FormSection>
-              ) : null}
-
-              {showMobileVanFields ? (
-                <FormSection title="Mobile Van">
-                  <TextField label="Itinerary" value={form.itinerary} onChange={(value) => setForm({ ...form, itinerary: value })} />
-                  <TextField label="Operation Days" value={form.operationDays} onChange={(value) => setForm({ ...form, operationDays: value })} />
-                  <CheckboxField label="LED Screen" checked={form.hasLedScreen} onChange={(value) => setForm({ ...form, hasLedScreen: value })} />
-                  <CheckboxField label="Audio System" checked={form.hasAudioSystem} onChange={(value) => setForm({ ...form, hasAudioSystem: value })} />
-                  <CheckboxField label="Canopy" checked={form.hasCanopy} onChange={(value) => setForm({ ...form, hasCanopy: value })} />
-                  <TextField label="Rate Per Day" value={form.ratePerDay} onChange={(value) => setForm({ ...form, ratePerDay: value })} />
-                </FormSection>
-              ) : null}
-
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
-                <button type="button" onClick={closeForm} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
-                  Cancel
-                </button>
-                <button type="submit" disabled={saving} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">
-                  {saving ? 'Saving...' : 'Save Inventory'}
-                </button>
-              </div>
-            </form>
+              );
+            })}
           </div>
         </div>
+      ) : (
+        <>
+          <div className="rounded-lg border border-slate-200 bg-white p-5">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory(null)}
+              className="text-sm font-medium text-slate-700 hover:text-slate-950"
+            >
+              Back to Inventory Categories
+            </button>
+
+            <div className="mt-4">
+              <h2 className="text-base font-semibold text-slate-900">
+                {selectedCategory} Subcategories
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Chip active={!filters.subCategory} onClick={() => updateFilter('subCategory', '')}>
+                  All
+                </Chip>
+                {INVENTORY_CATEGORIES[selectedCategory].map((subCategory) => (
+                  <Chip
+                    key={subCategory}
+                    active={filters.subCategory === subCategory}
+                    onClick={() => updateFilter('subCategory', subCategory)}
+                  >
+                    {subCategory}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-5">
+            <input
+              value={filters.search || ''}
+              onChange={(event) => updateFilter('search', event.target.value)}
+              placeholder="Search inventory"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
+            />
+            <input
+              value={filters.city || ''}
+              onChange={(event) => updateFilter('city', event.target.value)}
+              placeholder="City"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
+            />
+            <select
+              value={filters.status || ''}
+              onChange={(event) => updateFilter('status', event.target.value)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
+            >
+              <option value="">All statuses</option>
+              {inventoryStatuses.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.availabilityStatus || ''}
+              onChange={(event) => updateFilter('availabilityStatus', event.target.value)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
+            >
+              <option value="">All availability</option>
+              {availabilityStatuses.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filters.confirmationStatus || ''}
+              onChange={(event) => updateFilter('confirmationStatus', event.target.value)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
+            >
+              <option value="">All confirmations</option>
+              {confirmationStatuses.map((item) => (
+                <option key={item} value={item}>
+                  {labelize(item)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <InventoryTable
+            isAdmin={isAdmin}
+            items={items}
+            loading={loading}
+            paginationTotal={pagination.total}
+            onEdit={openEditForm}
+            onConfirm={openConfirmModal}
+            onStatusChange={handleStatusChange}
+          />
+        </>
+      )}
+
+      {formOpen ? (
+        <InventoryFormModal
+          editingItem={editingItem}
+          form={form}
+          previewCode={previewCode}
+          previewLoading={previewLoading}
+          totalSqFt={totalSqFt}
+          geocodeLoading={geocodeLoading}
+          geocodeError={geocodeError}
+          saving={saving}
+          onClose={closeForm}
+          onSubmit={submitForm}
+          onFormChange={setForm}
+          onCategoryGroupChange={setFormCategoryGroup}
+          onLocationChange={handleLocationChange}
+        />
       ) : null}
 
       {confirmingItem ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 px-4">
-          <form onSubmit={submitConfirmation} className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-semibold">Confirm Inventory</h2>
-            <p className="mt-1 text-sm text-slate-500">{confirmingItem.title}</p>
-
-            <div className="mt-5 space-y-4">
-              <TextField label="Confirmation Note" value={confirmForm.confirmationNote} onChange={(value) => setConfirmForm({ ...confirmForm, confirmationNote: value })} />
-              <SelectField label="Availability" value={confirmForm.availabilityStatus} options={availabilityStatuses} onChange={(value) => setConfirmForm({ ...confirmForm, availabilityStatus: value as AvailabilityStatus })} />
-              <TextField label="Internal Cost" value={confirmForm.internalCost} onChange={(value) => setConfirmForm({ ...confirmForm, internalCost: value })} />
-              <TextField label="Selling Price" value={confirmForm.sellingPrice} onChange={(value) => setConfirmForm({ ...confirmForm, sellingPrice: value })} />
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" onClick={() => setConfirmingItem(null)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
-                Cancel
-              </button>
-              <button type="submit" disabled={saving} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">
-                {saving ? 'Confirming...' : 'Confirm'}
-              </button>
-            </div>
-          </form>
-        </div>
+        <ConfirmInventoryModal
+          item={confirmingItem}
+          form={confirmForm}
+          saving={saving}
+          onChange={setConfirmForm}
+          onClose={() => setConfirmingItem(null)}
+          onSubmit={submitConfirmation}
+        />
       ) : null}
     </section>
   );
 };
+
+type ChipProps = {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+};
+
+const Chip = ({ active, children, onClick }: ChipProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={[
+      'rounded-full border px-3 py-1.5 text-sm font-medium',
+      active
+        ? 'border-slate-900 bg-slate-900 text-white'
+        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
+    ].join(' ')}
+  >
+    {children}
+  </button>
+);
+
+type InventoryTableProps = {
+  isAdmin: boolean;
+  items: InventoryItem[];
+  loading: boolean;
+  paginationTotal: number;
+  onEdit: (item: InventoryItem) => void;
+  onConfirm: (item: InventoryItem) => void;
+  onStatusChange: (item: InventoryItem) => void;
+};
+
+const InventoryTable = ({
+  isAdmin,
+  items,
+  loading,
+  paginationTotal,
+  onEdit,
+  onConfirm,
+  onStatusChange,
+}: InventoryTableProps) => (
+  <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    {loading ? (
+      <p className="p-5 text-sm text-slate-500">Loading inventory...</p>
+    ) : items.length === 0 ? (
+      <div className="p-8 text-center">
+        <p className="font-medium text-slate-900">No inventory found.</p>
+        <p className="mt-1 text-sm text-slate-500">Add your first inventory item.</p>
+      </div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">Code</th>
+              <th className="px-4 py-3 font-medium">Title</th>
+              <th className="px-4 py-3 font-medium">Category</th>
+              <th className="px-4 py-3 font-medium">Subcategory</th>
+              <th className="px-4 py-3 font-medium">City</th>
+              <th className="px-4 py-3 font-medium">Area</th>
+              <th className="px-4 py-3 font-medium">Size</th>
+              <th className="px-4 py-3 font-medium">Selling Price</th>
+              <th className="px-4 py-3 font-medium">Availability</th>
+              <th className="px-4 py-3 font-medium">Confirmation</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td className="px-4 py-4 font-medium text-slate-900">{item.inventoryCode}</td>
+                <td className="min-w-56 px-4 py-4 text-slate-700">{item.title}</td>
+                <td className="px-4 py-4 text-slate-600">{item.categoryGroup}</td>
+                <td className="px-4 py-4 text-slate-600">{item.subCategory}</td>
+                <td className="px-4 py-4 text-slate-600">{item.city}</td>
+                <td className="px-4 py-4 text-slate-600">{item.area}</td>
+                <td className="whitespace-nowrap px-4 py-4 text-slate-600">
+                  {item.width && item.height
+                    ? `${item.width} x ${item.height} = ${item.totalSqFt || item.width * item.height} sq.ft.`
+                    : '-'}
+                </td>
+                <td className="px-4 py-4 text-slate-600">{currency(item.sellingPrice)}</td>
+                <td className="px-4 py-4 capitalize text-slate-600">{item.availabilityStatus}</td>
+                <td className="px-4 py-4">
+                  <span
+                    className={[
+                      'whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium capitalize',
+                      confirmationBadgeClass(item.confirmationStatus),
+                    ].join(' ')}
+                  >
+                    {labelize(item.confirmationStatus)}
+                  </span>
+                </td>
+                <td className="px-4 py-4 capitalize text-slate-600">{item.status}</td>
+                <td className="px-4 py-4">
+                  <div className="flex gap-2">
+                    <ActionButton onClick={() => onEdit(item)}>View/Edit</ActionButton>
+                    <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton>
+                    {isAdmin ? (
+                      <ActionButton onClick={() => onStatusChange(item)}>
+                        {item.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </ActionButton>
+                    ) : null}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    <p className="border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
+      Showing {items.length} of {paginationTotal} inventory items.
+    </p>
+  </div>
+);
+
+type ActionButtonProps = {
+  children: ReactNode;
+  onClick: () => void;
+};
+
+const ActionButton = ({ children, onClick }: ActionButtonProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+  >
+    {children}
+  </button>
+);
+
+type InventoryFormModalProps = {
+  editingItem: InventoryItem | null;
+  form: InventoryFormState;
+  previewCode: string;
+  previewLoading: boolean;
+  totalSqFt?: number;
+  geocodeLoading: boolean;
+  geocodeError: string;
+  saving: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onFormChange: (form: InventoryFormState) => void;
+  onCategoryGroupChange: (categoryGroup: CategoryGroup) => void;
+  onLocationChange: (location: { latitude: number; longitude: number }) => void;
+};
+
+const InventoryFormModal = ({
+  editingItem,
+  form,
+  previewCode,
+  previewLoading,
+  totalSqFt,
+  geocodeLoading,
+  geocodeError,
+  saving,
+  onClose,
+  onSubmit,
+  onFormChange,
+  onCategoryGroupChange,
+  onLocationChange,
+}: InventoryFormModalProps) => (
+  <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/40 px-4 py-8">
+    <div className="mx-auto max-w-5xl overflow-hidden rounded-lg bg-white p-6 shadow-xl">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold">
+            {editingItem ? 'Edit Inventory' : 'Add Inventory'}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">Fill the inventory details.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700"
+        >
+          Close
+        </button>
+      </div>
+
+      <form onSubmit={onSubmit} className="mt-6 space-y-6">
+        <FormSection title="1. Category">
+          <SelectField
+            label="Category"
+            value={form.categoryGroup}
+            options={INVENTORY_CATEGORY_GROUPS}
+            onChange={(value) => onCategoryGroupChange(value as CategoryGroup)}
+          />
+          <SelectField
+            label="Subcategory"
+            value={form.subCategory}
+            options={INVENTORY_CATEGORIES[form.categoryGroup]}
+            onChange={(value) => onFormChange({ ...form, subCategory: value })}
+          />
+          <TextField
+            label="Title"
+            value={form.title}
+            onChange={(value) => onFormChange({ ...form, title: value })}
+            required
+          />
+        </FormSection>
+
+        <FormSection title="2. City and Area">
+          <TextField
+            label="City"
+            value={form.city}
+            onChange={(value) => onFormChange({ ...form, city: value })}
+            required
+          />
+          <TextField
+            label="Area"
+            value={form.area}
+            onChange={(value) => onFormChange({ ...form, area: value })}
+            required
+          />
+          <ReadOnlyField
+            label="Inventory Code Preview"
+            value={
+              editingItem
+                ? editingItem.inventoryCode
+                : previewLoading
+                  ? 'Loading...'
+                  : previewCode || 'Fill category, city, and area'
+            }
+            helper="Final code will be generated automatically on save."
+          />
+        </FormSection>
+
+        {form.categoryGroup === 'Outdoor' ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+            <h3 className="mb-3 font-semibold text-slate-900">3. Outdoor Location</h3>
+            <LocationPicker
+              latitude={numberOrUndefined(form.latitude)}
+              longitude={numberOrUndefined(form.longitude)}
+              onChange={onLocationChange}
+            />
+            {geocodeLoading ? <p className="mt-2 text-xs text-slate-500">Looking up address...</p> : null}
+            {geocodeError ? <p className="mt-2 text-xs text-amber-700">{geocodeError}</p> : null}
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <TextField
+                label="Address"
+                value={form.address}
+                onChange={(value) => onFormChange({ ...form, address: value })}
+                required
+              />
+              <TextField
+                label="Latitude"
+                value={form.latitude}
+                onChange={(value) => onFormChange({ ...form, latitude: value })}
+                required
+              />
+              <TextField
+                label="Longitude"
+                value={form.longitude}
+                onChange={(value) => onFormChange({ ...form, longitude: value })}
+                required
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <FormSection title="Common Details">
+          <TextField
+            label="Width"
+            value={form.width}
+            onChange={(value) => onFormChange({ ...form, width: value })}
+            required
+          />
+          <TextField
+            label="Height"
+            value={form.height}
+            onChange={(value) => onFormChange({ ...form, height: value })}
+            required
+          />
+          <ReadOnlyField
+            label="Total Sq.Ft."
+            value={totalSqFt !== undefined ? `${totalSqFt} sq.ft.` : 'Enter width and height'}
+          />
+          <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => onFormChange({ ...form, internalCost: value })} />
+          <TextField label="Selling Price" value={form.sellingPrice} onChange={(value) => onFormChange({ ...form, sellingPrice: value })} />
+          <TextField label="Min Spend" value={form.minSpend} onChange={(value) => onFormChange({ ...form, minSpend: value })} />
+          <TextField label="Min Duration Days" value={form.minDurationDays} onChange={(value) => onFormChange({ ...form, minDurationDays: value })} />
+          <SelectField label="Availability" value={form.availabilityStatus} options={availabilityStatuses} onChange={(value) => onFormChange({ ...form, availabilityStatus: value as AvailabilityStatus })} />
+          <SelectField label="Status" value={form.status} options={inventoryStatuses} onChange={(value) => onFormChange({ ...form, status: value as InventoryStatus })} />
+          <TextField label="Owner Name" value={form.ownerName} onChange={(value) => onFormChange({ ...form, ownerName: value })} />
+          <TextField label="Owner Phone" value={form.ownerPhone} onChange={(value) => onFormChange({ ...form, ownerPhone: value })} />
+          <TextField label="Supplier Name" value={form.supplierName} onChange={(value) => onFormChange({ ...form, supplierName: value })} />
+          <TextField label="Photo URLs" value={form.photosText} onChange={(value) => onFormChange({ ...form, photosText: value })} />
+          <TextField label="Tags" value={form.tagsText} onChange={(value) => onFormChange({ ...form, tagsText: value })} />
+          <TextField label="Internal Notes" value={form.internalNotes} onChange={(value) => onFormChange({ ...form, internalNotes: value })} />
+        </FormSection>
+
+        {form.categoryGroup === 'Outdoor' ? (
+          <FormSection title="Outdoor Details">
+            <SelectField label="Illumination" value={form.illumination} options={['Lit', 'Non-lit', 'Backlit', 'Frontlit', 'NA']} onChange={(value) => onFormChange({ ...form, illumination: value })} />
+            <TextField label="Facing Direction" value={form.facingDirection} onChange={(value) => onFormChange({ ...form, facingDirection: value })} />
+            <TextField label="Traffic Direction" value={form.trafficDirection} onChange={(value) => onFormChange({ ...form, trafficDirection: value })} />
+            <TextField label="Estimated Traffic" value={form.estimatedTraffic} onChange={(value) => onFormChange({ ...form, estimatedTraffic: value })} />
+            <TextField label="Loop Length Seconds" value={form.loopLengthSeconds} onChange={(value) => onFormChange({ ...form, loopLengthSeconds: value })} />
+            <TextField label="Spots Per Hour" value={form.spotsPerHour} onChange={(value) => onFormChange({ ...form, spotsPerHour: value })} />
+            <TextField label="Screen Specs" value={form.screenSpecs} onChange={(value) => onFormChange({ ...form, screenSpecs: value })} />
+          </FormSection>
+        ) : null}
+
+        {form.categoryGroup === 'Auto' ? (
+          <FormSection title="Auto Details">
+            <TextField label="Number Of Vehicles" value={form.numberOfVehicles} onChange={(value) => onFormChange({ ...form, numberOfVehicles: value })} />
+            <TextField label="Route" value={form.route} onChange={(value) => onFormChange({ ...form, route: value })} />
+            <TextField label="Branding Type" value={form.brandingType} onChange={(value) => onFormChange({ ...form, brandingType: value })} />
+            <TextField label="Rate Per Vehicle / Month" value={form.ratePerVehiclePerMonth} onChange={(value) => onFormChange({ ...form, ratePerVehiclePerMonth: value })} />
+            <TextField label="Operator Name" value={form.operatorName} onChange={(value) => onFormChange({ ...form, operatorName: value })} />
+          </FormSection>
+        ) : null}
+
+        {form.categoryGroup === 'Bus' ? (
+          <FormSection title="Bus Details">
+            <TextField label="Number Of Vehicles" value={form.numberOfVehicles} onChange={(value) => onFormChange({ ...form, numberOfVehicles: value })} />
+            <TextField label="Route" value={form.route} onChange={(value) => onFormChange({ ...form, route: value })} />
+            <TextField label="Depot" value={form.depot} onChange={(value) => onFormChange({ ...form, depot: value })} />
+            <TextField label="Branding Type" value={form.brandingType} onChange={(value) => onFormChange({ ...form, brandingType: value })} />
+            <TextField label="Rate Per Vehicle / Month" value={form.ratePerVehiclePerMonth} onChange={(value) => onFormChange({ ...form, ratePerVehiclePerMonth: value })} />
+            <TextField label="Operator Name" value={form.operatorName} onChange={(value) => onFormChange({ ...form, operatorName: value })} />
+          </FormSection>
+        ) : null}
+
+        {form.categoryGroup === 'Mobile Van' ? (
+          <FormSection title="Mobile Van Details">
+            <TextField label="Itinerary" value={form.itinerary} onChange={(value) => onFormChange({ ...form, itinerary: value })} required />
+            <TextField label="Operation Days" value={form.operationDays} onChange={(value) => onFormChange({ ...form, operationDays: value })} />
+            <CheckboxField label="LED Screen" checked={form.hasLedScreen} onChange={(value) => onFormChange({ ...form, hasLedScreen: value })} />
+            <CheckboxField label="Audio System" checked={form.hasAudioSystem} onChange={(value) => onFormChange({ ...form, hasAudioSystem: value })} />
+            <CheckboxField label="Canopy" checked={form.hasCanopy} onChange={(value) => onFormChange({ ...form, hasCanopy: value })} />
+            <TextField label="Rate Per Day" value={form.ratePerDay} onChange={(value) => onFormChange({ ...form, ratePerDay: value })} />
+          </FormSection>
+        ) : null}
+
+        <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
+          <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
+            Cancel
+          </button>
+          <button type="submit" disabled={saving} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">
+            {saving ? 'Saving...' : 'Save Inventory'}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+);
+
+type ConfirmInventoryModalProps = {
+  item: InventoryItem;
+  form: ConfirmFormState;
+  saving: boolean;
+  onChange: (form: ConfirmFormState) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+};
+
+const ConfirmInventoryModal = ({
+  item,
+  form,
+  saving,
+  onChange,
+  onClose,
+  onSubmit,
+}: ConfirmInventoryModalProps) => (
+  <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 px-4">
+    <form onSubmit={onSubmit} className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+      <h2 className="text-xl font-semibold">Confirm Inventory</h2>
+      <p className="mt-1 text-sm text-slate-500">{item.title}</p>
+
+      <div className="mt-5 space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+        <TextField label="Confirmation Note" value={form.confirmationNote} onChange={(value) => onChange({ ...form, confirmationNote: value })} />
+        <SelectField label="Availability" value={form.availabilityStatus} options={availabilityStatuses} onChange={(value) => onChange({ ...form, availabilityStatus: value as AvailabilityStatus })} />
+        <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => onChange({ ...form, internalCost: value })} />
+        <TextField label="Selling Price" value={form.sellingPrice} onChange={(value) => onChange({ ...form, sellingPrice: value })} />
+      </div>
+
+      <div className="mt-6 flex justify-end gap-3">
+        <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
+          Cancel
+        </button>
+        <button type="submit" disabled={saving} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">
+          {saving ? 'Confirming...' : 'Confirm'}
+        </button>
+      </div>
+    </form>
+  </div>
+);
 
 type TextFieldProps = {
   label: string;
@@ -855,24 +1183,6 @@ const TextField = ({ label, value, onChange, required }: TextFieldProps) => (
       required={required}
       className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
     />
-  </label>
-);
-
-type ReadOnlyFieldProps = {
-  label: string;
-  value: string;
-  helper?: string;
-};
-
-const ReadOnlyField = ({ label, value, helper }: ReadOnlyFieldProps) => (
-  <label className="block">
-    <span className="text-sm font-medium text-slate-700">{label}</span>
-    <input
-      value={value}
-      readOnly
-      className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
-    />
-    {helper ? <span className="mt-1 block text-xs text-slate-500">{helper}</span> : null}
   </label>
 );
 
@@ -900,6 +1210,24 @@ const SelectField = ({ label, value, options, onChange }: SelectFieldProps) => (
   </label>
 );
 
+type ReadOnlyFieldProps = {
+  label: string;
+  value: string;
+  helper?: string;
+};
+
+const ReadOnlyField = ({ label, value, helper }: ReadOnlyFieldProps) => (
+  <label className="block">
+    <span className="text-sm font-medium text-slate-700">{label}</span>
+    <input
+      value={value}
+      readOnly
+      className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
+    />
+    {helper ? <span className="mt-1 block text-xs text-slate-500">{helper}</span> : null}
+  </label>
+);
+
 type CheckboxFieldProps = {
   label: string;
   checked: boolean;
@@ -924,7 +1252,7 @@ type FormSectionProps = {
 };
 
 const FormSection = ({ title, children }: FormSectionProps) => (
-  <div>
+  <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
     <h3 className="mb-3 font-semibold text-slate-900">{title}</h3>
     <div className="grid gap-4 md:grid-cols-3">{children}</div>
   </div>

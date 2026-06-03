@@ -9,7 +9,7 @@ const inventoryCounterSchema = new Schema(
       unique: true,
       trim: true,
     },
-    category: {
+    categoryGroup: {
       type: String,
       required: true,
       trim: true,
