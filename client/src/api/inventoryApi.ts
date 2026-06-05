@@ -5,6 +5,7 @@ import type {
   InventoryItem,
   InventoryListResponse,
   InventoryPayload,
+  InventorySummaryResponse,
   ReverseGeocodeResponse,
 } from '../types/inventory';
 
@@ -29,13 +30,17 @@ export const getInventory = (params?: InventoryFilters) => {
   return apiRequest<InventoryListResponse>(`/inventory${toQueryString(params)}`);
 };
 
+export const getInventorySummary = () => {
+  return apiRequest<InventorySummaryResponse>('/inventory/summary');
+};
+
 export const getInventoryById = async (id: string) => {
   const response = await apiRequest<InventoryResponse>(`/inventory/${id}`);
   return response.data;
 };
 
 export const getInventoryCodePreview = async (params: {
-  category: string;
+  categoryGroup: string;
   city: string;
   area: string;
 }) => {
@@ -45,6 +50,27 @@ export const getInventoryCodePreview = async (params: {
   );
 
   return response.previewCode;
+};
+
+type UploadedImage = {
+  url: string;
+  publicId: string;
+  width?: number;
+  height?: number;
+  format?: string;
+  bytes?: number;
+};
+
+export const uploadInventoryImages = async (files: File[]) => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file));
+
+  const response = await apiRequest<{ data: UploadedImage[] }>('/uploads/image', {
+    method: 'POST',
+    body: formData,
+  });
+
+  return response.data.map((image) => image.url);
 };
 
 export const reverseGeocode = (latitude: number, longitude: number) => {

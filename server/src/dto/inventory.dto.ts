@@ -1,26 +1,25 @@
 import type {
   AvailabilityStatus,
+  CategoryGroup,
   ConfirmationStatus,
   IlluminationType,
-  InventoryCategory,
   InventoryDocument,
   InventoryStatus,
+  InventorySubCategory,
 } from '../models/inventory.model.js';
 
 export type InventoryDto = {
   id: string;
   inventoryCode: string;
-  category: InventoryCategory;
-  subType?: string;
+  categoryGroup: CategoryGroup;
+  subCategory: InventorySubCategory;
   title: string;
   city: string;
-  area?: string;
+  area: string;
   location?: {
     latitude?: number;
     longitude?: number;
     address?: string;
-    city?: string;
-    area?: string;
     source?: 'manual' | 'map_picker' | 'reverse_geocode';
   };
   photos: string[];
@@ -66,7 +65,8 @@ export type InventoryDto = {
 };
 
 export type InventoryFiltersDto = {
-  category?: string;
+  categoryGroup?: string;
+  subCategory?: string;
   city?: string;
   area?: string;
   status?: string;
@@ -90,6 +90,14 @@ export type ConfirmInventoryDto = {
   confirmedBy: string;
 };
 
+export type InventorySummaryDto = {
+  categoryGroup: CategoryGroup;
+  total: number;
+  available: number;
+  stale: number;
+  neverConfirmed: number;
+};
+
 const idToString = (value: unknown) => {
   if (!value) {
     return undefined;
@@ -98,24 +106,46 @@ const idToString = (value: unknown) => {
   return value.toString();
 };
 
+const legacyCategoryGroupMap: Record<string, CategoryGroup> = {
+  OOH: 'Outdoor',
+  DOOH: 'Outdoor',
+  Auto: 'Auto',
+  Bus: 'Bus',
+  'Mobile Van': 'Mobile Van',
+};
+
+const legacySubCategoryMap: Record<string, InventorySubCategory> = {
+  OOH: 'Hoarding',
+  DOOH: 'Digital OOH',
+  Auto: 'Auto Hood',
+  Bus: 'Bus Panel',
+  'Mobile Van': 'Hoarding',
+};
+
+export const getEffectiveCategoryGroup = (item: InventoryDocument) => {
+  return item.categoryGroup || legacyCategoryGroupMap[item.category || ''];
+};
+
+export const getEffectiveSubCategory = (item: InventoryDocument) => {
+  return item.subCategory || legacySubCategoryMap[item.category || ''] || item.subType;
+};
+
 export const mapInventoryToDto = (
   item: InventoryDocument,
   confirmationStatus: ConfirmationStatus,
 ): InventoryDto => ({
   id: item._id.toString(),
   inventoryCode: item.inventoryCode,
-  category: item.category,
-  subType: item.subType ?? undefined,
+  categoryGroup: getEffectiveCategoryGroup(item),
+  subCategory: getEffectiveSubCategory(item) as InventorySubCategory,
   title: item.title,
   city: item.city,
-  area: item.area ?? undefined,
+  area: item.area,
   location: item.location
     ? {
         latitude: item.location.latitude ?? undefined,
         longitude: item.location.longitude ?? undefined,
         address: item.location.address ?? undefined,
-        city: item.location.city ?? undefined,
-        area: item.location.area ?? undefined,
         source: item.location.source ?? undefined,
       }
     : undefined,

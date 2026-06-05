@@ -1,7 +1,27 @@
 import mongoose, { Schema } from 'mongoose';
 import type { HydratedDocument, InferSchemaType } from 'mongoose';
 
-export const inventoryCategories = ['OOH', 'DOOH', 'Auto', 'Bus', 'Mobile Van'] as const;
+export const categoryGroups = ['Outdoor', 'Auto', 'Bus', 'Mobile Van'] as const;
+export const inventorySubCategories = [
+  'Bus Shelter',
+  'Hoarding',
+  'Digital OOH',
+  'Digital Bus Shelter',
+  'Auto Hood',
+  'Auto Back Panel',
+  'Bus Panel',
+  'Combo Panel',
+  'Full Bus Interior',
+  'Full Bus Exterior',
+  'Van LED Screen',
+  '3D Digital Screen',
+] as const;
+export const inventorySubCategoriesByGroup = {
+  Outdoor: ['Bus Shelter', 'Hoarding', 'Digital OOH', 'Digital Bus Shelter'],
+  Auto: ['Auto Hood', 'Auto Back Panel'],
+  Bus: ['Bus Panel', 'Combo Panel', 'Full Bus Interior', 'Full Bus Exterior'],
+  'Mobile Van': ['Hoarding', 'Van LED Screen', '3D Digital Screen'],
+} as const;
 export const availabilityStatuses = ['available', 'booked', 'hold', 'unknown'] as const;
 export const inventoryStatuses = ['active', 'inactive'] as const;
 export const confirmationStatuses = ['fresh', 'stale', 'never_confirmed'] as const;
@@ -12,14 +32,6 @@ const locationSchema = new Schema(
     latitude: Number,
     longitude: Number,
     address: {
-      type: String,
-      trim: true,
-    },
-    city: {
-      type: String,
-      trim: true,
-    },
-    area: {
       type: String,
       trim: true,
     },
@@ -40,10 +52,20 @@ const inventorySchema = new Schema(
       unique: true,
       trim: true,
     },
+    categoryGroup: {
+      type: String,
+      enum: categoryGroups,
+      required: true,
+    },
+    subCategory: {
+      type: String,
+      enum: inventorySubCategories,
+      required: true,
+      trim: true,
+    },
     category: {
       type: String,
-      enum: inventoryCategories,
-      required: true,
+      trim: true,
     },
     subType: {
       type: String,
@@ -61,6 +83,7 @@ const inventorySchema = new Schema(
     },
     area: {
       type: String,
+      required: true,
       trim: true,
     },
     location: locationSchema,
@@ -190,7 +213,8 @@ inventorySchema.pre('save', function calculateTotalSqFt(next) {
   next();
 });
 
-export type InventoryCategory = (typeof inventoryCategories)[number];
+export type CategoryGroup = (typeof categoryGroups)[number];
+export type InventorySubCategory = (typeof inventorySubCategories)[number];
 export type AvailabilityStatus = (typeof availabilityStatuses)[number];
 export type InventoryStatus = (typeof inventoryStatuses)[number];
 export type ConfirmationStatus = (typeof confirmationStatuses)[number];

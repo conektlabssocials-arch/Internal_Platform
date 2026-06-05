@@ -28,6 +28,11 @@ export class InventoryController {
     res.status(200).json(result);
   };
 
+  getInventorySummary = async (_req: Request, res: Response) => {
+    const data = await this.inventoryService.getInventorySummary();
+    res.status(200).json({ data });
+  };
+
   getInventoryById = async (req: Request, res: Response) => {
     const item = await this.inventoryService.getInventoryById(req.params.id);
     res.status(200).json({ data: item });
@@ -35,7 +40,7 @@ export class InventoryController {
 
   getPreviewCode = async (req: Request, res: Response) => {
     const previewCode = await this.inventoryService.previewInventoryCode(
-      req.query.category?.toString(),
+      req.query.categoryGroup?.toString(),
       req.query.city?.toString(),
       req.query.area?.toString(),
     );

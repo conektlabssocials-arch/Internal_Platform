@@ -11,6 +11,8 @@ import { InventoryRepository } from '../repositories/inventory.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import { InventoryService } from '../services/inventory.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
+import { UploadService } from '../services/upload.service.js';
+import type { IUploadService } from '../services/upload.service.js';
 import { TOKENS } from './tokens.js';
 import { UserService } from '../services/user.service.js';
 import type { IUserService } from '../services/user.service.js';
@@ -30,5 +32,6 @@ container.registerSingleton<IInventoryRepository>(
   InventoryRepository,
 );
 container.registerSingleton<IInventoryService>(TOKENS.InventoryService, InventoryService);
+container.registerSingleton<IUploadService>(TOKENS.UploadService, UploadService);
 
 export { container };

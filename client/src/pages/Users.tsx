@@ -4,7 +4,7 @@ import { createUser, getUsers, setUserActiveState } from '../api/userApi';
 import { useAuth } from '../context/AuthContext';
 import type { User, UserRole } from '../types/auth';
 
-const Settings = () => {
+const Users = () => {
   const { isAdmin } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [name, setName] = useState('');
@@ -65,7 +65,7 @@ const Settings = () => {
     <section>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Settings</h1>
+          <h1 className="text-2xl font-semibold">Users</h1>
           <p className="mt-2 text-slate-600">Manage internal users and roles.</p>
         </div>
       </div>
@@ -87,7 +87,7 @@ const Settings = () => {
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-              placeholder="Ajmal"
+              placeholder="John Doe"
               required
             />
           </label>
@@ -99,7 +99,7 @@ const Settings = () => {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-              placeholder="ajmal@conektads.com"
+              placeholder="john@conektads.com"
               required
             />
           </label>
@@ -185,4 +185,4 @@ const Settings = () => {
   );
 };
 
-export default Settings;
+export default Users;

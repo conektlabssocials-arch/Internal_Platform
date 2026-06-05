@@ -1,20 +1,49 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../context/AuthContext';
+import type { UserRole } from '../../types/auth';
 
-const navItems = [
-  { label: 'Dashboard', to: '/' },
-  { label: 'Inventory', to: '/inventory' },
-  { label: 'CRM', to: '/crm' },
-  { label: 'Campaigns', to: '/campaigns' },
-  { label: 'Plans', to: '/plans' },
-  { label: 'Operations', to: '/operations' },
-  { label: 'Settings', to: '/settings' },
+type NavItem = {
+  label: string;
+  to: string;
+  roles?: UserRole[];
+};
+
+type NavSection = {
+  label?: string;
+  items: NavItem[];
+};
+
+const navSections: NavSection[] = [
+  {
+    items: [
+      { label: 'Dashboard', to: '/' },
+      { label: 'Inventory', to: '/inventory' },
+      { label: 'CRM', to: '/crm' },
+      { label: 'Campaigns', to: '/campaigns' },
+      { label: 'Plans', to: '/plans' },
+      { label: 'Operations', to: '/operations' },
+    ],
+  },
+  {
+    label: 'Settings',
+    items: [
+      { label: 'Platform Settings', to: '/settings/platform' },
+      { label: 'Users', to: '/settings/users', roles: ['admin'] },
+    ],
+  },
 ];
 
 const AppLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const visibleNavSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.roles || item.roles.includes(user?.role || 'member')),
+    }))
+    .filter((section) => section.items.length > 0);
+  const mobileNavItems = visibleNavSections.flatMap((section) => section.items);
 
   const handleLogout = async () => {
     await logout();
@@ -31,23 +60,35 @@ const AppLayout = () => {
           <h1 className="mt-1 text-xl font-semibold">Internal Platform</h1>
         </div>
 
-        <nav className="space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                [
-                  'block rounded-md px-3 py-2 text-sm font-medium transition',
-                  isActive
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
-                ].join(' ')
-              }
-            >
-              {item.label}
-            </NavLink>
+        <nav className="space-y-5">
+          {visibleNavSections.map((section, sectionIndex) => (
+            <div key={section.label || sectionIndex}>
+              {section.label ? (
+                <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {section.label}
+                </p>
+              ) : null}
+
+              <div className="space-y-1">
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/'}
+                    className={({ isActive }) =>
+                      [
+                        'block rounded-md px-3 py-2 text-sm font-medium transition',
+                        isActive
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
+                      ].join(' ')
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -87,7 +128,7 @@ const AppLayout = () => {
           </div>
 
           <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-            {navItems.map((item) => (
+            {mobileNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

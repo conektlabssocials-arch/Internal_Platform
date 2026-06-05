@@ -1,8 +1,7 @@
-import type { InventoryCategory } from '../models/inventory.model.js';
+import type { CategoryGroup } from '../models/inventory.model.js';
 
-const categoryCodeMap: Record<InventoryCategory, string> = {
-  OOH: 'OOH',
-  DOOH: 'DOOH',
+const categoryCodeMap: Record<CategoryGroup, string> = {
+  Outdoor: 'OUT',
   Auto: 'AUTO',
   Bus: 'BUS',
   'Mobile Van': 'MV',
@@ -35,7 +34,7 @@ const getSignificantWords = (value: string) =>
     .map((word) => cleanLetters(word))
     .filter(Boolean);
 
-export const getCategoryCode = (category: InventoryCategory) => categoryCodeMap[category];
+export const getCategoryCode = (categoryGroup: CategoryGroup) => categoryCodeMap[categoryGroup];
 
 export const getCityCode = (city: string) => {
   const normalizedCity = city.trim().toLowerCase();
@@ -66,15 +65,15 @@ export const getAreaCode = (area: string) => {
   return cleanLetters(area).slice(0, 3).padEnd(3, 'X');
 };
 
-export const buildCounterKey = (category: InventoryCategory, city: string, area: string) => {
-  return `${getCategoryCode(category)}-${getCityCode(city)}-${getAreaCode(area)}`;
+export const buildCounterKey = (categoryGroup: CategoryGroup, city: string, area: string) => {
+  return `${getCategoryCode(categoryGroup)}-${getCityCode(city)}-${getAreaCode(area)}`;
 };
 
 export const formatInventoryCode = (
-  category: InventoryCategory,
+  categoryGroup: CategoryGroup,
   city: string,
   area: string,
   sequence: number,
 ) => {
-  return `${buildCounterKey(category, city, area)}-${sequence.toString().padStart(4, '0')}`;
+  return `${buildCounterKey(categoryGroup, city, area)}-${sequence.toString().padStart(4, '0')}`;
 };

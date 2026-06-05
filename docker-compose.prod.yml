@@ -1,0 +1,56 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: internal-platform-mongo
+    restart: unless-stopped
+    volumes:
+      - internal_platform_mongo_data:/data/db
+    networks:
+      - internal-platform-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    image: ajmalca/internal-platform-server:latest
+    container_name: internal-platform-server
+    restart: unless-stopped
+    env_file:
+      - ${SERVER_ENV_FILE:-./server/.env}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "5001:5000"
+    networks:
+      - internal-platform-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:5000/api/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  client:
+    image: ajmalca/internal-platform-client:latest
+    container_name: internal-platform-client
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "5174:80"
+    networks:
+      - internal-platform-network
+
+networks:
+  internal-platform-network:
+    driver: bridge
+
+volumes:
+  internal_platform_mongo_data:

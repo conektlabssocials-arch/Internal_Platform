@@ -4,6 +4,7 @@ export const TOKENS = {
   InventoryCounterRepository: Symbol('InventoryCounterRepository'),
   InventoryRepository: Symbol('InventoryRepository'),
   InventoryService: Symbol('InventoryService'),
+  UploadService: Symbol('UploadService'),
   UserRepository: Symbol('UserRepository'),
   UserService: Symbol('UserService'),
 };

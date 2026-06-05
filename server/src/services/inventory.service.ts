@@ -3,12 +3,13 @@ import { Types } from 'mongoose';
 import type { FilterQuery } from 'mongoose';
 
 import { TOKENS } from '../config/tokens.js';
-import { mapInventoryToDto } from '../dto/inventory.dto.js';
+import { getEffectiveCategoryGroup, mapInventoryToDto } from '../dto/inventory.dto.js';
 import type {
   ConfirmInventoryDto,
   InventoryDto,
   InventoryFiltersDto,
   InventoryMutationDto,
+  InventorySummaryDto,
 } from '../dto/inventory.dto.js';
 import {
   buildCounterKey,
@@ -19,18 +20,19 @@ import {
 } from '../utils/inventoryCode.js';
 import {
   availabilityStatuses,
+  categoryGroups,
   confirmationStatuses,
   illuminationTypes,
-  inventoryCategories,
   inventoryStatuses,
+  inventorySubCategoriesByGroup,
 } from '../models/inventory.model.js';
 import type {
   AvailabilityStatus,
+  CategoryGroup,
   ConfirmationStatus,
-  IlluminationType,
-  InventoryCategory,
   InventoryDocument,
   InventoryStatus,
+  InventorySubCategory,
 } from '../models/inventory.model.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import type { IInventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
@@ -47,8 +49,9 @@ type PaginatedInventory = {
 };
 
 export interface IInventoryService {
+  getInventorySummary(): Promise<InventorySummaryDto[]>;
   listInventory(filters: InventoryFiltersDto): Promise<PaginatedInventory>;
-  previewInventoryCode(category?: string, city?: string, area?: string): Promise<string>;
+  previewInventoryCode(categoryGroup?: string, city?: string, area?: string): Promise<string>;
   getInventoryById(id: string): Promise<InventoryDto>;
   createInventory(input: InventoryMutationDto): Promise<InventoryDto>;
   updateInventory(id: string, input: InventoryMutationDto): Promise<InventoryDto>;
@@ -122,15 +125,18 @@ const getLimit = (value?: string) => {
   return Math.min(Math.floor(limit), 100);
 };
 
+const getStaleBefore = () => {
+  const staleBefore = new Date();
+  staleBefore.setDate(staleBefore.getDate() - freshnessWindowDays);
+  return staleBefore;
+};
+
 export const getConfirmationStatus = (item: InventoryDocument): ConfirmationStatus => {
   if (!item.lastConfirmedAt) {
     return 'never_confirmed';
   }
 
-  const staleBefore = new Date();
-  staleBefore.setDate(staleBefore.getDate() - freshnessWindowDays);
-
-  return item.lastConfirmedAt < staleBefore ? 'stale' : 'fresh';
+  return item.lastConfirmedAt < getStaleBefore() ? 'stale' : 'fresh';
 };
 
 const mapToDto = (item: InventoryDocument) => mapInventoryToDto(item, getConfirmationStatus(item));
@@ -143,6 +149,25 @@ export class InventoryService implements IInventoryService {
     @inject(TOKENS.InventoryCounterRepository)
     private readonly inventoryCounterRepository: IInventoryCounterRepository,
   ) {}
+
+  async getInventorySummary() {
+    const allItems = await this.inventoryRepository.find();
+    const staleBefore = getStaleBefore();
+
+    return categoryGroups.map((categoryGroup) => {
+      const items = allItems.filter((item) => getEffectiveCategoryGroup(item) === categoryGroup);
+
+      return {
+        categoryGroup,
+        total: items.length,
+        available: items.filter(
+          (item) => item.status === 'active' && item.availabilityStatus === 'available',
+        ).length,
+        stale: items.filter((item) => item.lastConfirmedAt && item.lastConfirmedAt < staleBefore).length,
+        neverConfirmed: items.filter((item) => !item.lastConfirmedAt).length,
+      };
+    });
+  }
 
   async listInventory(filters: InventoryFiltersDto) {
     const page = getPage(filters.page);
@@ -171,39 +196,40 @@ export class InventoryService implements IInventoryService {
     return mapToDto(item);
   }
 
-  async previewInventoryCode(category?: string, city?: string, area?: string) {
-    const normalizedCategory = validateEnum(category, inventoryCategories, 'category');
+  async previewInventoryCode(categoryGroup?: string, city?: string, area?: string) {
+    const normalizedCategoryGroup = validateEnum(categoryGroup, categoryGroups, 'categoryGroup');
     const normalizedCity = trimString(city);
     const normalizedArea = trimString(area);
 
-    if (!normalizedCategory || !normalizedCity || !normalizedArea) {
-      throw new HttpError(400, 'category, city, and area are required');
+    if (!normalizedCategoryGroup || !normalizedCity || !normalizedArea) {
+      throw new HttpError(400, 'categoryGroup, city, and area are required');
     }
 
-    const key = buildCounterKey(normalizedCategory, normalizedCity, normalizedArea);
+    const key = buildCounterKey(normalizedCategoryGroup, normalizedCity, normalizedArea);
     const counter = await this.inventoryCounterRepository.findByKey(key);
     const nextSequence = (counter?.sequence || 0) + 1;
 
-    return formatInventoryCode(normalizedCategory, normalizedCity, normalizedArea, nextSequence);
+    return formatInventoryCode(normalizedCategoryGroup, normalizedCity, normalizedArea, nextSequence);
   }
 
   async createInventory(input: InventoryMutationDto) {
     const data = this.prepareMutation(input, true);
-    const category = data.category as InventoryCategory;
+    const categoryGroup = data.categoryGroup as CategoryGroup;
     const city = data.city as string;
     const area = data.area as string;
-    const key = buildCounterKey(category, city, area);
+    const key = buildCounterKey(categoryGroup, city, area);
     const counter = await this.inventoryCounterRepository.incrementSequence({
       key,
-      category: getCategoryCode(category),
+      categoryGroup: getCategoryCode(categoryGroup),
       cityCode: getCityCode(city),
       areaCode: getAreaCode(area),
     });
 
     const item = await this.inventoryRepository.create({
       ...data,
-      inventoryCode: formatInventoryCode(category, city, area, counter.sequence),
+      inventoryCode: formatInventoryCode(categoryGroup, city, area, counter.sequence),
     });
+
     return mapToDto(item);
   }
 
@@ -268,8 +294,19 @@ export class InventoryService implements IInventoryService {
     const filter: FilterQuery<unknown> = {};
     const andConditions: FilterQuery<unknown>[] = [];
 
-    if (filters.category) {
-      filter.category = validateEnum(filters.category, inventoryCategories, 'category');
+    if (filters.categoryGroup) {
+      const categoryGroup = validateEnum(filters.categoryGroup, categoryGroups, 'categoryGroup');
+
+      andConditions.push({
+        $or: [
+          { categoryGroup },
+          ...(categoryGroup === 'Outdoor' ? [{ category: { $in: ['OOH', 'DOOH'] } }] : []),
+        ],
+      });
+    }
+
+    if (filters.subCategory) {
+      filter.subCategory = filters.subCategory;
     }
 
     if (filters.city) {
@@ -298,7 +335,6 @@ export class InventoryService implements IInventoryService {
         confirmationStatuses,
         'confirmationStatus',
       );
-
       const confirmationFilter = this.getConfirmationFilter(confirmationStatus);
 
       if (Object.keys(confirmationFilter).length > 0) {
@@ -333,18 +369,16 @@ export class InventoryService implements IInventoryService {
       };
     }
 
-    const staleBefore = new Date();
-    staleBefore.setDate(staleBefore.getDate() - freshnessWindowDays);
-
     if (status === 'stale') {
-      return { lastConfirmedAt: { $lt: staleBefore } };
+      return { lastConfirmedAt: { $lt: getStaleBefore() } };
     }
 
-    return { lastConfirmedAt: { $gte: staleBefore } };
+    return { lastConfirmedAt: { $gte: getStaleBefore() } };
   }
 
   private prepareMutation(input: InventoryMutationDto, isCreate: boolean) {
-    const category = validateEnum(input.category, inventoryCategories, 'category');
+    const categoryGroup = validateEnum(input.categoryGroup, categoryGroups, 'categoryGroup');
+    const subCategory = this.validateSubCategory(categoryGroup, input.subCategory);
     const availabilityStatus = validateEnum(
       input.availabilityStatus,
       availabilityStatuses,
@@ -354,24 +388,11 @@ export class InventoryService implements IInventoryService {
     const illumination = validateEnum(input.illumination, illuminationTypes, 'illumination');
 
     const data: Record<string, unknown> = {
-      inventoryCode: trimString(input.inventoryCode),
-      category,
-      subType: trimString(input.subType),
+      categoryGroup,
+      subCategory,
       title: trimString(input.title),
       city: trimString(input.city),
       area: trimString(input.area),
-      location: {
-        latitude: optionalNumber(input.location?.latitude),
-        longitude: optionalNumber(input.location?.longitude),
-        address: trimString(input.location?.address),
-        city: trimString(input.location?.city),
-        area: trimString(input.location?.area),
-        source: validateEnum(
-          input.location?.source,
-          ['manual', 'map_picker', 'reverse_geocode'] as const,
-          'location.source',
-        ),
-      },
       photos: normalizeStringArray(input.photos),
       ownerName: trimString(input.ownerName),
       ownerPhone: trimString(input.ownerPhone),
@@ -408,11 +429,21 @@ export class InventoryService implements IInventoryService {
       updatedBy: toObjectId(input.updatedBy),
     };
 
+    if (categoryGroup === 'Outdoor') {
+      data.location = {
+        latitude: optionalNumber(input.location?.latitude),
+        longitude: optionalNumber(input.location?.longitude),
+        address: trimString(input.location?.address),
+        source: validateEnum(
+          input.location?.source,
+          ['manual', 'map_picker', 'reverse_geocode'] as const,
+          'location.source',
+        ),
+      };
+    }
+
     if (isCreate) {
       data.createdBy = toObjectId(input.createdBy);
-      delete data.inventoryCode;
-    } else {
-      delete data.inventoryCode;
     }
 
     Object.keys(data).forEach((key) => {
@@ -421,47 +452,64 @@ export class InventoryService implements IInventoryService {
       }
     });
 
-    if (isCreate) {
-      if (!data.category) {
-        throw new HttpError(400, 'category is required');
-      }
-
-      if (!data.title) {
-        throw new HttpError(400, 'title is required');
-      }
-
-      if (!data.city) {
-        throw new HttpError(400, 'city is required');
-      }
-
-      if (!data.area) {
-        throw new HttpError(400, 'area is required');
-      }
-
-      this.validateCategoryRequirements(data);
-    }
+    this.validateRequiredFields(data);
+    this.validateCategoryRequirements(data);
 
     return data as InventoryMutationDto;
   }
 
-  private validateCategoryRequirements(data: Record<string, unknown>) {
-    if (data.category === 'OOH' || data.category === 'DOOH') {
-      const location = data.location as { latitude?: number; longitude?: number } | undefined;
+  private validateSubCategory(categoryGroup?: CategoryGroup, subCategory?: InventorySubCategory) {
+    if (!subCategory) {
+      return undefined;
+    }
 
-      if (location?.latitude === undefined || location.longitude === undefined) {
-        throw new HttpError(400, 'Latitude and longitude are required for OOH and DOOH');
+    if (!categoryGroup) {
+      throw new HttpError(400, 'categoryGroup is required before subCategory can be validated');
+    }
+
+    const allowedSubCategories = inventorySubCategoriesByGroup[categoryGroup] as readonly string[];
+
+    if (!allowedSubCategories.includes(subCategory)) {
+      throw new HttpError(400, 'subCategory is invalid for the selected categoryGroup');
+    }
+
+    return subCategory;
+  }
+
+  private validateRequiredFields(data: Record<string, unknown>) {
+    const requiredFields = ['categoryGroup', 'subCategory', 'title', 'city', 'area', 'width', 'height'];
+
+    for (const field of requiredFields) {
+      if (data[field] === undefined || data[field] === '') {
+        throw new HttpError(400, `${field} is required`);
+      }
+    }
+  }
+
+  private validateCategoryRequirements(data: Record<string, unknown>) {
+    if (data.categoryGroup === 'Outdoor') {
+      const location = data.location as
+        | { latitude?: number; longitude?: number; address?: string }
+        | undefined;
+
+      if (
+        location?.latitude === undefined ||
+        location.longitude === undefined ||
+        !location.address
+      ) {
+        throw new HttpError(400, 'Outdoor inventory requires address, latitude, and longitude');
       }
     }
 
-    if (data.category === 'Auto' && !data.numberOfVehicles && !data.route) {
+    if (data.categoryGroup === 'Auto' && !data.numberOfVehicles && !data.route) {
       throw new HttpError(400, 'Auto inventory requires numberOfVehicles or route');
     }
 
-    if (data.category === 'Bus' && !data.route && !data.depot) {
+    if (data.categoryGroup === 'Bus' && !data.route && !data.depot) {
       throw new HttpError(400, 'Bus inventory requires route or depot');
     }
 
-    if (data.category === 'Mobile Van' && !data.itinerary) {
+    if (data.categoryGroup === 'Mobile Van' && !data.itinerary) {
       throw new HttpError(400, 'Mobile Van inventory requires itinerary');
     }
   }

@@ -7,7 +7,7 @@ import type { InventoryCounterDocument } from '../models/inventoryCounter.model.
 
 type CounterInput = {
   key: string;
-  category: string;
+  categoryGroup: string;
   cityCode: string;
   areaCode: string;
 };
@@ -37,7 +37,7 @@ export class InventoryCounterRepository
         $inc: { sequence: 1 },
         $setOnInsert: {
           key: input.key,
-          category: input.category,
+          categoryGroup: input.categoryGroup,
           cityCode: input.cityCode,
           areaCode: input.areaCode,
         },
