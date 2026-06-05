@@ -11,6 +11,7 @@ import {
   getInventorySummary,
   reverseGeocode,
   updateInventory,
+  uploadInventoryImages,
 } from '../api/inventoryApi';
 import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard';
 import LocationPicker from '../components/map/LocationPicker';
@@ -45,7 +46,7 @@ type InventoryFormState = {
   address: string;
   latitude: string;
   longitude: string;
-  photosText: string;
+  photos: string[];
   ownerName: string;
   ownerPhone: string;
   supplierName: string;
@@ -96,7 +97,7 @@ const createEmptyForm = (categoryGroup: CategoryGroup = 'Outdoor'): InventoryFor
   address: '',
   latitude: '',
   longitude: '',
-  photosText: '',
+  photos: [],
   ownerName: '',
   ownerPhone: '',
   supplierName: '',
@@ -189,7 +190,7 @@ const itemToForm = (item: InventoryItem): InventoryFormState => ({
   address: item.location?.address || '',
   latitude: item.location?.latitude?.toString() || '',
   longitude: item.location?.longitude?.toString() || '',
-  photosText: item.photos?.join(', ') || '',
+  photos: item.photos || [],
   ownerName: item.ownerName || '',
   ownerPhone: item.ownerPhone || '',
   supplierName: item.supplierName || '',
@@ -239,7 +240,7 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
           source: 'map_picker',
         }
       : undefined,
-  photos: splitCsv(form.photosText),
+  photos: form.photos,
   ownerName: form.ownerName,
   ownerPhone: form.ownerPhone,
   supplierName: form.supplierName,
@@ -1064,7 +1065,7 @@ const InventoryFormModal = ({
           <TextField label="Owner Name" value={form.ownerName} onChange={(value) => onFormChange({ ...form, ownerName: value })} />
           <TextField label="Owner Phone" value={form.ownerPhone} onChange={(value) => onFormChange({ ...form, ownerPhone: value })} />
           <TextField label="Supplier Name" value={form.supplierName} onChange={(value) => onFormChange({ ...form, supplierName: value })} />
-          <TextField label="Photo URLs" value={form.photosText} onChange={(value) => onFormChange({ ...form, photosText: value })} />
+          <ImageUploadField label="Photos" value={form.photos} onChange={(photos) => onFormChange({ ...form, photos })} />
           <TextField label="Tags" value={form.tagsText} onChange={(value) => onFormChange({ ...form, tagsText: value })} />
           <TextField label="Internal Notes" value={form.internalNotes} onChange={(value) => onFormChange({ ...form, internalNotes: value })} />
         </FormSection>
@@ -1185,6 +1186,75 @@ const TextField = ({ label, value, onChange, required }: TextFieldProps) => (
     />
   </label>
 );
+
+type ImageUploadFieldProps = {
+  label: string;
+  value: string[];
+  onChange: (value: string[]) => void;
+};
+
+const ImageUploadField = ({ label, value, onChange }: ImageUploadFieldProps) => {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFiles = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) {
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const urls = await uploadInventoryImages(Array.from(fileList));
+      onChange([...value, ...urls]);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removePhoto = (url: string) => {
+    onChange(value.filter((item) => item !== url));
+  };
+
+  return (
+    <div className="md:col-span-3">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <div className="mt-1 flex flex-wrap gap-3">
+        {value.map((url) => (
+          <div key={url} className="group relative h-24 w-24 overflow-hidden rounded-md border border-slate-300">
+            <img src={url} alt="Inventory" className="h-full w-full object-cover" />
+            <button
+              type="button"
+              onClick={() => removePhoto(url)}
+              className="absolute right-1 top-1 hidden rounded-full bg-slate-900/80 px-1.5 text-xs text-white group-hover:block"
+              aria-label="Remove photo"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-slate-300 text-center text-xs text-slate-500 hover:border-slate-900 hover:text-slate-700">
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={uploading}
+            onChange={(event) => {
+              void handleFiles(event.target.files);
+              event.target.value = '';
+            }}
+            className="hidden"
+          />
+          {uploading ? 'Uploading...' : '+ Add image'}
+        </label>
+      </div>
+      {error ? <span className="mt-1 block text-xs text-rose-600">{error}</span> : null}
+    </div>
+  );
+};
 
 type SelectFieldProps = {
   label: string;
