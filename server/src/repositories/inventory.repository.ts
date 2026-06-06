@@ -22,6 +22,10 @@ export interface IInventoryRepository extends IBaseRepository<InventoryDocument>
     page: number,
     limit: number,
   ): Promise<InventoryListResult>;
+  findLinkedToCrmEntity(
+    entityId: string,
+    limit: number,
+  ): Promise<{ items: InventoryDocument[]; total: number }>;
 }
 
 @injectable()
@@ -48,6 +52,21 @@ export class InventoryRepository
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
       this.model.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
+      this.model.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      items: items as InventoryDocument[],
+      total,
+    };
+  }
+
+  async findLinkedToCrmEntity(entityId: string, limit: number) {
+    const filter = {
+      $or: [{ ownerEntity: entityId }, { supplierEntity: entityId }],
+    };
+    const [items, total] = await Promise.all([
+      this.model.find(filter).sort({ createdAt: -1 }).limit(limit).exec(),
       this.model.countDocuments(filter).exec(),
     ]);
 

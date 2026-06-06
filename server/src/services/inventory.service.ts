@@ -39,6 +39,7 @@ import type {
 } from '../models/inventory.model.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import type { IInventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
+import type { ICrmService } from './crm.service.js';
 import { HttpError } from '../utils/httpError.js';
 
 type PaginatedInventory = {
@@ -152,6 +153,8 @@ export class InventoryService implements IInventoryService {
     private readonly inventoryRepository: IInventoryRepository,
     @inject(TOKENS.InventoryCounterRepository)
     private readonly inventoryCounterRepository: IInventoryCounterRepository,
+    @inject(TOKENS.CrmService)
+    private readonly crmService: ICrmService,
   ) {}
 
   async getInventorySummary() {
@@ -217,7 +220,7 @@ export class InventoryService implements IInventoryService {
   }
 
   async createInventory(input: InventoryMutationDto) {
-    const data = this.prepareMutation(input, true);
+    const data = await this.prepareMutation(input, true);
     const categoryGroup = data.categoryGroup as CategoryGroup;
     const city = data.city as string;
     const area = data.area as string;
@@ -288,7 +291,7 @@ export class InventoryService implements IInventoryService {
 
   async updateInventory(id: string, input: InventoryMutationDto) {
     const item = await this.getInventoryDocument(id);
-    const data = this.prepareMutation(input, false);
+    const data = await this.prepareMutation(input, false);
 
     Object.assign(item, data);
     const savedItem = await this.inventoryRepository.save(item);
@@ -429,7 +432,7 @@ export class InventoryService implements IInventoryService {
     return { lastConfirmedAt: { $gte: getStaleBefore() } };
   }
 
-  private prepareMutation(input: InventoryMutationDto, isCreate: boolean) {
+  private async prepareMutation(input: InventoryMutationDto, isCreate: boolean) {
     const categoryGroup = validateEnum(input.categoryGroup, categoryGroups, 'categoryGroup');
     const subCategory = this.validateSubCategory(categoryGroup, input.subCategory);
     const availabilityStatus = validateEnum(
@@ -450,6 +453,8 @@ export class InventoryService implements IInventoryService {
       ownerName: trimString(input.ownerName),
       ownerPhone: trimString(input.ownerPhone),
       supplierName: trimString(input.supplierName),
+      ownerEntity: await this.getSupplierObjectId(input.ownerEntity, 'ownerEntity'),
+      supplierEntity: await this.getSupplierObjectId(input.supplierEntity, 'supplierEntity'),
       internalCost: optionalNumber(input.internalCost),
       sellingPrice: optionalNumber(input.sellingPrice),
       minSpend: optionalNumber(input.minSpend),
@@ -509,6 +514,23 @@ export class InventoryService implements IInventoryService {
     this.validateCategoryRequirements(data);
 
     return data as InventoryMutationDto;
+  }
+
+  private async getSupplierObjectId(value: unknown, fieldName: string) {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === null || value === '') {
+      return null;
+    }
+
+    if (typeof value !== 'string' || !Types.ObjectId.isValid(value)) {
+      throw new HttpError(400, `${fieldName} is invalid`);
+    }
+
+    await this.crmService.getSupplierEntity(value);
+    return new Types.ObjectId(value);
   }
 
   private validateSubCategory(categoryGroup?: CategoryGroup, subCategory?: InventorySubCategory) {

@@ -22,6 +22,8 @@ export type InventoryItem = {
   ownerName?: string;
   ownerPhone?: string;
   supplierName?: string;
+  ownerEntity?: string;
+  supplierEntity?: string;
   internalCost?: number;
   sellingPrice?: number;
   minSpend?: number;
@@ -70,8 +72,12 @@ export type InventoryFilters = {
   limit?: number;
 };
 
-export type InventoryPayload = Partial<Omit<InventoryItem, 'id' | 'confirmationStatus'>> & {
+export type InventoryPayload = Partial<
+  Omit<InventoryItem, 'id' | 'confirmationStatus' | 'ownerEntity' | 'supplierEntity'>
+> & {
   inventoryCode?: never;
+  ownerEntity?: string | null;
+  supplierEntity?: string | null;
 };
 
 export type ConfirmInventoryPayload = {

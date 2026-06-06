@@ -13,5 +13,6 @@
     "skipLibCheck": true,
     "types": ["node", "express", "cors", "cookie-parser", "jsonwebtoken"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }

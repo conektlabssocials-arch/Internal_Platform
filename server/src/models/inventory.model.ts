@@ -103,6 +103,14 @@ const inventorySchema = new Schema(
       type: String,
       trim: true,
     },
+    ownerEntity: {
+      type: Schema.Types.ObjectId,
+      ref: 'CrmEntity',
+    },
+    supplierEntity: {
+      type: Schema.Types.ObjectId,
+      ref: 'CrmEntity',
+    },
     internalCost: Number,
     sellingPrice: Number,
     minSpend: Number,
