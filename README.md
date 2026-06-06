@@ -223,6 +223,7 @@ admin@conektads.com
 - Auth routes: `POST /api/auth/logout`, `GET /api/auth/me`
 - User management routes for admin/member access
 - Inventory category summary and CRUD routes with filtering, auto-generated codes, confirmation, and admin-only activate/deactivate
+- Bulk inventory import from a canonical CSV (`POST /api/inventory/import`) with per-row validation and an error report
 - Reverse geocoding route for map-picked inventory locations
 - React + Vite frontend shell
 - Tailwind CSS setup
