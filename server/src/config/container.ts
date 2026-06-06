@@ -3,6 +3,12 @@ import { container } from 'tsyringe';
 
 import { AuthService } from '../services/auth.service.js';
 import type { IAuthService } from '../services/auth.service.js';
+import { CampaignCounterRepository } from '../repositories/campaignCounter.repository.js';
+import type { ICampaignCounterRepository } from '../repositories/campaignCounter.repository.js';
+import { CampaignRepository } from '../repositories/campaign.repository.js';
+import type { ICampaignRepository } from '../repositories/campaign.repository.js';
+import { CampaignService } from '../services/campaign.service.js';
+import type { ICampaignService } from '../services/campaign.service.js';
 import { ContactRepository } from '../repositories/contact.repository.js';
 import type { IContactRepository } from '../repositories/contact.repository.js';
 import { CrmEntityRepository } from '../repositories/crmEntity.repository.js';
@@ -28,6 +34,12 @@ import type { IUserRepository } from '../repositories/user.repository.js';
 container.registerSingleton<IUserRepository>(TOKENS.UserRepository, UserRepository);
 container.registerSingleton<IUserService>(TOKENS.UserService, UserService);
 container.registerSingleton<IAuthService>(TOKENS.AuthService, AuthService);
+container.registerSingleton<ICampaignCounterRepository>(
+  TOKENS.CampaignCounterRepository,
+  CampaignCounterRepository,
+);
+container.registerSingleton<ICampaignRepository>(TOKENS.CampaignRepository, CampaignRepository);
+container.registerSingleton<ICampaignService>(TOKENS.CampaignService, CampaignService);
 container.registerSingleton<IContactRepository>(TOKENS.ContactRepository, ContactRepository);
 container.registerSingleton<ICrmEntityRepository>(
   TOKENS.CrmEntityRepository,

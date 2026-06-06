@@ -62,6 +62,9 @@ export interface ICrmService {
   searchSuppliers(search?: string): Promise<
     { id: string; name: string; phone?: string; email?: string }[]
   >;
+  searchCampaignClients(search?: string): Promise<
+    { id: string; name: string; entityType: CrmEntityType; email?: string; phone?: string }[]
+  >;
   getSupplierEntity(id: string): Promise<CrmEntityDocument>;
 }
 
@@ -264,6 +267,17 @@ export class CrmService implements ICrmService {
       name: supplier.displayName || supplier.name,
       phone: supplier.phone ?? undefined,
       email: supplier.email ?? undefined,
+    }));
+  }
+
+  async searchCampaignClients(search?: string) {
+    const clients = await this.entityRepository.findActiveCampaignClients(trimString(search));
+    return clients.map((client) => ({
+      id: client._id.toString(),
+      name: client.displayName || client.name,
+      entityType: client.entityType,
+      email: client.email ?? undefined,
+      phone: client.phone ?? undefined,
     }));
   }
 

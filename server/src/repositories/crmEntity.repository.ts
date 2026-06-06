@@ -13,6 +13,7 @@ export interface ICrmEntityRepository extends IBaseRepository<CrmEntityDocument>
     limit: number,
   ): Promise<{ items: CrmEntityDocument[]; total: number }>;
   findActiveSuppliers(search?: string, limit?: number): Promise<CrmEntityDocument[]>;
+  findActiveCampaignClients(search?: string, limit?: number): Promise<CrmEntityDocument[]>;
   getSummary(): Promise<
     { entityType: string; total: number; active: number; inactive: number }[]
   >;
@@ -60,6 +61,18 @@ export class CrmEntityRepository
     return this.model.find(filter).sort({ name: 1 }).limit(limit).exec() as Promise<
       CrmEntityDocument[]
     >;
+  }
+
+  findActiveCampaignClients(search?: string, limit = 20) {
+    const filter: FilterQuery<unknown> = {
+      entityType: { $in: ['Brand', 'Agency', 'Individual'] },
+      status: 'active',
+    };
+    if (search) {
+      const regex = new RegExp(search, 'i');
+      filter.$or = [{ name: regex }, { displayName: regex }, { email: regex }, { phone: regex }];
+    }
+    return this.model.find(filter).sort({ name: 1 }).limit(limit).exec() as Promise<CrmEntityDocument[]>;
   }
 
   getSummary() {

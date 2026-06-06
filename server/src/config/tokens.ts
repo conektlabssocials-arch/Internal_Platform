@@ -1,5 +1,8 @@
 export const TOKENS = {
   AuthService: Symbol('AuthService'),
+  CampaignCounterRepository: Symbol('CampaignCounterRepository'),
+  CampaignRepository: Symbol('CampaignRepository'),
+  CampaignService: Symbol('CampaignService'),
   ContactRepository: Symbol('ContactRepository'),
   CrmEntityRepository: Symbol('CrmEntityRepository'),
   CrmService: Symbol('CrmService'),
