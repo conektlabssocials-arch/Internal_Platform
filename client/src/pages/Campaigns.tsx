@@ -187,7 +187,7 @@ const Campaigns = () => {
       </div>
 
       {formOpen ? <CampaignForm campaign={editing} previewCode={previewCode} users={users} currentUserId={user?.id} saving={saving} onClose={() => { setFormOpen(false); setEditing(null); }} onSave={saveCampaign} /> : null}
-      {detail ? <CampaignDetail campaign={detail} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); setFormOpen(true); }} onStatus={() => setStatusCampaign(detail)} /> : null}
+      {detail ? <CampaignDetail campaign={detail} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); setFormOpen(true); }} onStatus={() => setStatusCampaign(detail)} onChanged={async () => { await load(); setDetail(await getCampaignById(detail.id)); }} /> : null}
       {statusCampaign ? <CampaignStatusModal campaign={statusCampaign} saving={saving} onClose={() => setStatusCampaign(null)} onSave={saveStatus} /> : null}
     </section>
   );

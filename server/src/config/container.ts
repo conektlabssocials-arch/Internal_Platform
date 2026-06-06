@@ -23,6 +23,10 @@ import { InventoryRepository } from '../repositories/inventory.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import { InventoryService } from '../services/inventory.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
+import { PlanRepository } from '../repositories/plan.repository.js';
+import type { IPlanRepository } from '../repositories/plan.repository.js';
+import { PlanService } from '../services/plan.service.js';
+import type { IPlanService } from '../services/plan.service.js';
 import { UploadService } from '../services/upload.service.js';
 import type { IUploadService } from '../services/upload.service.js';
 import { TOKENS } from './tokens.js';
@@ -56,6 +60,8 @@ container.registerSingleton<IInventoryRepository>(
   InventoryRepository,
 );
 container.registerSingleton<IInventoryService>(TOKENS.InventoryService, InventoryService);
+container.registerSingleton<IPlanRepository>(TOKENS.PlanRepository, PlanRepository);
+container.registerSingleton<IPlanService>(TOKENS.PlanService, PlanService);
 container.registerSingleton<IUploadService>(TOKENS.UploadService, UploadService);
 
 export { container };
