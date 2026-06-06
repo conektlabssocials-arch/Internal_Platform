@@ -59,6 +59,18 @@ export class InventoryController {
     res.status(201).json({ data: item });
   };
 
+  importInventory = async (req: Request, res: Response) => {
+    const authUser = getAuthUser(res.locals);
+    const file = req.file;
+
+    if (!file) {
+      throw new HttpError(400, 'A CSV file is required');
+    }
+
+    const result = await this.inventoryService.importInventory(file.buffer, authUser.userId);
+    res.status(200).json({ data: result });
+  };
+
   patchInventory = async (req: Request, res: Response) => {
     const authUser = getAuthUser(res.locals);
     const item = await this.inventoryService.updateInventory(req.params.id, {

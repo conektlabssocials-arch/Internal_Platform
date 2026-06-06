@@ -98,6 +98,19 @@ export type InventorySummaryDto = {
   neverConfirmed: number;
 };
 
+export type InventoryImportRowError = {
+  row: number;
+  message: string;
+};
+
+export type InventoryImportResultDto = {
+  total: number;
+  created: number;
+  failed: number;
+  createdCodes: string[];
+  errors: InventoryImportRowError[];
+};
+
 const idToString = (value: unknown) => {
   if (!value) {
     return undefined;
