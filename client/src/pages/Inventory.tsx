@@ -14,6 +14,7 @@ import {
   updateInventory,
   uploadInventoryImages,
 } from '../api/inventoryApi';
+import { getCrmEntityById, searchSuppliers } from '../api/crmApi';
 import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard';
 import LocationPicker from '../components/map/LocationPicker';
 import {
@@ -43,6 +44,7 @@ import type {
   InventoryStatus,
   InventorySummaryItem,
 } from '../types/inventory';
+import type { SupplierSearchItem } from '../types/crm';
 
 const availabilityStatuses: AvailabilityStatus[] = ['available', 'booked', 'hold', 'unknown'];
 const inventoryStatuses: InventoryStatus[] = ['active', 'inactive'];
@@ -61,6 +63,8 @@ type InventoryFormState = {
   ownerName: string;
   ownerPhone: string;
   supplierName: string;
+  ownerEntity: string;
+  supplierEntity: string;
   internalCost: string;
   sellingPrice: string;
   minSpend: string;
@@ -112,6 +116,8 @@ const createEmptyForm = (categoryGroup: CategoryGroup = 'Outdoor'): InventoryFor
   ownerName: '',
   ownerPhone: '',
   supplierName: '',
+  ownerEntity: '',
+  supplierEntity: '',
   internalCost: '',
   sellingPrice: '',
   minSpend: '',
@@ -205,6 +211,8 @@ const itemToForm = (item: InventoryItem): InventoryFormState => ({
   ownerName: item.ownerName || '',
   ownerPhone: item.ownerPhone || '',
   supplierName: item.supplierName || '',
+  ownerEntity: item.ownerEntity || '',
+  supplierEntity: item.supplierEntity || '',
   internalCost: item.internalCost?.toString() || '',
   sellingPrice: item.sellingPrice?.toString() || '',
   minSpend: item.minSpend?.toString() || '',
@@ -255,6 +263,8 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
   ownerName: form.ownerName,
   ownerPhone: form.ownerPhone,
   supplierName: form.supplierName,
+  ownerEntity: form.ownerEntity || null,
+  supplierEntity: form.supplierEntity || null,
   internalCost: numberOrUndefined(form.internalCost),
   sellingPrice: numberOrUndefined(form.sellingPrice),
   minSpend: numberOrUndefined(form.minSpend),
@@ -1067,6 +1077,37 @@ const InventoryFormModal = ({
           </div>
         ) : null}
 
+        <FormSection title="Supplier / Owner">
+          <SupplierEntityField
+            label="Linked Owner"
+            value={form.ownerEntity}
+            initialName={form.ownerName}
+            onChange={(supplier) =>
+              onFormChange({
+                ...form,
+                ownerEntity: supplier?.id || '',
+                ownerName: supplier?.name || form.ownerName,
+                ownerPhone: supplier?.phone || form.ownerPhone,
+              })
+            }
+          />
+          <SupplierEntityField
+            label="Linked Supplier"
+            value={form.supplierEntity}
+            initialName={form.supplierName}
+            onChange={(supplier) =>
+              onFormChange({
+                ...form,
+                supplierEntity: supplier?.id || '',
+                supplierName: supplier?.name || form.supplierName,
+              })
+            }
+          />
+          <div className="self-end text-xs leading-5 text-slate-500">
+            CRM links are optional. Manual owner and supplier fields remain available below.
+          </div>
+        </FormSection>
+
         <FormSection title="Common Details">
           <TextField
             label="Width"
@@ -1214,6 +1255,147 @@ const TextField = ({ label, value, onChange, required }: TextFieldProps) => (
     />
   </label>
 );
+
+type SupplierEntityFieldProps = {
+  label: string;
+  value: string;
+  initialName: string;
+  onChange: (supplier: SupplierSearchItem | null) => void;
+};
+
+const SupplierEntityField = ({
+  label,
+  value,
+  initialName,
+  onChange,
+}: SupplierEntityFieldProps) => {
+  const [search, setSearch] = useState('');
+  const [results, setResults] = useState<SupplierSearchItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedName, setSelectedName] = useState(initialName);
+
+  useEffect(() => {
+    if (!value) {
+      setSelectedName('');
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSelectedSupplier = async () => {
+      try {
+        const supplier = await getCrmEntityById(value);
+
+        if (!cancelled) {
+          setSelectedName(supplier.displayName || supplier.name);
+        }
+      } catch {
+        if (!cancelled) {
+          setSelectedName(initialName || 'Linked CRM supplier');
+        }
+      }
+    };
+
+    loadSelectedSupplier();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialName, value]);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setResults([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      setLoading(true);
+
+      try {
+        const suppliers = await searchSuppliers(search);
+
+        if (!cancelled) {
+          setResults(suppliers);
+        }
+      } catch {
+        if (!cancelled) {
+          setResults([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [search]);
+
+  return (
+    <div>
+      <label className="block">
+        <span className="text-sm font-medium text-slate-700">{label}</span>
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search Supplier / Owner"
+          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-900"
+        />
+      </label>
+
+      {value ? (
+        <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <p className="text-xs font-medium text-emerald-700">Linked CRM record</p>
+          <p className="mt-1 text-sm font-medium text-emerald-950">
+            {selectedName || 'Loading supplier...'}
+          </p>
+        </div>
+      ) : null}
+
+      {loading ? <p className="mt-1 text-xs text-slate-500">Searching...</p> : null}
+      {results.length > 0 ? (
+        <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-slate-200 bg-white">
+          {results.map((supplier) => (
+            <button
+              key={supplier.id}
+              type="button"
+              onClick={() => {
+                onChange(supplier);
+                setSelectedName(supplier.name);
+                setSearch('');
+                setResults([]);
+              }}
+              className="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-0 hover:bg-slate-50"
+            >
+              <span className="block font-medium text-slate-900">{supplier.name}</span>
+              <span className="text-xs text-slate-500">
+                {[supplier.phone, supplier.email].filter(Boolean).join(' · ')}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {value ? (
+        <button
+          type="button"
+          onClick={() => {
+            onChange(null);
+            setSelectedName('');
+          }}
+          className="mt-2 text-xs font-medium text-slate-600 hover:text-slate-900"
+        >
+          Clear CRM link
+        </button>
+      ) : null}
+    </div>
+  );
+};
 
 type ImageUploadFieldProps = {
   label: string;

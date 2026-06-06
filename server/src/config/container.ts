@@ -3,6 +3,12 @@ import { container } from 'tsyringe';
 
 import { AuthService } from '../services/auth.service.js';
 import type { IAuthService } from '../services/auth.service.js';
+import { ContactRepository } from '../repositories/contact.repository.js';
+import type { IContactRepository } from '../repositories/contact.repository.js';
+import { CrmEntityRepository } from '../repositories/crmEntity.repository.js';
+import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
+import { CrmService } from '../services/crm.service.js';
+import type { ICrmService } from '../services/crm.service.js';
 import { GeocodingService } from '../services/geocoding.service.js';
 import type { IGeocodingService } from '../services/geocoding.service.js';
 import { InventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
@@ -22,6 +28,12 @@ import type { IUserRepository } from '../repositories/user.repository.js';
 container.registerSingleton<IUserRepository>(TOKENS.UserRepository, UserRepository);
 container.registerSingleton<IUserService>(TOKENS.UserService, UserService);
 container.registerSingleton<IAuthService>(TOKENS.AuthService, AuthService);
+container.registerSingleton<IContactRepository>(TOKENS.ContactRepository, ContactRepository);
+container.registerSingleton<ICrmEntityRepository>(
+  TOKENS.CrmEntityRepository,
+  CrmEntityRepository,
+);
+container.registerSingleton<ICrmService>(TOKENS.CrmService, CrmService);
 container.registerSingleton<IGeocodingService>(TOKENS.GeocodingService, GeocodingService);
 container.registerSingleton<IInventoryCounterRepository>(
   TOKENS.InventoryCounterRepository,

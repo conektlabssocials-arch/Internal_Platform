@@ -26,6 +26,8 @@ export type InventoryDto = {
   ownerName?: string;
   ownerPhone?: string;
   supplierName?: string;
+  ownerEntity?: string;
+  supplierEntity?: string;
   internalCost?: number;
   sellingPrice?: number;
   minSpend?: number;
@@ -77,7 +79,11 @@ export type InventoryFiltersDto = {
   limit?: string;
 };
 
-export type InventoryMutationDto = Partial<Omit<InventoryDto, 'id' | 'createdAt' | 'updatedAt'>> & {
+export type InventoryMutationDto = Partial<
+  Omit<InventoryDto, 'id' | 'createdAt' | 'updatedAt' | 'ownerEntity' | 'supplierEntity'>
+> & {
+  ownerEntity?: string | null;
+  supplierEntity?: string | null;
   createdBy?: string;
   updatedBy?: string;
 };
@@ -166,6 +172,8 @@ export const mapInventoryToDto = (
   ownerName: item.ownerName ?? undefined,
   ownerPhone: item.ownerPhone ?? undefined,
   supplierName: item.supplierName ?? undefined,
+  ownerEntity: idToString(item.ownerEntity),
+  supplierEntity: idToString(item.supplierEntity),
   internalCost: item.internalCost ?? undefined,
   sellingPrice: item.sellingPrice ?? undefined,
   minSpend: item.minSpend ?? undefined,
