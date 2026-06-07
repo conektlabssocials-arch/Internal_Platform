@@ -8,21 +8,25 @@ import { PlanService } from './plan.service.js';
 import type { ICampaignRepository } from '../repositories/campaign.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import type { IPlanRepository } from '../repositories/plan.repository.js';
+import type { IOperationService } from './operation.service.js';
 import { calculatePlanItem, calculatePlanPricing } from '../utils/planPricing.js';
 
 const service = ({
   plans = {},
   campaigns = {},
   inventory = {},
+  operations = {},
 }: {
   plans?: Partial<IPlanRepository>;
   campaigns?: Partial<ICampaignRepository>;
   inventory?: Partial<IInventoryRepository>;
+  operations?: Partial<IOperationService>;
 }) =>
   new PlanService(
     plans as IPlanRepository,
     campaigns as ICampaignRepository,
     inventory as IInventoryRepository,
+    operations as IOperationService,
   );
 
 test('plan pricing calculates inclusive duration, totals, tax, and margin', () => {
@@ -201,4 +205,55 @@ test('plan statuses cannot skip the documented workflow', async () => {
       }),
     /Cannot change plan status from Draft to Won/,
   );
+});
+
+test('marking a plan Won automatically creates its Operations Work Order', async () => {
+  const planId = new Types.ObjectId();
+  const campaignId = new Types.ObjectId();
+  const actorId = new Types.ObjectId();
+  let operationPlanId = '';
+  const plan = {
+    _id: planId,
+    campaign: campaignId,
+    versionNumber: 1,
+    versionLabel: 'v1',
+    title: 'Won Plan',
+    status: 'Shared',
+    isLocked: true,
+    items: [],
+    pricing: {},
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  const campaign = {
+    _id: campaignId,
+    status: 'Plan Shared',
+  };
+  const planService = service({
+    plans: {
+      findById: async () => plan as never,
+      findByIdPopulated: async () => plan as never,
+      save: async (document) => document,
+    },
+    campaigns: {
+      findById: async () => campaign as never,
+      save: async (document) => document,
+    },
+    operations: {
+      createOperationFromWonPlan: async (id) => {
+        operationPlanId = id;
+        return {};
+      },
+    },
+  });
+
+  await planService.updateStatus(planId.toString(), {
+    status: 'Won',
+    actorId: actorId.toString(),
+  });
+
+  assert.equal(plan.status, 'Won');
+  assert.equal(plan.isLocked, true);
+  assert.equal(campaign.status, 'Won');
+  assert.equal(operationPlanId, planId.toString());
 });

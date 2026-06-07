@@ -27,6 +27,12 @@ import { InventoryRepository } from '../repositories/inventory.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import { InventoryService } from '../services/inventory.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
+import { OperationCounterRepository } from '../repositories/operationCounter.repository.js';
+import type { IOperationCounterRepository } from '../repositories/operationCounter.repository.js';
+import { OperationRepository } from '../repositories/operation.repository.js';
+import type { IOperationRepository } from '../repositories/operation.repository.js';
+import { OperationService } from '../services/operation.service.js';
+import type { IOperationService } from '../services/operation.service.js';
 import { PlanRepository } from '../repositories/plan.repository.js';
 import type { IPlanRepository } from '../repositories/plan.repository.js';
 import { PlanService } from '../services/plan.service.js';
@@ -74,6 +80,15 @@ container.registerSingleton<IInventoryRepository>(
   InventoryRepository,
 );
 container.registerSingleton<IInventoryService>(TOKENS.InventoryService, InventoryService);
+container.registerSingleton<IOperationCounterRepository>(
+  TOKENS.OperationCounterRepository,
+  OperationCounterRepository,
+);
+container.registerSingleton<IOperationRepository>(
+  TOKENS.OperationRepository,
+  OperationRepository,
+);
+container.registerSingleton<IOperationService>(TOKENS.OperationService, OperationService);
 container.registerSingleton<IPlanRepository>(TOKENS.PlanRepository, PlanRepository);
 container.registerSingleton<IPlanService>(TOKENS.PlanService, PlanService);
 container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);

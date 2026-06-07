@@ -14,6 +14,7 @@ import type { PlanDocument, PlanStatus } from '../models/plan.model.js';
 import type { ICampaignRepository } from '../repositories/campaign.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import type { IPlanRepository } from '../repositories/plan.repository.js';
+import type { IOperationService } from './operation.service.js';
 import { getConfirmationStatus } from './inventory.service.js';
 import { calculatePlanItem, calculatePlanPricing } from '../utils/planPricing.js';
 import { buildPlanMapData } from '../utils/planMapData.js';
@@ -58,6 +59,7 @@ export class PlanService implements IPlanService {
     @inject(TOKENS.PlanRepository) private readonly repository: IPlanRepository,
     @inject(TOKENS.CampaignRepository) private readonly campaigns: ICampaignRepository,
     @inject(TOKENS.InventoryRepository) private readonly inventory: IInventoryRepository,
+    @inject(TOKENS.OperationService) private readonly operationService: IOperationService,
   ) {}
 
   async listByCampaign(campaignId: string) {
@@ -187,6 +189,9 @@ export class PlanService implements IPlanService {
       await this.setCampaignStatus(plan.campaign.toString(), 'Lost', actorId);
     }
     await this.repository.save(plan);
+    if (status === 'Won') {
+      await this.operationService.createOperationFromWonPlan(id, input.actorId);
+    }
     return this.getById(id);
   }
 

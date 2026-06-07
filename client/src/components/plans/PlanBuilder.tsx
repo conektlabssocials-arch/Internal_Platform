@@ -6,11 +6,17 @@ import {
   updatePlan,
   updatePlanStatus,
 } from '../../api/planApi';
+import {
+  getOperationByPlan,
+  syncOperationFromPlan,
+} from '../../api/operationApi';
 import type { InventoryItem } from '../../types/inventory';
+import type { Operation } from '../../types/operation';
 import type { Plan, PlanItem, PlanItemPayload, PlanStatus } from '../../types/plan';
 import { buildClientPlanMapData } from '../../utils/planMapData';
 import NonMapInventoryList from '../maps/NonMapInventoryList';
 import SharedPlanMap from '../maps/SharedPlanMap';
+import OperationDetail from '../operations/OperationDetail';
 import DocumentPanel from './DocumentPanel';
 import InventorySelector from './InventorySelector';
 import SharePanel from './SharePanel';
@@ -76,9 +82,23 @@ const PlanBuilder = ({
   const [clientNotes, setClientNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [isDirty, setIsDirty] = useState(false);
+  const [operation, setOperation] = useState<Operation | null>(null);
+  const [operationLoading, setOperationLoading] = useState(false);
+  const [showOperation, setShowOperation] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const loadOperation = async (id: string) => {
+    setOperationLoading(true);
+    try {
+      setOperation(await getOperationByPlan(id));
+    } catch {
+      setOperation(null);
+    } finally {
+      setOperationLoading(false);
+    }
+  };
 
   const loadPlan = async (id: string) => {
     setLoading(true);
@@ -92,6 +112,11 @@ const PlanBuilder = ({
       setClientNotes(next.clientNotes || '');
       setInternalNotes(next.internalNotes || '');
       setIsDirty(false);
+      if (next.status === 'Won') {
+        await loadOperation(next.id);
+      } else {
+        setOperation(null);
+      }
       return next;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load plan');
@@ -193,6 +218,7 @@ const PlanBuilder = ({
       const updated = await updatePlanStatus(plan.id, status);
       setPlan(updated);
       onChanged?.(updated);
+      if (updated.status === 'Won') await loadOperation(updated.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update plan status');
     } finally {
@@ -221,6 +247,17 @@ const PlanBuilder = ({
   const refreshAfterShare = async () => {
     const updated = await loadPlan(plan.id);
     if (updated) onChanged?.(updated);
+  };
+  const syncOperation = async () => {
+    setOperationLoading(true);
+    setError('');
+    try {
+      setOperation(await syncOperationFromPlan(plan.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create Operations Work Order');
+    } finally {
+      setOperationLoading(false);
+    }
   };
 
   return (
@@ -280,6 +317,27 @@ const PlanBuilder = ({
                 </div>
               ) : null}
             </section>
+            {plan.status === 'Won' ? (
+              <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                <p className="text-xs font-semibold uppercase text-emerald-700">Operations</p>
+                {operationLoading ? (
+                  <p className="mt-2 text-sm text-emerald-900">Loading Operations Work Order...</p>
+                ) : operation ? (
+                  <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="font-semibold text-emerald-950">{operation.operationCode}</h3>
+                      <p className="mt-1 text-sm text-emerald-800">{operation.status} · {operation.overallProgress.percentage}% complete</p>
+                    </div>
+                    <button type="button" onClick={() => setShowOperation(true)} className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Open Work Order</button>
+                  </div>
+                ) : (
+                  <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-emerald-900">Operation should be created automatically. Use sync for an older Won Plan or to retry creation.</p>
+                    <button type="button" onClick={() => void syncOperation()} className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Create / Sync Operation</button>
+                  </div>
+                )}
+              </section>
+            ) : null}
             <DocumentPanel planId={plan.id} beforeGenerate={saveBeforeArtifact} />
             <SharePanel
               planId={plan.id}
@@ -300,6 +358,13 @@ const PlanBuilder = ({
           </aside>
         </div>
       </div>
+      {showOperation && operation ? (
+        <OperationDetail
+          operationId={operation.id}
+          onClose={() => setShowOperation(false)}
+          onUpdated={setOperation}
+        />
+      ) : null}
     </div>
   );
 };
