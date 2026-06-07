@@ -63,6 +63,17 @@ export const mapPlanToDto = (plan: PlanDocument) => ({
     width: item.width,
     height: item.height,
     totalSqFt: item.totalSqFt,
+    location: item.location
+      ? {
+          address: item.location.address,
+          latitude: item.location.latitude,
+          longitude: item.location.longitude,
+        }
+      : undefined,
+    photos: item.photos || [],
+    route: item.route,
+    depot: item.depot,
+    itinerary: item.itinerary,
     startDate: item.startDate,
     endDate: item.endDate,
     durationDays: item.durationDays,

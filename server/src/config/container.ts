@@ -15,6 +15,10 @@ import { CrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import { CrmService } from '../services/crm.service.js';
 import type { ICrmService } from '../services/crm.service.js';
+import { DocumentRepository } from '../repositories/document.repository.js';
+import type { IDocumentRepository } from '../repositories/document.repository.js';
+import { DocumentService } from '../services/document.service.js';
+import type { IDocumentService } from '../services/document.service.js';
 import { GeocodingService } from '../services/geocoding.service.js';
 import type { IGeocodingService } from '../services/geocoding.service.js';
 import { InventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
@@ -27,6 +31,11 @@ import { PlanRepository } from '../repositories/plan.repository.js';
 import type { IPlanRepository } from '../repositories/plan.repository.js';
 import { PlanService } from '../services/plan.service.js';
 import type { IPlanService } from '../services/plan.service.js';
+import { PdfService } from '../services/pdf.service.js';
+import { ShareRepository } from '../repositories/share.repository.js';
+import type { IShareRepository } from '../repositories/share.repository.js';
+import { ShareService } from '../services/share.service.js';
+import type { IShareService } from '../services/share.service.js';
 import { UploadService } from '../services/upload.service.js';
 import type { IUploadService } from '../services/upload.service.js';
 import { TOKENS } from './tokens.js';
@@ -50,6 +59,11 @@ container.registerSingleton<ICrmEntityRepository>(
   CrmEntityRepository,
 );
 container.registerSingleton<ICrmService>(TOKENS.CrmService, CrmService);
+container.registerSingleton<IDocumentRepository>(
+  TOKENS.DocumentRepository,
+  DocumentRepository,
+);
+container.registerSingleton<IDocumentService>(TOKENS.DocumentService, DocumentService);
 container.registerSingleton<IGeocodingService>(TOKENS.GeocodingService, GeocodingService);
 container.registerSingleton<IInventoryCounterRepository>(
   TOKENS.InventoryCounterRepository,
@@ -62,6 +76,9 @@ container.registerSingleton<IInventoryRepository>(
 container.registerSingleton<IInventoryService>(TOKENS.InventoryService, InventoryService);
 container.registerSingleton<IPlanRepository>(TOKENS.PlanRepository, PlanRepository);
 container.registerSingleton<IPlanService>(TOKENS.PlanService, PlanService);
+container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);
+container.registerSingleton<IShareRepository>(TOKENS.ShareRepository, ShareRepository);
+container.registerSingleton<IShareService>(TOKENS.ShareService, ShareService);
 container.registerSingleton<IUploadService>(TOKENS.UploadService, UploadService);
 
 export { container };

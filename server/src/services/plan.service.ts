@@ -16,12 +16,14 @@ import type { IInventoryRepository } from '../repositories/inventory.repository.
 import type { IPlanRepository } from '../repositories/plan.repository.js';
 import { getConfirmationStatus } from './inventory.service.js';
 import { calculatePlanItem, calculatePlanPricing } from '../utils/planPricing.js';
+import { buildPlanMapData } from '../utils/planMapData.js';
 import { HttpError } from '../utils/httpError.js';
 
 export interface IPlanService {
   listByCampaign(campaignId: string): Promise<unknown[]>;
   listRecent(): Promise<unknown[]>;
   getById(id: string): Promise<unknown>;
+  getMapData(id: string): Promise<unknown>;
   create(campaignId: string, input: PlanMutationDto): Promise<unknown>;
   clone(id: string, actorId: string): Promise<unknown>;
   update(id: string, input: PlanMutationDto): Promise<unknown>;
@@ -72,6 +74,11 @@ export class PlanService implements IPlanService {
     const plan = await this.repository.findByIdPopulated(id);
     if (!plan) throw new HttpError(404, 'Plan not found');
     return mapPlanToDto(plan);
+  }
+
+  async getMapData(id: string) {
+    const plan = await this.getDocument(id);
+    return buildPlanMapData(plan.items as any);
   }
 
   async create(campaignId: string, input: PlanMutationDto) {
@@ -235,6 +242,17 @@ export class PlanService implements IPlanService {
           width: inventory.width,
           height: inventory.height,
           totalSqFt: inventory.totalSqFt,
+          location: inventory.location
+            ? {
+                address: inventory.location.address,
+                latitude: inventory.location.latitude,
+                longitude: inventory.location.longitude,
+              }
+            : undefined,
+          photos: inventory.photos || [],
+          route: inventory.route,
+          depot: inventory.depot,
+          itinerary: inventory.itinerary,
           startDate,
           endDate,
           quantity: numberValue(input.quantity, 1),

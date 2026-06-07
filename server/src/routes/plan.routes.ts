@@ -12,6 +12,7 @@ const auth = container.resolve(AuthMiddleware);
 router.use(auth.requireAuth);
 router.get('/', asyncHandler(controller.listRecent));
 router.post('/:id/clone', asyncHandler(controller.clone));
+router.get('/:id/map-data', asyncHandler(controller.mapData));
 router.get('/:id', asyncHandler(controller.detail));
 router.patch('/:id', asyncHandler(controller.update));
 router.patch('/:id/status', asyncHandler(controller.status));

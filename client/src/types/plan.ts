@@ -11,6 +11,15 @@ export type PlanItem = {
   width?: number;
   height?: number;
   totalSqFt?: number;
+  location?: {
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  photos: string[];
+  route?: string;
+  depot?: string;
+  itinerary?: string;
   startDate?: string;
   endDate?: string;
   durationDays: number;

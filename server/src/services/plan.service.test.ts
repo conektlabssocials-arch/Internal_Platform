@@ -134,6 +134,15 @@ test('draft updates denormalize fresh inventory and recalculate pricing', async 
           width: 40,
           height: 20,
           totalSqFt: 800,
+          location: {
+            address: 'MG Road, Bengaluru',
+            latitude: 12.975,
+            longitude: 77.606,
+          },
+          photos: ['https://example.com/site.jpg'],
+          route: undefined,
+          depot: undefined,
+          itinerary: undefined,
           status: 'active',
           availabilityStatus: 'available',
           lastConfirmedAt: now,
@@ -154,12 +163,20 @@ test('draft updates denormalize fresh inventory and recalculate pricing', async 
     taxPercentage: 18,
     updatedBy: actorId.toString(),
   })) as {
-    items: { inventoryCode: string; totalSellingPrice: number }[];
+    items: {
+      inventoryCode: string;
+      totalSellingPrice: number;
+      location?: { address?: string; latitude?: number };
+      photos: string[];
+    }[];
     pricing: { grandTotal: number };
   };
 
   assert.equal(result.items[0].inventoryCode, 'OOH-BLR-CBD-001');
   assert.equal(result.items[0].totalSellingPrice, 1000000);
+  assert.equal(result.items[0].location?.address, 'MG Road, Bengaluru');
+  assert.equal(result.items[0].location?.latitude, 12.975);
+  assert.deepEqual(result.items[0].photos, ['https://example.com/site.jpg']);
   assert.equal(result.pricing.grandTotal, 1180000);
 });
 

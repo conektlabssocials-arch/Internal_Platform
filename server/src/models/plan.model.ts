@@ -3,6 +3,15 @@ import type { HydratedDocument, InferSchemaType } from 'mongoose';
 
 export const planStatuses = ['Draft', 'Shared', 'Negotiating', 'Won', 'Lost'] as const;
 
+const planItemLocationSchema = new Schema(
+  {
+    address: String,
+    latitude: Number,
+    longitude: Number,
+  },
+  { _id: false },
+);
+
 const planItemSchema = new Schema(
   {
     inventory: { type: Schema.Types.ObjectId, ref: 'Inventory', required: true },
@@ -15,6 +24,11 @@ const planItemSchema = new Schema(
     width: Number,
     height: Number,
     totalSqFt: Number,
+    location: planItemLocationSchema,
+    photos: { type: [String], default: [] },
+    route: String,
+    depot: String,
+    itinerary: String,
     startDate: Date,
     endDate: Date,
     durationDays: { type: Number, default: 1 },

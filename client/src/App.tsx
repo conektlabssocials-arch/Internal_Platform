@@ -11,12 +11,14 @@ import Login from './pages/Login';
 import Operations from './pages/Operations';
 import Plans from './pages/Plans';
 import PlatformSettings from './pages/PlatformSettings';
+import PublicSharedPlan from './pages/PublicSharedPlan';
 import Users from './pages/Users';
 
 const App = () => {
   return (
     <Routes>
       <Route path="login" element={<Login />} />
+      <Route path="share/plan/:token" element={<PublicSharedPlan />} />
       <Route
         element={
           <ProtectedRoute>

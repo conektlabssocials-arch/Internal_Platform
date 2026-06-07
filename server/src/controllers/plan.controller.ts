@@ -36,6 +36,9 @@ export class PlanController {
   detail = async (req: Request, res: Response) => {
     res.status(200).json({ data: await this.service.getById(req.params.id) });
   };
+  mapData = async (req: Request, res: Response) => {
+    res.status(200).json({ data: await this.service.getMapData(req.params.id) });
+  };
   update = async (req: Request, res: Response) => {
     const data = await this.service.update(req.params.id, {
       ...req.body,
