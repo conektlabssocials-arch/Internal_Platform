@@ -131,4 +131,9 @@ export class CrmController {
     const data = await this.crmService.searchSuppliers(req.query.search?.toString());
     res.status(200).json({ data });
   };
+
+  searchCampaignClients = async (req: Request, res: Response) => {
+    const data = await this.crmService.searchCampaignClients(req.query.search?.toString());
+    res.status(200).json({ data });
+  };
 }

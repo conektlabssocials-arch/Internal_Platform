@@ -12,6 +12,7 @@ const authMiddleware = container.resolve(AuthMiddleware);
 router.use(authMiddleware.requireAuth);
 
 router.get('/suppliers/search', asyncHandler(crmController.searchSuppliers));
+router.get('/clients/search', asyncHandler(crmController.searchCampaignClients));
 router.get('/summary', asyncHandler(crmController.getSummary));
 router.get('/entities', asyncHandler(crmController.getEntities));
 router.get('/entities/:id', asyncHandler(crmController.getEntity));

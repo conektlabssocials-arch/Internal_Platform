@@ -9,6 +9,7 @@ import type {
   CrmSummaryItem,
   SupplierSearchItem,
 } from '../types/crm';
+import type { CampaignClientSearchItem } from '../types/campaign';
 
 const toQueryString = (params: Record<string, unknown> = {}) => {
   const searchParams = new URLSearchParams();
@@ -104,6 +105,13 @@ export const deleteContact = (contactId: string) =>
 export const searchSuppliers = async (search = '') => {
   const response = await apiRequest<{ data: SupplierSearchItem[] }>(
     `/crm/suppliers/search${toQueryString({ search })}`,
+  );
+  return response.data;
+};
+
+export const searchCampaignClients = async (search = '') => {
+  const response = await apiRequest<{ data: CampaignClientSearchItem[] }>(
+    `/crm/clients/search${toQueryString({ search })}`,
   );
   return response.data;
 };

@@ -1,0 +1,38 @@
+import mongoose, { Schema } from 'mongoose';
+import type { HydratedDocument, InferSchemaType } from 'mongoose';
+
+export const documentTypes = ['PlanProposal', 'Quotation', 'InternalCostSheet'] as const;
+
+const documentMetadataSchema = new Schema(
+  {
+    planVersionLabel: String,
+    campaignCode: String,
+    clientName: String,
+    grandTotal: Number,
+  },
+  { _id: false },
+);
+
+const documentSchema = new Schema(
+  {
+    plan: { type: Schema.Types.ObjectId, ref: 'Plan', required: true },
+    campaign: { type: Schema.Types.ObjectId, ref: 'Campaign', required: true },
+    documentType: { type: String, enum: documentTypes, required: true },
+    versionNumber: { type: Number, required: true },
+    fileName: { type: String, required: true },
+    filePath: { type: String, required: true },
+    fileUrl: String,
+    generatedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    generatedAt: { type: Date, default: Date.now },
+    metadata: { type: documentMetadataSchema, default: () => ({}) },
+  },
+  { timestamps: true },
+);
+
+documentSchema.index({ plan: 1, generatedAt: -1 });
+
+export type DocumentType = (typeof documentTypes)[number];
+export type DocumentSchema = InferSchemaType<typeof documentSchema>;
+export type DocumentDocument = HydratedDocument<DocumentSchema>;
+
+export const DocumentModel = mongoose.model<DocumentSchema>('Document', documentSchema);

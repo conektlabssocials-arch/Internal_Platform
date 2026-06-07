@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "test": "tsx --test src/services/crm.service.test.ts",
+    "test": "tsx --test src/services/*.test.ts",
     "start": "node dist/server.js",
     "seed:admin": "tsx src/scripts/seedAdmin.ts"
   },
@@ -21,6 +21,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.5",
     "multer": "^2.1.1",
+    "puppeteer": "^24.43.1",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.8.0"
   },

@@ -3,12 +3,22 @@ import { container } from 'tsyringe';
 
 import { AuthService } from '../services/auth.service.js';
 import type { IAuthService } from '../services/auth.service.js';
+import { CampaignCounterRepository } from '../repositories/campaignCounter.repository.js';
+import type { ICampaignCounterRepository } from '../repositories/campaignCounter.repository.js';
+import { CampaignRepository } from '../repositories/campaign.repository.js';
+import type { ICampaignRepository } from '../repositories/campaign.repository.js';
+import { CampaignService } from '../services/campaign.service.js';
+import type { ICampaignService } from '../services/campaign.service.js';
 import { ContactRepository } from '../repositories/contact.repository.js';
 import type { IContactRepository } from '../repositories/contact.repository.js';
 import { CrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import { CrmService } from '../services/crm.service.js';
 import type { ICrmService } from '../services/crm.service.js';
+import { DocumentRepository } from '../repositories/document.repository.js';
+import type { IDocumentRepository } from '../repositories/document.repository.js';
+import { DocumentService } from '../services/document.service.js';
+import type { IDocumentService } from '../services/document.service.js';
 import { GeocodingService } from '../services/geocoding.service.js';
 import type { IGeocodingService } from '../services/geocoding.service.js';
 import { InventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
@@ -17,6 +27,21 @@ import { InventoryRepository } from '../repositories/inventory.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import { InventoryService } from '../services/inventory.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
+import { OperationCounterRepository } from '../repositories/operationCounter.repository.js';
+import type { IOperationCounterRepository } from '../repositories/operationCounter.repository.js';
+import { OperationRepository } from '../repositories/operation.repository.js';
+import type { IOperationRepository } from '../repositories/operation.repository.js';
+import { OperationService } from '../services/operation.service.js';
+import type { IOperationService } from '../services/operation.service.js';
+import { PlanRepository } from '../repositories/plan.repository.js';
+import type { IPlanRepository } from '../repositories/plan.repository.js';
+import { PlanService } from '../services/plan.service.js';
+import type { IPlanService } from '../services/plan.service.js';
+import { PdfService } from '../services/pdf.service.js';
+import { ShareRepository } from '../repositories/share.repository.js';
+import type { IShareRepository } from '../repositories/share.repository.js';
+import { ShareService } from '../services/share.service.js';
+import type { IShareService } from '../services/share.service.js';
 import { UploadService } from '../services/upload.service.js';
 import type { IUploadService } from '../services/upload.service.js';
 import { TOKENS } from './tokens.js';
@@ -28,12 +53,23 @@ import type { IUserRepository } from '../repositories/user.repository.js';
 container.registerSingleton<IUserRepository>(TOKENS.UserRepository, UserRepository);
 container.registerSingleton<IUserService>(TOKENS.UserService, UserService);
 container.registerSingleton<IAuthService>(TOKENS.AuthService, AuthService);
+container.registerSingleton<ICampaignCounterRepository>(
+  TOKENS.CampaignCounterRepository,
+  CampaignCounterRepository,
+);
+container.registerSingleton<ICampaignRepository>(TOKENS.CampaignRepository, CampaignRepository);
+container.registerSingleton<ICampaignService>(TOKENS.CampaignService, CampaignService);
 container.registerSingleton<IContactRepository>(TOKENS.ContactRepository, ContactRepository);
 container.registerSingleton<ICrmEntityRepository>(
   TOKENS.CrmEntityRepository,
   CrmEntityRepository,
 );
 container.registerSingleton<ICrmService>(TOKENS.CrmService, CrmService);
+container.registerSingleton<IDocumentRepository>(
+  TOKENS.DocumentRepository,
+  DocumentRepository,
+);
+container.registerSingleton<IDocumentService>(TOKENS.DocumentService, DocumentService);
 container.registerSingleton<IGeocodingService>(TOKENS.GeocodingService, GeocodingService);
 container.registerSingleton<IInventoryCounterRepository>(
   TOKENS.InventoryCounterRepository,
@@ -44,6 +80,20 @@ container.registerSingleton<IInventoryRepository>(
   InventoryRepository,
 );
 container.registerSingleton<IInventoryService>(TOKENS.InventoryService, InventoryService);
+container.registerSingleton<IOperationCounterRepository>(
+  TOKENS.OperationCounterRepository,
+  OperationCounterRepository,
+);
+container.registerSingleton<IOperationRepository>(
+  TOKENS.OperationRepository,
+  OperationRepository,
+);
+container.registerSingleton<IOperationService>(TOKENS.OperationService, OperationService);
+container.registerSingleton<IPlanRepository>(TOKENS.PlanRepository, PlanRepository);
+container.registerSingleton<IPlanService>(TOKENS.PlanService, PlanService);
+container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);
+container.registerSingleton<IShareRepository>(TOKENS.ShareRepository, ShareRepository);
+container.registerSingleton<IShareService>(TOKENS.ShareService, ShareService);
 container.registerSingleton<IUploadService>(TOKENS.UploadService, UploadService);
 
 export { container };
