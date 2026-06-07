@@ -140,10 +140,6 @@ const OperationDetail = ({
                 {!operation.items.length ? <p className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No execution items.</p> : null}
               </div>
             </div>
-
-            <div className="rounded-md border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
-              Execution Report PDF will be generated in Prompt 10 after proof upload is complete.
-            </div>
           </div>
 
           <aside className="h-fit rounded-md border border-slate-200 bg-white p-4 lg:sticky lg:top-4">
