@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -42,6 +43,22 @@ const isCloudinaryConfigured = () =>
       process.env.CLOUDINARY_API_SECRET,
   );
 
+const getPuppeteerExecutablePath = () => {
+  const configuredPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (configuredPath && existsSync(configuredPath)) {
+    return configuredPath;
+  }
+
+  const candidates = [
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+  ];
+
+  return candidates.find((candidate) => existsSync(candidate));
+};
+
 const safeSegment = (value: string) =>
   value
     .trim()
@@ -81,7 +98,7 @@ export class PdfService {
 
   async generatePdfFromHtml(html: string) {
     const browser = await puppeteer.launch({
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      executablePath: getPuppeteerExecutablePath(),
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
