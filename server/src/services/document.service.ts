@@ -15,7 +15,6 @@ import type { TemplatePlanData } from '../templates/template.utils.js';
 import {
   buildDocumentFileName,
   documentStoragePath,
-  ensureDocumentStorage,
   PdfService,
 } from './pdf.service.js';
 import { HttpError } from '../utils/httpError.js';
@@ -23,7 +22,7 @@ import { HttpError } from '../utils/httpError.js';
 export interface IDocumentService {
   generate(planId: string, documentType: string, actorId: string): Promise<unknown>;
   listByPlan(planId: string): Promise<unknown[]>;
-  getDownload(id: string): Promise<{ fileName: string; filePath: string }>;
+  getDownload(id: string): Promise<{ fileName: string; filePath?: string; remoteUrl?: string }>;
 }
 
 const ref = (value: any) =>
@@ -136,10 +135,8 @@ export class DocumentService implements IDocumentService {
       planVersionLabel: data.planVersionLabel,
       documentType,
     });
-    await ensureDocumentStorage();
-    const filePath = path.join(documentStoragePath, fileName);
-
-    await this.pdf.generatePdfFromHtml(buildHtml(documentType, data), filePath);
+    const pdfBuffer = await this.pdf.generatePdfFromHtml(buildHtml(documentType, data));
+    const upload = await this.pdf.uploadPdf(pdfBuffer, fileName);
 
     try {
       const document = await this.documents.create({
@@ -148,7 +145,13 @@ export class DocumentService implements IDocumentService {
         documentType,
         versionNumber: plan.versionNumber,
         fileName,
-        filePath,
+        filePath: `cloudinary:${upload.publicId}`,
+        storageProvider: 'cloudinary',
+        storageKey: upload.publicId,
+        storageResourceType: upload.resourceType,
+        storageDeliveryType: upload.deliveryType,
+        storageFormat: upload.format,
+        storageBytes: upload.bytes,
         generatedBy: new Types.ObjectId(actorId),
         generatedAt,
         metadata: {
@@ -162,7 +165,7 @@ export class DocumentService implements IDocumentService {
       await this.documents.save(document);
       return mapDocument(await this.requireDocument(document._id.toString()));
     } catch (error) {
-      await fs.unlink(filePath).catch(() => undefined);
+      await this.pdf.deletePdf(upload.publicId, upload.deliveryType).catch(() => undefined);
       throw error;
     }
   }
@@ -174,6 +177,19 @@ export class DocumentService implements IDocumentService {
 
   async getDownload(id: string) {
     const document = await this.requireDocument(id);
+    if (document.storageProvider === 'cloudinary' || document.filePath.startsWith('cloudinary:')) {
+      const publicId = document.storageKey || document.filePath.replace(/^cloudinary:/, '');
+      if (!publicId) throw new HttpError(404, 'Document file not found');
+      return {
+        fileName: document.fileName,
+        remoteUrl: this.pdf.getDownloadUrl({
+          publicId,
+          format: document.storageFormat || 'pdf',
+          deliveryType: document.storageDeliveryType || 'authenticated',
+        }),
+      };
+    }
+
     const resolvedPath = path.resolve(document.filePath);
     const storageRoot = `${path.resolve(documentStoragePath)}${path.sep}`;
     if (!resolvedPath.startsWith(storageRoot)) {

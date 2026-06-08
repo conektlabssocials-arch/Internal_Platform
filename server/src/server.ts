@@ -3,14 +3,12 @@ import './config/env.js';
 
 import app from './app.js';
 import { connectDB } from './config/db.js';
-import { ensureDocumentStorage } from './services/pdf.service.js';
 
 const PORT = process.env.PORT || 5000;
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 const startServer = async () => {
   try {
-    await ensureDocumentStorage();
     await connectDB(mongoUri);
 
     app.listen(PORT, () => {

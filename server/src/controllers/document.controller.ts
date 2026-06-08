@@ -33,6 +33,19 @@ export class DocumentController {
 
   download = async (req: Request, res: Response) => {
     const file = await this.service.getDownload(req.params.documentId);
+    if (file.remoteUrl) {
+      const response = await fetch(file.remoteUrl);
+      if (!response.ok) {
+        throw new HttpError(502, 'Failed to download document from storage');
+      }
+
+      res.type('application/pdf');
+      res.attachment(file.fileName);
+      res.send(Buffer.from(await response.arrayBuffer()));
+      return;
+    }
+
+    if (!file.filePath) throw new HttpError(404, 'Document file not found');
     res.type('application/pdf');
     res.download(file.filePath, file.fileName);
   };
