@@ -5,9 +5,12 @@ import {
   generatePlanDocument,
   getPlanDocuments,
 } from '../../api/documentApi';
-import type { DocumentType, PlanDocument } from '../../types/document';
+import type {
+  PlanDocument,
+  PlanDocumentType,
+} from '../../types/document';
 
-const documentLabels: Record<DocumentType, string> = {
+const documentLabels: Record<PlanDocumentType, string> = {
   PlanProposal: 'Plan Proposal PDF',
   Quotation: 'Quotation PDF',
   InternalCostSheet: 'Internal Cost Sheet',
@@ -22,7 +25,7 @@ const DocumentPanel = ({
 }) => {
   const [documents, setDocuments] = useState<PlanDocument[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState<DocumentType | null>(null);
+  const [generating, setGenerating] = useState<PlanDocumentType | null>(null);
   const [error, setError] = useState('');
 
   const load = async () => {
@@ -41,7 +44,7 @@ const DocumentPanel = ({
     void load();
   }, [planId]);
 
-  const generate = async (documentType: DocumentType) => {
+  const generate = async (documentType: PlanDocumentType) => {
     setGenerating(documentType);
     setError('');
     try {
@@ -65,7 +68,7 @@ const DocumentPanel = ({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(Object.keys(documentLabels) as DocumentType[]).map((type) => (
+          {(Object.keys(documentLabels) as PlanDocumentType[]).map((type) => (
             <button
               key={type}
               type="button"

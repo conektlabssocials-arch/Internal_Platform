@@ -31,6 +31,21 @@ export class DocumentController {
     res.status(200).json({ data: await this.service.listByPlan(req.params.planId) });
   };
 
+  generateOperation = async (req: Request, res: Response) => {
+    const data = await this.service.generateOperation(
+      req.params.operationId,
+      req.body.documentType,
+      authUser(res.locals).userId,
+    );
+    res.status(201).json({ data });
+  };
+
+  listByOperation = async (req: Request, res: Response) => {
+    res.status(200).json({
+      data: await this.service.listByOperation(req.params.operationId),
+    });
+  };
+
   download = async (req: Request, res: Response) => {
     const file = await this.service.getDownload(req.params.documentId);
     if (file.remoteUrl) {

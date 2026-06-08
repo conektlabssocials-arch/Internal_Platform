@@ -137,6 +137,10 @@ test('creating an operation snapshots won Plan and populated inventory data', as
               area: 'Koramangala',
               startDate: new Date('2026-08-01'),
               endDate: new Date('2026-08-31'),
+              unitInternalCost: 350000,
+              totalInternalCost: 350000,
+              unitSellingPrice: 500000,
+              totalSellingPrice: 500000,
             },
           ],
         }) as never,
@@ -146,12 +150,22 @@ test('creating an operation snapshots won Plan and populated inventory data', as
   const result = (await operationService.createOperationFromWonPlan(
     planId.toString(),
     userId.toString(),
-  )) as { operationCode: string; items: Array<{ supplierName?: string; itemStatus: string }> };
+  )) as {
+    operationCode: string;
+    items: Array<{
+      supplierName?: string;
+      itemStatus: string;
+      totalInternalCost?: number;
+      totalSellingPrice?: number;
+    }>;
+  };
 
   assert.equal(result.operationCode, `OPS-${new Date().getFullYear()}-0007`);
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0].supplierName, 'Media Supplier');
   assert.equal(result.items[0].itemStatus, 'Creative Pending');
+  assert.equal(result.items[0].totalInternalCost, 350000);
+  assert.equal(result.items[0].totalSellingPrice, 500000);
 });
 
 test('members cannot cancel an operation', async () => {

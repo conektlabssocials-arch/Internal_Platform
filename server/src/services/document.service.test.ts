@@ -2,9 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildInternalCostSheetHtml } from '../templates/internalCostSheet.template.js';
+import { buildExecutionReportHtml } from '../templates/executionReport.template.js';
 import { buildPlanProposalHtml } from '../templates/planProposal.template.js';
+import { buildPurchaseOrderHtml } from '../templates/purchaseOrder.template.js';
 import { buildQuotationHtml } from '../templates/quotation.template.js';
-import type { TemplatePlanData } from '../templates/template.utils.js';
+import type {
+  TemplateOperationData,
+  TemplatePlanData,
+} from '../templates/template.utils.js';
+import { buildWorkOrderHtml } from '../templates/workOrder.template.js';
 import { buildDocumentFileName } from './pdf.service.js';
 
 const data: TemplatePlanData = {
@@ -49,6 +55,67 @@ const data: TemplatePlanData = {
   },
 };
 
+const operationData: TemplateOperationData = {
+  generatedAt: new Date('2026-06-08T00:00:00.000Z'),
+  operationCode: 'OPS-2026-0001',
+  campaignCode: 'CMP-2026-0002',
+  campaignTitle: 'Bangalore Outdoor Campaign',
+  clientName: 'Fresh Basket',
+  planVersionLabel: 'v1',
+  operationStatus: 'In Progress',
+  operationOwnerName: 'Ajmal',
+  notes: 'SECRET_OPERATION_NOTE',
+  poNumber: 'PO-2026-0001',
+  partial: true,
+  proofUploadedCount: 1,
+  mountedCount: 1,
+  totalItems: 2,
+  items: [
+    {
+      inventoryCode: 'OOH-BLR-001',
+      title: 'Junction Hoarding',
+      categoryGroup: 'Outdoor',
+      subCategory: 'Hoarding',
+      city: 'Bengaluru',
+      area: 'Koramangala',
+      location: { address: '80 Feet Road, Koramangala' },
+      campaignStartDate: new Date('2026-07-01T00:00:00.000Z'),
+      campaignEndDate: new Date('2026-07-31T00:00:00.000Z'),
+      supplierName: 'SECRET_SUPPLIER',
+      unitInternalCost: 350000,
+      totalInternalCost: 350000,
+      unitSellingPrice: 500000,
+      totalSellingPrice: 500000,
+      creative: { required: true, received: true },
+      purchaseOrder: { required: true, sent: true },
+      mounting: {
+        completed: true,
+        completedAt: new Date('2026-07-01T00:00:00.000Z'),
+        internalNotes: 'SECRET_INTERNAL_NOTE',
+      },
+      proof: {
+        uploaded: true,
+        photoUrls: ['https://example.com/proof.jpg'],
+        notes: 'Installed successfully',
+      },
+      takedown: { required: true, completed: false },
+      itemStatus: 'Proof Uploaded',
+    },
+    {
+      inventoryCode: 'BUS-BLR-001',
+      title: 'Bus Branding',
+      categoryGroup: 'Bus',
+      city: 'Bengaluru',
+      route: 'Silk Board to Marathahalli',
+      unitInternalCost: 0,
+      totalInternalCost: 0,
+      proof: { uploaded: false, photoUrls: [] },
+      mounting: { completed: false },
+      itemStatus: 'Pending',
+    },
+  ],
+};
+
 test('client PDF templates do not render internal cost, margin, or internal notes', () => {
   for (const html of [buildPlanProposalHtml(data), buildQuotationHtml(data)]) {
     assert.equal(html.includes('SECRET_INTERNAL_NOTE'), false);
@@ -84,4 +151,33 @@ test('plan proposal includes a client-safe Outdoor location fallback table', () 
   assert.match(html, /12\.9352/);
   assert.match(html, /Interactive map view is available/);
   assert.equal(html.includes('SECRET_INTERNAL_NOTE'), false);
+});
+
+test('work order renders internal execution details', () => {
+  const html = buildWorkOrderHtml(operationData);
+  assert.match(html, /Work Order/);
+  assert.match(html, /SECRET_OPERATION_NOTE/);
+  assert.match(html, /SECRET_INTERNAL_NOTE/);
+  assert.match(html, /SECRET_SUPPLIER/);
+});
+
+test('purchase order renders supplier cost without margin or selling price', () => {
+  const html = buildPurchaseOrderHtml(operationData);
+  assert.match(html, /PO-2026-0001/);
+  assert.match(html, /SECRET_SUPPLIER/);
+  assert.match(html, /₹3,50,000/);
+  assert.equal(html.includes('Margin'), false);
+  assert.equal(html.includes('₹5,00,000'), false);
+});
+
+test('execution report is client-safe and marks partial reports', () => {
+  const html = buildExecutionReportHtml(operationData);
+  assert.match(html, /Partial Execution Report/);
+  assert.match(html, /https:\/\/example.com\/proof.jpg/);
+  assert.equal(html.includes('SECRET_SUPPLIER'), false);
+  assert.equal(html.includes('SECRET_OPERATION_NOTE'), false);
+  assert.equal(html.includes('SECRET_INTERNAL_NOTE'), false);
+  assert.equal(html.includes('₹3,50,000'), false);
+  assert.equal(html.includes('₹5,00,000'), false);
+  assert.equal(html.includes('Margin'), false);
 });

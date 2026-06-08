@@ -10,6 +10,7 @@ const populateDocument = (query: any) =>
 
 export interface IDocumentRepository extends IBaseRepository<DocumentDocument> {
   findByPlan(planId: string): Promise<DocumentDocument[]>;
+  findByOperation(operationId: string): Promise<DocumentDocument[]>;
   findByIdPopulated(id: string): Promise<DocumentDocument | null>;
 }
 
@@ -25,6 +26,12 @@ export class DocumentRepository
   findByPlan(planId: string) {
     return populateDocument(
       this.model.find({ plan: planId }).sort({ generatedAt: -1 }),
+    ).exec() as Promise<DocumentDocument[]>;
+  }
+
+  findByOperation(operationId: string) {
+    return populateDocument(
+      this.model.find({ operation: operationId }).sort({ generatedAt: -1 }),
     ).exec() as Promise<DocumentDocument[]>;
   }
 

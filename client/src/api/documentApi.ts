@@ -1,9 +1,15 @@
 import { API_BASE_URL, apiRequest } from './apiClient';
-import type { DocumentType, PlanDocument } from '../types/document';
+import type {
+  DocumentRecord,
+  OperationDocument,
+  OperationDocumentType,
+  PlanDocument,
+  PlanDocumentType,
+} from '../types/document';
 
 export const generatePlanDocument = async (
   planId: string,
-  documentType: DocumentType,
+  documentType: PlanDocumentType,
 ) =>
   (
     await apiRequest<{ data: PlanDocument }>(`/documents/plans/${planId}/generate`, {
@@ -15,7 +21,30 @@ export const generatePlanDocument = async (
 export const getPlanDocuments = async (planId: string) =>
   (await apiRequest<{ data: PlanDocument[] }>(`/documents/plans/${planId}`)).data;
 
-export const downloadDocument = async (document: PlanDocument) => {
+export const generateOperationDocument = async (
+  operationId: string,
+  documentType: OperationDocumentType,
+) =>
+  (
+    await apiRequest<{ data: OperationDocument }>(
+      `/documents/operations/${operationId}/generate`,
+      {
+        method: 'POST',
+        body: { documentType },
+      },
+    )
+  ).data;
+
+export const getOperationDocuments = async (operationId: string) =>
+  (
+    await apiRequest<{ data: OperationDocument[] }>(
+      `/documents/operations/${operationId}`,
+    )
+  ).data;
+
+export const downloadDocument = async (
+  document: Pick<DocumentRecord, 'id' | 'fileName'>,
+) => {
   const response = await fetch(`${API_BASE_URL}/documents/${document.id}/download`, {
     credentials: 'include',
   });
