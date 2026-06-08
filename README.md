@@ -1,4 +1,4 @@
-# Conekt Ads Internal Platform
+# Conekt Ads Internal Platform.
 
 Starter monorepo for the Conekt Ads Internal Platform.
 
