@@ -25,6 +25,7 @@ import type { IPlanService } from '../services/plan.service.js';
 import type { IPlanCommandService } from '../services/planCommand.service.js';
 import type { IPlanAuthoringCommandService } from '../services/planAuthoringCommand.service.js';
 import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
+import type { IReportService } from '../services/report.service.js';
 import type { IShareService } from '../services/share.service.js';
 import type { IShareCommandService } from '../services/shareCommand.service.js';
 import type { McpActor } from './mcpAuth.js';
@@ -172,6 +173,22 @@ const campaignMutationInput = {
   notes: optionalPlanText,
   tags: optionalStringList,
 };
+const reportDate = z.preprocess(
+  emptyToUndefined,
+  z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+    .optional(),
+);
+const reportLocationFilters = {
+  from: reportDate.describe('Inclusive start date in YYYY-MM-DD format'),
+  to: reportDate.describe('Inclusive end date in YYYY-MM-DD format'),
+  city: optionalText,
+  categoryGroup: z.preprocess(
+    emptyToUndefined,
+    z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van']).optional(),
+  ),
+};
 
 const asQuery = (value: number | undefined) => value?.toString();
 const asBooleanQuery = (value: boolean | 'true' | 'false' | undefined) =>
@@ -229,7 +246,7 @@ export const createPhase1McpServer = (
 ) => {
   const server = new McpServer({
     name: 'conekt-ads-internal-platform',
-    version: '0.6.0',
+    version: '0.7.0',
   });
 
   const activity = container.resolve<IActivityService>(TOKENS.ActivityService);
@@ -241,6 +258,96 @@ export const createPhase1McpServer = (
   const operations = container.resolve<IOperationService>(TOKENS.OperationService);
   const plans = container.resolve<IPlanService>(TOKENS.PlanService);
   const shares = container.resolve<IShareService>(TOKENS.ShareService);
+
+  if (scopes.includes(MCP_SCOPES.ReportsRead)) {
+    const reports = container.resolve<IReportService>(TOKENS.ReportService);
+
+    server.registerTool(
+      'get_campaign_pipeline_report',
+      {
+        title: 'Get campaign pipeline report',
+        description:
+          'Returns read-only campaign stage counts, open/won/lost values, conversion rate, overdue follow-ups, sources, client types, and top open opportunities.',
+        inputSchema: {
+          from: reportDate,
+          to: reportDate,
+        },
+        annotations: readOnlyAnnotations,
+      },
+      (input) =>
+        runTool('get_campaign_pipeline_report', actor, () =>
+          reports.pipeline(input),
+        ),
+    );
+
+    server.registerTool(
+      'get_inventory_health_report',
+      {
+        title: 'Get inventory health report',
+        description:
+          'Returns read-only inventory availability, confirmation freshness, pricing coverage, category/city distribution, and records needing attention.',
+        inputSchema: reportLocationFilters,
+        annotations: readOnlyAnnotations,
+      },
+      (input) =>
+        runTool('get_inventory_health_report', actor, () =>
+          reports.inventoryHealth(input),
+        ),
+    );
+
+    server.registerTool(
+      'get_operations_delivery_report',
+      {
+        title: 'Get operations delivery report',
+        description:
+          'Returns read-only execution progress, creative and PO readiness, mounting/proof completion, overdue items, and operation status distribution.',
+        inputSchema: reportLocationFilters,
+        annotations: readOnlyAnnotations,
+      },
+      (input) =>
+        runTool('get_operations_delivery_report', actor, () =>
+          reports.operationsDelivery(input),
+        ),
+    );
+
+    server.registerTool(
+      'get_supplier_performance_report',
+      {
+        title: 'Get supplier performance report',
+        description:
+          'Returns read-only supplier item volume, mounting, proof, completion, and overdue performance. It does not expose internal prices or costs.',
+        inputSchema: {
+          from: reportDate,
+          to: reportDate,
+        },
+        annotations: readOnlyAnnotations,
+      },
+      (input) =>
+        runTool('get_supplier_performance_report', actor, () =>
+          reports.supplierPerformance(input),
+        ),
+    );
+
+    if (actor.role === 'admin') {
+      server.registerTool(
+        'get_profitability_report',
+        {
+          title: 'Get profitability report',
+          description:
+            'Admin-only read-only report of won-plan subtotal, tax, revenue, internal cost, margin, margin percentage, and top plans by margin.',
+          inputSchema: {
+            from: reportDate,
+            to: reportDate,
+          },
+          annotations: readOnlyAnnotations,
+        },
+        (input) =>
+          runTool('get_profitability_report', actor, () =>
+            reports.profitability(input),
+          ),
+      );
+    }
+  }
 
   if (scopes.includes(MCP_SCOPES.CampaignsWrite)) {
     const campaignCommands = container.resolve<ICampaignCommandService>(

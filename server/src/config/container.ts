@@ -66,6 +66,8 @@ import { UploadService } from '../services/upload.service.js';
 import type { IUploadService } from '../services/upload.service.js';
 import { ProofUploadCommandService } from '../services/proofUploadCommand.service.js';
 import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
+import { ReportService } from '../services/report.service.js';
+import type { IReportService } from '../services/report.service.js';
 import { TOKENS } from './tokens.js';
 import { UserService } from '../services/user.service.js';
 import type { IUserService } from '../services/user.service.js';
@@ -147,6 +149,7 @@ container.registerSingleton<IProofUploadCommandService>(
   TOKENS.ProofUploadCommandService,
   ProofUploadCommandService,
 );
+container.registerSingleton<IReportService>(TOKENS.ReportService, ReportService);
 container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);
 container.registerSingleton<IShareRepository>(TOKENS.ShareRepository, ShareRepository);
 container.registerSingleton<IShareService>(TOKENS.ShareService, ShareService);

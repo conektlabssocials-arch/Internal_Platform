@@ -1,4 +1,4 @@
-# MCP Connector: Phases 1-6
+# MCP Connector: Phases 1-7
 
 ## What MCP does
 
@@ -224,6 +224,31 @@ rejects non-Admin calls.
 Every Phase 6 update requires the latest `updatedAt` returned by its read tool.
 If another user changed the record first, the write returns a conflict.
 
+## Phase 7: Reporting and operational intelligence
+
+Phase 7 introduces the read-only `reports:read` scope.
+
+| Tool | Purpose |
+| --- | --- |
+| `get_campaign_pipeline_report` | Pipeline stages, values, conversion, follow-ups, and top opportunities |
+| `get_inventory_health_report` | Availability, freshness, pricing coverage, and attention queue |
+| `get_operations_delivery_report` | Delivery progress, overdue mounting, proof backlog, and completion rates |
+| `get_supplier_performance_report` | Supplier volume, mounting, proof, completion, and overdue rates |
+| `get_profitability_report` | Admin-only revenue, internal cost, tax, and margin analysis |
+
+Reports are computed from current platform records and do not create files or
+change data. Optional `from` and `to` filters are inclusive calendar dates in
+`YYYY-MM-DD` format. Inventory and operations reports can also filter by city
+and category group.
+
+The profitability report is hidden from members because it exposes internal
+cost and margin. Supplier performance deliberately excludes prices and costs,
+so members with `reports:read` can use it for execution analysis.
+
+Every report returns its applied filters, generation timestamp, totals, and
+bounded detail lists. Percentages return zero when there is no denominator
+rather than producing invalid numeric values.
+
 ## Temporary Phase 1 authentication
 
 Phase 1 uses one long random bearer token bound to one active platform user:
@@ -298,7 +323,7 @@ MCP_BASE_URL=https://internal-api.conektads.com
 GOOGLE_CLIENT_ID=your_web_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_web_oauth_client_secret
 GOOGLE_ALLOWED_DOMAIN=conektads.com
-MCP_SHARED_SCOPES=platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write crm:write inventory:write
+MCP_SHARED_SCOPES=platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write crm:write inventory:write reports:read
 MCP_MAX_UPLOAD_BYTES=6291456
 CLOUDINARY_DOCUMENT_FOLDER=documents
 CLOUDINARY_DOCUMENT_DELIVERY_TYPE=authenticated
@@ -333,7 +358,7 @@ The protected-resource document must identify:
 ```text
 resource: https://internal-api.conektads.com/mcp
 authorization server: https://internal-api.conektads.com/
-scopes: platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write crm:write inventory:write
+scopes: platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write crm:write inventory:write reports:read
 ```
 
 ### 4. Test with MCP Inspector
@@ -388,8 +413,9 @@ curl https://internal-api.conektads.com/.well-known/oauth-authorization-server
 
 The OAuth metadata must contain the configured scopes. Remove and re-add the
 Claude connector, sign in again, then ask Claude to list its Conekt Ads tools.
-A fully scoped Admin connection exposes 41 tools. A fully scoped member
-connection exposes 40 tools because inventory status changes are Admin-only.
+A fully scoped Admin connection exposes 46 tools. A fully scoped member
+connection exposes 44 tools because inventory status changes and profitability
+are Admin-only.
 
 Recommended smoke tests:
 

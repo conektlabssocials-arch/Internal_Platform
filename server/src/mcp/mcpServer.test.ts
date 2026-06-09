@@ -258,7 +258,7 @@ test('Phase 4 scopes expose document generation and proof upload tools', async (
 
   const tools = await client.listTools();
   const names = new Set(tools.tools.map((tool) => tool.name));
-  assert.equal(tools.tools.length, 41);
+  assert.equal(tools.tools.length, 46);
   assert.equal(names.has('list_plan_documents'), true);
   assert.equal(names.has('list_operation_documents'), true);
   assert.equal(names.has('generate_plan_document'), true);
@@ -278,6 +278,11 @@ test('Phase 4 scopes expose document generation and proof upload tools', async (
   assert.equal(names.has('update_crm_contact'), true);
   assert.equal(names.has('confirm_inventory'), true);
   assert.equal(names.has('change_inventory_status'), true);
+  assert.equal(names.has('get_campaign_pipeline_report'), true);
+  assert.equal(names.has('get_inventory_health_report'), true);
+  assert.equal(names.has('get_operations_delivery_report'), true);
+  assert.equal(names.has('get_supplier_performance_report'), true);
+  assert.equal(names.has('get_profitability_report'), true);
 
   await client.close();
   await server.close();
@@ -511,6 +516,41 @@ test('inventory confirmation requires confirmation and status tool is admin-only
   assert.equal(accepted.isError, undefined);
   assert.equal(received?.inventoryId, argumentsWithoutConfirmation.inventoryId);
   assert.deepEqual(received?.actor, member);
+
+  await client.close();
+  await server.close();
+});
+
+test('report scope exposes four member reports but hides profitability', async () => {
+  const server = createPhase1McpServer(
+    {
+      userId: '000000000000000000000002',
+      email: 'member@conektads.com',
+      name: 'Member',
+      role: 'member',
+    },
+    [MCP_SCOPES.PlatformRead, MCP_SCOPES.ReportsRead],
+  );
+  const client = new Client({
+    name: 'mcp-phase7-report-scope',
+    version: '1.0.0',
+  });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+
+  const tools = await client.listTools();
+  const names = new Set(tools.tools.map((tool) => tool.name));
+  assert.equal(names.has('get_campaign_pipeline_report'), true);
+  assert.equal(names.has('get_inventory_health_report'), true);
+  assert.equal(names.has('get_operations_delivery_report'), true);
+  assert.equal(names.has('get_supplier_performance_report'), true);
+  assert.equal(names.has('get_profitability_report'), false);
+  for (const tool of tools.tools.filter((item) => item.name.includes('report'))) {
+    assert.equal(tool.annotations?.readOnlyHint, true);
+    assert.equal(tool.annotations?.destructiveHint, false);
+  }
 
   await client.close();
   await server.close();

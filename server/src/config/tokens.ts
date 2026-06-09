@@ -27,6 +27,7 @@ export const TOKENS = {
   PlanRepository: Symbol('PlanRepository'),
   PlanService: Symbol('PlanService'),
   ProofUploadCommandService: Symbol('ProofUploadCommandService'),
+  ReportService: Symbol('ReportService'),
   PdfService: Symbol('PdfService'),
   ShareRepository: Symbol('ShareRepository'),
   ShareService: Symbol('ShareService'),
