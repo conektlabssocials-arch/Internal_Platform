@@ -1,4 +1,5 @@
 import type { Contact, CrmEntity } from '../../types/crm';
+import ActivityTimeline from '../activity/ActivityTimeline';
 
 type CrmEntityDetailProps = {
   entity: CrmEntity;
@@ -168,6 +169,10 @@ const CrmEntityDetail = ({
           <p className="p-5 text-sm text-slate-500">No contacts added yet.</p>
         )}
       </section>
+
+      <div className="mt-5">
+        <ActivityTimeline entityType="CRM" entityId={entity.id} />
+      </div>
     </div>
   </div>
 );

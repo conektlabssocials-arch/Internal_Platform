@@ -14,6 +14,7 @@ import type {
 import OperationDocumentPanel from './OperationDocumentPanel';
 import OperationItemTracker from './OperationItemTracker';
 import OperationStatusBadge from './OperationStatusBadge';
+import ActivityTimeline from '../activity/ActivityTimeline';
 
 const statuses: OperationStatus[] = [
   'Pending',
@@ -125,6 +126,7 @@ const OperationDetail = ({
             </div>
 
             <OperationDocumentPanel operation={operation} />
+            <ActivityTimeline entityType="Operation" entityId={operation.id} compact />
 
             <div>
               <div className="mb-3 flex items-center justify-between">

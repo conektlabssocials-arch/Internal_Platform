@@ -16,6 +16,7 @@ import {
 } from '../api/inventoryApi';
 import { getCrmEntityById, searchSuppliers } from '../api/crmApi';
 import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard';
+import ActivityTimeline from '../components/activity/ActivityTimeline';
 import LocationPicker from '../components/map/LocationPicker';
 import {
   INVENTORY_CATEGORIES,
@@ -1181,6 +1182,10 @@ const InventoryFormModal = ({
             <CheckboxField label="Canopy" checked={form.hasCanopy} onChange={(value) => onFormChange({ ...form, hasCanopy: value })} />
             <TextField label="Rate Per Day" value={form.ratePerDay} onChange={(value) => onFormChange({ ...form, ratePerDay: value })} />
           </FormSection>
+        ) : null}
+
+        {editingItem ? (
+          <ActivityTimeline entityType="Inventory" entityId={editingItem.id} compact />
         ) : null}
 
         <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">

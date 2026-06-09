@@ -2,6 +2,8 @@ import { inject, injectable } from 'tsyringe';
 import type { Request, Response } from 'express';
 
 import { TOKENS } from '../config/tokens.js';
+import { ACTIVITY_ACTIONS } from '../constants/activity.constants.js';
+import type { IActivityService } from '../services/activity.service.js';
 import type { IShareService } from '../services/share.service.js';
 import type { AuthTokenPayload } from '../types/auth.js';
 import { HttpError } from '../utils/httpError.js';
@@ -13,14 +15,27 @@ const authUser = (locals: { authUser?: AuthTokenPayload }) => {
 
 @injectable()
 export class ShareController {
-  constructor(@inject(TOKENS.ShareService) private readonly service: IShareService) {}
+  constructor(
+    @inject(TOKENS.ShareService) private readonly service: IShareService,
+    @inject(TOKENS.ActivityService) private readonly activity: IActivityService,
+  ) {}
 
   create = async (req: Request, res: Response) => {
+    const actor = authUser(res.locals);
     const share = await this.service.create(
       req.params.planId,
       req.body,
-      authUser(res.locals).userId,
-    );
+      actor.userId,
+    ) as any;
+    await this.activity.logEntityActivity({
+      actor, action: ACTIVITY_ACTIONS.SHARE_CREATED, entityType: 'Share',
+      entityId: share.id, entityTitle: share.metadata?.campaignCode,
+      parentEntityType: 'Plan', parentEntityId: share.plan,
+      parentEntityCode: share.metadata?.planVersionLabel,
+      message: `A share link was created for ${share.metadata?.campaignCode || 'a plan'}.`,
+      metadata: { shareChannel: share.channel, planVersionLabel: share.metadata?.planVersionLabel },
+      req,
+    });
     res.status(201).json({ share, shareUrl: (share as { shareUrl: string }).shareUrl });
   };
 
@@ -29,15 +44,40 @@ export class ShareController {
   };
 
   disable = async (req: Request, res: Response) => {
-    res.status(200).json({ data: await this.service.disable(req.params.shareId) });
+    const data = await this.service.disable(req.params.shareId) as any;
+    await this.activity.logEntityActivity({
+      actor: authUser(res.locals), action: ACTIVITY_ACTIONS.SHARE_DISABLED,
+      entityType: 'Share', entityId: data.id, entityTitle: data.metadata?.campaignCode,
+      parentEntityType: 'Plan', parentEntityId: data.plan,
+      message: `A share link for ${data.metadata?.campaignCode || 'a plan'} was disabled.`, req,
+    });
+    res.status(200).json({ data });
   };
 
   publicDetail = async (req: Request, res: Response) => {
-    res.status(200).json({ data: await this.service.getPublic(req.params.token) });
+    const data = await this.service.getPublic(req.params.token) as any;
+    await this.activity.logEntityActivity({
+      actor: null, actorName: 'Client viewer', action: ACTIVITY_ACTIONS.SHARE_VIEWED,
+      entityType: 'Share', entityTitle: data.campaign?.title,
+      message: `Client viewed shared plan for ${data.campaign?.title || 'a campaign'}.`, req,
+    });
+    res.status(200).json({ data });
   };
 
   trackPublic = async (req: Request, res: Response) => {
     await this.service.trackPublic(req.params.token, req.body);
+    const pinClicked = req.body.eventType === 'pin_clicked';
+    await this.activity.logEntityActivity({
+      actor: null, actorName: 'Client viewer',
+      action: pinClicked ? ACTIVITY_ACTIONS.SHARE_PIN_CLICKED : ACTIVITY_ACTIONS.SHARE_MAP_OPENED,
+      entityType: 'Share',
+      entityCode: pinClicked ? req.body.inventoryCode : undefined,
+      entityTitle: pinClicked ? req.body.title : undefined,
+      message: pinClicked
+        ? `Client clicked map pin ${req.body.inventoryCode || req.body.title || 'on the shared plan'}.`
+        : 'Client opened the shared plan map.',
+      req,
+    });
     res.status(200).json({ success: true });
   };
 }
