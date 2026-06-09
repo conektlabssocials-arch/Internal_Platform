@@ -8,6 +8,7 @@ import type { Request, Response } from 'express';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import mcpRoutes from './mcp/mcp.routes.js';
+import { createMcpOAuthRouter } from './mcp/mcpOAuth.js';
 import apiRoutes from './routes/index.js';
 
 const app = express();
@@ -28,6 +29,9 @@ app.get('/api/health', (_req: Request, res: Response) => {
   });
 });
 
+if (process.env.MCP_ENABLED === 'true' && process.env.MCP_AUTH_MODE === 'oauth') {
+  app.use(createMcpOAuthRouter());
+}
 app.use('/mcp', mcpRoutes);
 app.use('/api', apiRoutes);
 

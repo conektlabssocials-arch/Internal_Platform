@@ -5,6 +5,7 @@ import { container } from '../config/container.js';
 import { TOKENS } from '../config/tokens.js';
 import type { UserRole } from '../models/user.model.js';
 import type { IUserService } from '../services/user.service.js';
+import { requireMcpOAuthAccess } from './mcpOAuth.js';
 
 export type McpActor = {
   userId: string;
@@ -28,7 +29,7 @@ const unauthorized = (res: Parameters<RequestHandler>[1]) => {
   res.status(401).json({ error: 'Valid MCP bearer token required' });
 };
 
-export const requireMcpAccess: RequestHandler = async (req, res, next) => {
+const requireSharedTokenAccess: RequestHandler = async (req, res, next) => {
   try {
     if (process.env.MCP_ENABLED !== 'true') {
       res.status(404).json({ error: 'MCP server is disabled' });
@@ -69,4 +70,18 @@ export const requireMcpAccess: RequestHandler = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+export const requireMcpAccess: RequestHandler = (req, res, next) => {
+  if (process.env.MCP_ENABLED !== 'true') {
+    res.status(404).json({ error: 'MCP server is disabled' });
+    return;
+  }
+
+  if (process.env.MCP_AUTH_MODE === 'oauth') {
+    requireMcpOAuthAccess(req, res, next);
+    return;
+  }
+
+  requireSharedTokenAccess(req, res, next);
 };

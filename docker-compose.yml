@@ -19,6 +19,7 @@ services:
       MONGO_URI: mongodb://mongo:27017/conekt_ads_internal
       CLIENT_URL: http://localhost:5173
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-your_google_oauth_client_id}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_ALLOWED_DOMAIN: ${GOOGLE_ALLOWED_DOMAIN:-conektads.com}
       GEOCODING_PROVIDER: ${GEOCODING_PROVIDER:-nominatim}
       MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN:-}
@@ -31,6 +32,8 @@ services:
       COOKIE_NAME: ${COOKIE_NAME:-conekt_ads_token}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       MCP_ENABLED: ${MCP_ENABLED:-false}
+      MCP_AUTH_MODE: ${MCP_AUTH_MODE:-token}
+      MCP_BASE_URL: ${MCP_BASE_URL:-http://localhost:5000}
       MCP_ACCESS_TOKEN: ${MCP_ACCESS_TOKEN:-}
       MCP_ACTOR_EMAIL: ${MCP_ACTOR_EMAIL:-admin@conektads.com}
     depends_on:

@@ -84,22 +84,98 @@ tool calls return data without changing MongoDB records.
 
 ## Claude connector requirement
 
-Claude remote custom connectors accept a public HTTPS MCP URL. For a personal
-proof of concept, first validate the endpoint with MCP Inspector.
+Claude remote custom connectors accept a public HTTPS MCP URL. The server now
+supports an OAuth mode so each Claude user signs in with their own Google
+Workspace account and is mapped to an active platform user.
 
-Before adding it as a normal Claude organization connector, replace the shared
-Phase 1 token with OAuth so each Claude user signs in individually and platform
-roles can be enforced per person. The connector URL will then be:
+### 1. Configure Google OAuth
+
+In Google Cloud Console, use a Web application OAuth client and add this
+authorized redirect URI:
+
+```text
+https://internal-api.conektads.com/oauth/google/callback
+```
+
+The OAuth consent screen should be internal to the `conektads.com` Workspace
+organization. Keep the existing frontend JavaScript origins and redirect
+configuration if the same Google client is shared with the web application.
+
+### 2. Configure the production server
+
+Update `~/internal-platform/server/.env` on EC2. Preserve the existing MongoDB,
+Cloudinary, JWT, and other production values; add or update only:
+
+```env
+MCP_ENABLED=true
+MCP_AUTH_MODE=oauth
+MCP_BASE_URL=https://internal-api.conektads.com
+GOOGLE_CLIENT_ID=your_web_oauth_client_id
+GOOGLE_CLIENT_SECRET=your_web_oauth_client_secret
+GOOGLE_ALLOWED_DOMAIN=conektads.com
+```
+
+In OAuth mode, `MCP_ACCESS_TOKEN` and `MCP_ACTOR_EMAIL` are not used. Access
+tokens are short-lived, refresh tokens rotate, and only token hashes are stored
+in MongoDB.
+
+Copy the updated nginx example to the active nginx configuration. The dedicated
+`/mcp` location disables proxy buffering and allows longer MCP responses:
+
+```bash
+sudo cp deploy/nginx/internal-api.conektads.com.conf /etc/nginx/conf.d/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 3. Verify OAuth discovery
+
+These public metadata endpoints must return JSON:
+
+```text
+https://internal-api.conektads.com/.well-known/oauth-protected-resource/mcp
+https://internal-api.conektads.com/.well-known/oauth-authorization-server
+```
+
+The protected-resource document must identify:
+
+```text
+resource: https://internal-api.conektads.com/mcp
+authorization server: https://internal-api.conektads.com/
+scope: platform:read
+```
+
+### 4. Test with MCP Inspector
+
+Remove the manually entered bearer token and use Inspector's authentication
+settings:
+
+1. Enter `https://internal-api.conektads.com/mcp`.
+2. Open authentication settings.
+3. Run the quick OAuth flow.
+4. Sign in with an active `@conektads.com` platform user.
+5. Connect and list tools.
+
+### 5. Add the Claude connector
+
+In Claude, open `Customize > Connectors`, add a custom connector, and enter:
 
 ```text
 https://internal-api.conektads.com/mcp
 ```
 
+The server supports dynamic client registration, so OAuth client ID and secret
+advanced settings should normally be left empty. Claude discovers the OAuth
+endpoints and opens the Google Workspace sign-in flow.
+
+Claude reaches this URL from Anthropic's cloud. `localhost`, private EC2 ports,
+and internal-only DNS names will not work.
+
 ## Production checks
 
-1. Keep `MCP_ENABLED=false` until the token and actor email are configured.
+1. Keep `MCP_ENABLED=false` until Google OAuth and the public URL are configured.
 2. Use HTTPS only.
-3. Never put the token in the connector URL, source control, or logs.
+3. Never put client secrets or tokens in the connector URL, source control, or logs.
 4. Restrict nginx request size and add rate limiting for `/mcp`.
 5. Review tool logs for `mcp_tool_completed` and `mcp_tool_failed`.
-6. Move to per-user OAuth before enabling write tools or broad team access.
+6. Keep the connector scope at `platform:read` during Phase 1.
