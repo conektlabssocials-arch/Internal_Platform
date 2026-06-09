@@ -250,11 +250,14 @@ npm run build
 npm start
 ```
 
-## Claude MCP Phase 1
+## Claude MCP Connector
 
-The backend includes a disabled-by-default, read-only MCP endpoint at `/mcp`.
-It lets an MCP client inspect dashboards, CRM, inventory, campaigns, plans,
-operations, and activity without changing platform data.
+The backend includes a disabled-by-default MCP endpoint at `/mcp`. Phase 1
+provides read-only access to dashboards, CRM, inventory, campaigns, plans,
+operations, and activity. Phase 2 adds scoped, confirmed campaign follow-up and
+status updates. Phase 3 adds scoped, confirmed plan status and operation
+execution workflow updates. Phase 4 adds PDF listing and generation plus
+authenticated proof-image upload and attachment.
 
 Setup, security boundaries, tool details, and MCP Inspector instructions are in
 [`docs/MCP_PHASE_1.md`](docs/MCP_PHASE_1.md).

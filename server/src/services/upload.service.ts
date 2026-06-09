@@ -13,7 +13,13 @@ export type UploadedImage = {
 };
 
 export interface IUploadService {
-  uploadImage(file: { buffer: Buffer; mimetype: string }): Promise<UploadedImage>;
+  uploadImage(file: {
+    buffer: Buffer;
+    mimetype: string;
+    fileName?: string;
+    folder?: string;
+  }): Promise<UploadedImage>;
+  deleteImage(publicId: string): Promise<void>;
 }
 
 const isConfigured = () =>
@@ -44,7 +50,12 @@ export class UploadService implements IUploadService {
     this.configured = true;
   }
 
-  async uploadImage(file: { buffer: Buffer; mimetype: string }): Promise<UploadedImage> {
+  async uploadImage(file: {
+    buffer: Buffer;
+    mimetype: string;
+    fileName?: string;
+    folder?: string;
+  }): Promise<UploadedImage> {
     this.ensureConfigured();
 
     if (!file.mimetype.startsWith('image/')) {
@@ -52,12 +63,14 @@ export class UploadService implements IUploadService {
     }
 
     const dataUri = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-    const folder = process.env.CLOUDINARY_UPLOAD_FOLDER || 'inventory';
+    const folder =
+      file.folder || process.env.CLOUDINARY_UPLOAD_FOLDER || 'inventory';
 
     try {
       const result = await cloudinary.uploader.upload(dataUri, {
         folder,
         resource_type: 'image',
+        filename_override: file.fileName,
       });
 
       return {
@@ -72,5 +85,13 @@ export class UploadService implements IUploadService {
       const message = error instanceof Error ? error.message : 'Image upload failed';
       throw new HttpError(502, message);
     }
+  }
+
+  async deleteImage(publicId: string) {
+    this.ensureConfigured();
+    await cloudinary.uploader.destroy(publicId, {
+      resource_type: 'image',
+      invalidate: true,
+    });
   }
 }

@@ -11,6 +11,8 @@ import { CampaignRepository } from '../repositories/campaign.repository.js';
 import type { ICampaignRepository } from '../repositories/campaign.repository.js';
 import { CampaignService } from '../services/campaign.service.js';
 import type { ICampaignService } from '../services/campaign.service.js';
+import { CampaignCommandService } from '../services/campaignCommand.service.js';
+import type { ICampaignCommandService } from '../services/campaignCommand.service.js';
 import { ContactRepository } from '../repositories/contact.repository.js';
 import type { IContactRepository } from '../repositories/contact.repository.js';
 import { CrmEntityRepository } from '../repositories/crmEntity.repository.js';
@@ -23,6 +25,8 @@ import { DocumentRepository } from '../repositories/document.repository.js';
 import type { IDocumentRepository } from '../repositories/document.repository.js';
 import { DocumentService } from '../services/document.service.js';
 import type { IDocumentService } from '../services/document.service.js';
+import { DocumentCommandService } from '../services/documentCommand.service.js';
+import type { IDocumentCommandService } from '../services/documentCommand.service.js';
 import { GeocodingService } from '../services/geocoding.service.js';
 import type { IGeocodingService } from '../services/geocoding.service.js';
 import { InventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
@@ -37,10 +41,14 @@ import { OperationRepository } from '../repositories/operation.repository.js';
 import type { IOperationRepository } from '../repositories/operation.repository.js';
 import { OperationService } from '../services/operation.service.js';
 import type { IOperationService } from '../services/operation.service.js';
+import { OperationCommandService } from '../services/operationCommand.service.js';
+import type { IOperationCommandService } from '../services/operationCommand.service.js';
 import { PlanRepository } from '../repositories/plan.repository.js';
 import type { IPlanRepository } from '../repositories/plan.repository.js';
 import { PlanService } from '../services/plan.service.js';
 import type { IPlanService } from '../services/plan.service.js';
+import { PlanCommandService } from '../services/planCommand.service.js';
+import type { IPlanCommandService } from '../services/planCommand.service.js';
 import { PdfService } from '../services/pdf.service.js';
 import { ShareRepository } from '../repositories/share.repository.js';
 import type { IShareRepository } from '../repositories/share.repository.js';
@@ -48,6 +56,8 @@ import { ShareService } from '../services/share.service.js';
 import type { IShareService } from '../services/share.service.js';
 import { UploadService } from '../services/upload.service.js';
 import type { IUploadService } from '../services/upload.service.js';
+import { ProofUploadCommandService } from '../services/proofUploadCommand.service.js';
+import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
 import { TOKENS } from './tokens.js';
 import { UserService } from '../services/user.service.js';
 import type { IUserService } from '../services/user.service.js';
@@ -64,6 +74,10 @@ container.registerSingleton<ICampaignCounterRepository>(
 );
 container.registerSingleton<ICampaignRepository>(TOKENS.CampaignRepository, CampaignRepository);
 container.registerSingleton<ICampaignService>(TOKENS.CampaignService, CampaignService);
+container.registerSingleton<ICampaignCommandService>(
+  TOKENS.CampaignCommandService,
+  CampaignCommandService,
+);
 container.registerSingleton<IContactRepository>(TOKENS.ContactRepository, ContactRepository);
 container.registerSingleton<ICrmEntityRepository>(
   TOKENS.CrmEntityRepository,
@@ -76,6 +90,10 @@ container.registerSingleton<IDocumentRepository>(
   DocumentRepository,
 );
 container.registerSingleton<IDocumentService>(TOKENS.DocumentService, DocumentService);
+container.registerSingleton<IDocumentCommandService>(
+  TOKENS.DocumentCommandService,
+  DocumentCommandService,
+);
 container.registerSingleton<IGeocodingService>(TOKENS.GeocodingService, GeocodingService);
 container.registerSingleton<IInventoryCounterRepository>(
   TOKENS.InventoryCounterRepository,
@@ -95,8 +113,20 @@ container.registerSingleton<IOperationRepository>(
   OperationRepository,
 );
 container.registerSingleton<IOperationService>(TOKENS.OperationService, OperationService);
+container.registerSingleton<IOperationCommandService>(
+  TOKENS.OperationCommandService,
+  OperationCommandService,
+);
 container.registerSingleton<IPlanRepository>(TOKENS.PlanRepository, PlanRepository);
 container.registerSingleton<IPlanService>(TOKENS.PlanService, PlanService);
+container.registerSingleton<IPlanCommandService>(
+  TOKENS.PlanCommandService,
+  PlanCommandService,
+);
+container.registerSingleton<IProofUploadCommandService>(
+  TOKENS.ProofUploadCommandService,
+  ProofUploadCommandService,
+);
 container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);
 container.registerSingleton<IShareRepository>(TOKENS.ShareRepository, ShareRepository);
 container.registerSingleton<IShareService>(TOKENS.ShareService, ShareService);

@@ -1,4 +1,4 @@
-# MCP Phase 1: Read-only Claude access
+# MCP Connector: Phases 1-4
 
 ## What MCP does
 
@@ -15,7 +15,7 @@ POST https://internal-api.conektads.com/mcp
 It uses the Streamable HTTP MCP transport. The implementation is stateless, so
 each request is independent and the server does not keep Claude conversation data.
 
-## Why Phase 1 is read-only
+## Phase 1: Read-only access
 
 Claude can search and explain platform data, but it cannot create, update, delete,
 approve, or change anything. This lets the team validate usefulness, permissions,
@@ -39,6 +39,115 @@ Every Phase 1 tool is marked with MCP read-only and non-destructive annotations.
 | `search_operations` | Find execution work, pending proof, or overdue items |
 | `get_operation` | Read complete execution progress and item states |
 | `get_recent_activity` | Read the internal activity history |
+| `list_plan_documents` | List PDFs already generated for a plan |
+| `list_operation_documents` | List PDFs already generated for an operation |
+
+## Phase 2: Controlled campaign updates
+
+Phase 2 adds two tools when the OAuth token contains `campaigns:write`:
+
+| Tool | Purpose |
+| --- | --- |
+| `update_campaign_follow_up` | Schedule a campaign's next follow-up |
+| `change_campaign_status` | Change a campaign status with an optional reason |
+
+Both tools:
+
+1. Require Claude to read the campaign first.
+2. Require `confirm: true` after explicit user confirmation.
+3. Carry the last-read follow-up or status to prevent stale overwrites.
+4. Run through the same command service as the REST application.
+5. Attribute the change to the signed-in platform user.
+6. Write the standard campaign activity log.
+
+`change_campaign_status` requires a reason when the new status is `Lost`.
+The tools cannot create campaigns, edit campaign pricing or ownership, delete
+records, or modify plans and operations.
+
+## Phase 3: Plan and operation workflows
+
+Phase 3 introduces `plans:write` and `operations:write`.
+
+Plan tool:
+
+| Tool | Purpose |
+| --- | --- |
+| `change_plan_status` | Move a plan through its existing validated workflow |
+
+Operation tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `change_operation_status` | Change the overall operation status |
+| `update_operation_item_status` | Change one execution item's status and notes |
+| `update_operation_creative` | Record creative receipt and existing file URLs |
+| `update_operation_purchase_order` | Record PO state, number, and existing file URL |
+| `update_operation_mounting` | Schedule or complete mounting |
+| `update_operation_proof` | Record proof state and existing photo URLs |
+| `update_operation_takedown` | Schedule or complete takedown |
+
+The plan service continues to enforce transitions:
+
+```text
+Draft -> Shared or Lost
+Shared -> Negotiating, Won, or Lost
+Negotiating -> Won or Lost
+```
+
+Marking a plan `Won` creates its operation work order using the existing
+platform workflow. Operation cancellation still requires an Admin user.
+
+All Phase 3 tools require explicit confirmation. Operation item tools also
+require the `updatedAt` value returned by the most recent `get_operation` call.
+If another user changes the operation first, the tool returns a conflict and
+Claude must read it again.
+
+Phase 3 records existing file URLs but does not upload files.
+
+## Phase 4: Documents and proof uploads
+
+Phase 4 introduces `documents:write` and `uploads:write`.
+
+Document tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `generate_plan_document` | Generate a Plan Proposal, Quotation, or Internal Cost Sheet PDF |
+| `generate_operation_document` | Generate a Work Order, Purchase Order, or Execution Report PDF |
+
+Proof upload tool:
+
+| Tool | Purpose |
+| --- | --- |
+| `upload_operation_proof_image` | Upload one proof image to Cloudinary and attach it to an operation item |
+
+All three write tools require `confirm: true` after explicit user confirmation.
+Generation also requires the latest `updatedAt` value from `get_plan` or
+`get_operation`. This prevents Claude from generating a document from data that
+another user changed after Claude last read it.
+
+Document audiences are intentionally separated:
+
+| Document | Audience and contents |
+| --- | --- |
+| Plan Proposal | Client-safe campaign and inventory proposal |
+| Quotation | Client-safe pricing quotation |
+| Internal Cost Sheet | Internal costs and margins; Admin only |
+| Work Order | Internal execution instructions |
+| Purchase Order | Supplier-facing cost information |
+| Execution Report | Client-safe execution proof; requires at least one proof photo |
+
+Generated PDFs are stored as authenticated Cloudinary raw assets. The MCP result
+returns an application download URL rather than exposing the Cloudinary asset
+directly, so the normal platform authentication remains in the download path.
+
+Proof uploads accept JPEG, PNG, or WebP. The decoded file limit defaults to
+6 MB, the server checks the file signature against the declared MIME type, and
+the new URL is appended to existing proof photos. If attaching the URL fails,
+the uploaded Cloudinary asset is deleted to avoid orphaned files.
+
+`upload_operation_proof_image` requires both `uploads:write` and
+`operations:write`, because it uploads a file and updates an operation item.
 
 ## Temporary Phase 1 authentication
 
@@ -79,8 +188,9 @@ URL: http://localhost:5000/mcp
 Authorization: Bearer <MCP_ACCESS_TOKEN>
 ```
 
-Confirm that the tool list contains only the 12 tools documented above and that
-tool calls return data without changing MongoDB records.
+With only `platform:read`, confirm that the tool list contains the 14 read tools
+documented above and that tool calls return data without changing MongoDB
+records.
 
 ## Claude connector requirement
 
@@ -113,6 +223,10 @@ MCP_BASE_URL=https://internal-api.conektads.com
 GOOGLE_CLIENT_ID=your_web_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_web_oauth_client_secret
 GOOGLE_ALLOWED_DOMAIN=conektads.com
+MCP_SHARED_SCOPES=platform:read campaigns:write plans:write operations:write documents:write uploads:write
+MCP_MAX_UPLOAD_BYTES=6291456
+CLOUDINARY_DOCUMENT_FOLDER=documents
+CLOUDINARY_DOCUMENT_DELIVERY_TYPE=authenticated
 ```
 
 In OAuth mode, `MCP_ACCESS_TOKEN` and `MCP_ACTOR_EMAIL` are not used. Access
@@ -142,7 +256,7 @@ The protected-resource document must identify:
 ```text
 resource: https://internal-api.conektads.com/mcp
 authorization server: https://internal-api.conektads.com/
-scope: platform:read
+scopes: platform:read campaigns:write plans:write operations:write documents:write uploads:write
 ```
 
 ### 4. Test with MCP Inspector
@@ -168,6 +282,46 @@ The server supports dynamic client registration, so OAuth client ID and secret
 advanced settings should normally be left empty. Claude discovers the OAuth
 endpoints and opens the Google Workspace sign-in flow.
 
+After deploying a phase with new scopes, remove and add the Claude connector
+again. Existing OAuth clients or tokens may retain the scope list granted when
+they were created.
+
+## Deploy Phase 4
+
+Build and deploy the updated backend image using the existing pipeline, or run
+the production Compose commands manually on EC2:
+
+```bash
+cd ~/internal-platform
+docker compose -f docker-compose.prod.yml pull server
+docker compose -f docker-compose.prod.yml up -d server
+docker compose -f docker-compose.prod.yml logs --tail=100 server
+```
+
+No MongoDB migration or nginx route change is required. Keep nginx
+`client_max_body_size 10M`; base64 increases the HTTP request size above the
+decoded image size.
+
+Verify the deployment:
+
+```bash
+curl https://internal-api.conektads.com/api/health
+curl https://internal-api.conektads.com/.well-known/oauth-authorization-server
+```
+
+The OAuth metadata must contain both new scopes. Remove and re-add the Claude
+connector, sign in again, then ask Claude to list its Conekt Ads tools. A fully
+scoped Admin connection exposes 27 tools.
+
+Recommended smoke tests:
+
+1. List documents for an existing plan.
+2. Generate a Plan Proposal after confirming it.
+3. Confirm a member cannot generate an Internal Cost Sheet.
+4. Upload a small proof image to a known operation item.
+5. Generate an Execution Report after at least one proof photo exists.
+6. Confirm each write appears in Audit Logs.
+
 Claude reaches this URL from Anthropic's cloud. `localhost`, private EC2 ports,
 and internal-only DNS names will not work.
 
@@ -178,4 +332,4 @@ and internal-only DNS names will not work.
 3. Never put client secrets or tokens in the connector URL, source control, or logs.
 4. Restrict nginx request size and add rate limiting for `/mcp`.
 5. Review tool logs for `mcp_tool_completed` and `mcp_tool_failed`.
-6. Keep the connector scope at `platform:read` during Phase 1.
+6. Confirm Claude asks before each write and that the activity appears in Audit Logs.

@@ -36,6 +36,8 @@ services:
       MCP_BASE_URL: ${MCP_BASE_URL:-http://localhost:5000}
       MCP_ACCESS_TOKEN: ${MCP_ACCESS_TOKEN:-}
       MCP_ACTOR_EMAIL: ${MCP_ACTOR_EMAIL:-admin@conektads.com}
+      MCP_SHARED_SCOPES: ${MCP_SHARED_SCOPES:-platform:read campaigns:write plans:write operations:write documents:write uploads:write}
+      MCP_MAX_UPLOAD_BYTES: ${MCP_MAX_UPLOAD_BYTES:-6291456}
     depends_on:
       mongo:
         condition: service_healthy

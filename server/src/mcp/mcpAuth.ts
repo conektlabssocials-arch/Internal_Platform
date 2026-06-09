@@ -6,6 +6,7 @@ import { TOKENS } from '../config/tokens.js';
 import type { UserRole } from '../models/user.model.js';
 import type { IUserService } from '../services/user.service.js';
 import { requireMcpOAuthAccess } from './mcpOAuth.js';
+import { MCP_SCOPES, supportedMcpScopes } from './mcpScopes.js';
 
 export type McpActor = {
   userId: string;
@@ -65,6 +66,12 @@ const requireSharedTokenAccess: RequestHandler = async (req, res, next) => {
       name: user.name,
       role: user.role,
     } satisfies McpActor;
+    const configuredScopes = (process.env.MCP_SHARED_SCOPES || MCP_SCOPES.PlatformRead)
+      .split(/\s+/)
+      .filter((scope) => supportedMcpScopes.includes(scope as never));
+    res.locals.mcpScopes = configuredScopes.length
+      ? configuredScopes
+      : [MCP_SCOPES.PlatformRead];
 
     next();
   } catch (error) {
