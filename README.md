@@ -249,3 +249,12 @@ cd server
 npm run build
 npm start
 ```
+
+## Claude MCP Phase 1
+
+The backend includes a disabled-by-default, read-only MCP endpoint at `/mcp`.
+It lets an MCP client inspect dashboards, CRM, inventory, campaigns, plans,
+operations, and activity without changing platform data.
+
+Setup, security boundaries, tool details, and MCP Inspector instructions are in
+[`docs/MCP_PHASE_1.md`](docs/MCP_PHASE_1.md).
