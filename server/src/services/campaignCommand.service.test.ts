@@ -6,6 +6,7 @@ import test from 'node:test';
 import type { CampaignDto } from '../dto/campaign.dto.js';
 import type { IActivityService } from './activity.service.js';
 import type { ICampaignService } from './campaign.service.js';
+import type { ICrmService } from './crm.service.js';
 import { CampaignCommandService } from './campaignCommand.service.js';
 
 const actor = {
@@ -93,6 +94,7 @@ test('campaign status command rejects a stale expected status', async () => {
   const commands = new CampaignCommandService(
     campaigns,
     {} as IActivityService,
+    {} as ICrmService,
   );
 
   await assert.rejects(
@@ -150,4 +152,45 @@ test('campaign status command updates and audits a confirmed status change', asy
     statusTo: 'Won',
     reason: 'Client approved the plan',
   });
+});
+
+test('campaign creation rejects a stale CRM client', async () => {
+  let created = false;
+  const campaigns = {
+    createCampaign: async () => {
+      created = true;
+      return campaign();
+    },
+  } as unknown as ICampaignService;
+  const commands = new CampaignCommandService(
+    campaigns,
+    {} as IActivityService,
+    {
+      getEntityById: async () => ({
+        id: '000000000000000000000020',
+        entityType: 'Brand',
+        name: 'Client',
+        status: 'active',
+        tags: [],
+        files: [],
+        updatedAt: new Date('2026-06-10T09:00:00.000Z'),
+      }),
+    } as ICrmService,
+  );
+
+  await assert.rejects(
+    () =>
+      commands.createCampaign(
+        {
+          client: '000000000000000000000020',
+          expectedClientUpdatedAt: '2026-06-09T09:00:00.000Z',
+          title: 'Campaign',
+          source: 'Call',
+          brief: 'Brief',
+        },
+        actor,
+      ),
+    /CRM client changed since it was read/,
+  );
+  assert.equal(created, false);
 });

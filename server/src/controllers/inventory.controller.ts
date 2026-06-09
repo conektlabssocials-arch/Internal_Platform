@@ -5,6 +5,7 @@ import { TOKENS } from '../config/tokens.js';
 import type { InventoryFiltersDto } from '../dto/inventory.dto.js';
 import type { InventoryStatus } from '../models/inventory.model.js';
 import type { IInventoryService } from '../services/inventory.service.js';
+import type { IInventoryCommandService } from '../services/inventoryCommand.service.js';
 import type { IActivityService } from '../services/activity.service.js';
 import { ACTIVITY_ACTIONS } from '../constants/activity.constants.js';
 import type { AuthTokenPayload } from '../types/auth.js';
@@ -23,6 +24,8 @@ export class InventoryController {
   constructor(
     @inject(TOKENS.InventoryService)
     private readonly inventoryService: IInventoryService,
+    @inject(TOKENS.InventoryCommandService)
+    private readonly commands: IInventoryCommandService,
     @inject(TOKENS.ActivityService)
     private readonly activity: IActivityService,
   ) {}
@@ -101,51 +104,42 @@ export class InventoryController {
 
   deactivateInventory = async (req: Request, res: Response) => {
     const authUser = getAuthUser(res.locals);
-    const item = await this.inventoryService.setInventoryStatus(
+    const before = await this.inventoryService.getInventoryById(req.params.id);
+    const item = await this.commands.changeStatus(
       req.params.id,
+      before.status,
+      undefined,
       'inactive' as InventoryStatus,
-      authUser.userId,
+      authUser,
+      req,
     );
-    await this.activity.logEntityActivity({
-      actor: authUser, action: ACTIVITY_ACTIONS.INVENTORY_DEACTIVATED, entityType: 'Inventory',
-      entityId: item.id, entityCode: item.inventoryCode, entityTitle: item.title,
-      message: `${item.inventoryCode} inventory was deactivated.`, metadata: { statusTo: 'inactive' }, req,
-    });
 
     res.status(200).json({ data: item });
   };
 
   activateInventory = async (req: Request, res: Response) => {
     const authUser = getAuthUser(res.locals);
-    const item = await this.inventoryService.setInventoryStatus(
+    const before = await this.inventoryService.getInventoryById(req.params.id);
+    const item = await this.commands.changeStatus(
       req.params.id,
+      before.status,
+      undefined,
       'active' as InventoryStatus,
-      authUser.userId,
+      authUser,
+      req,
     );
-    await this.activity.logEntityActivity({
-      actor: authUser, action: ACTIVITY_ACTIONS.INVENTORY_ACTIVATED, entityType: 'Inventory',
-      entityId: item.id, entityCode: item.inventoryCode, entityTitle: item.title,
-      message: `${item.inventoryCode} inventory was activated.`, metadata: { statusTo: 'active' }, req,
-    });
 
     res.status(200).json({ data: item });
   };
 
   confirmInventory = async (req: Request, res: Response) => {
     const authUser = getAuthUser(res.locals);
-    const item = await this.inventoryService.confirmInventory(req.params.id, {
+    const item = await this.commands.confirm(req.params.id, {
       confirmationNote: req.body.confirmationNote,
       availabilityStatus: req.body.availabilityStatus,
       internalCost: req.body.internalCost,
       sellingPrice: req.body.sellingPrice,
-      confirmedBy: authUser.userId,
-    });
-    await this.activity.logEntityActivity({
-      actor: authUser, action: ACTIVITY_ACTIONS.INVENTORY_CONFIRMED, entityType: 'Inventory',
-      entityId: item.id, entityCode: item.inventoryCode, entityTitle: item.title,
-      message: `${item.inventoryCode} inventory was confirmed.`,
-      metadata: { availabilityStatus: item.availabilityStatus, confirmationStatus: item.confirmationStatus }, req,
-    });
+    }, authUser, req);
 
     res.status(200).json({ data: item });
   };

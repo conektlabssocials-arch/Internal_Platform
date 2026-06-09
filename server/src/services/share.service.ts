@@ -22,6 +22,7 @@ export type CreateShareInput = {
 export interface IShareService {
   create(planId: string, input: CreateShareInput, actorId: string): Promise<unknown>;
   listByPlan(planId: string): Promise<unknown[]>;
+  getById(id: string): Promise<unknown>;
   disable(id: string): Promise<unknown>;
   getPublic(token: string): Promise<unknown>;
   trackPublic(token: string, input: TrackShareInput): Promise<void>;
@@ -173,6 +174,10 @@ export class ShareService implements IShareService {
   async listByPlan(planId: string) {
     this.validateId(planId, 'planId');
     return (await this.shares.findByPlan(planId)).map(mapShare);
+  }
+
+  async getById(id: string) {
+    return mapShare(await this.requireShare(id));
   }
 
   async disable(id: string) {

@@ -55,10 +55,24 @@ export type CampaignDto = {
 };
 
 export type CampaignMutationDto = Partial<
-  Omit<CampaignDto, 'id' | 'campaignCode' | 'client' | 'ownerUser' | 'createdAt' | 'updatedAt'>
+  Omit<
+    CampaignDto,
+    | 'id'
+    | 'campaignCode'
+    | 'client'
+    | 'ownerUser'
+    | 'startDate'
+    | 'endDate'
+    | 'nextFollowUpAt'
+    | 'createdAt'
+    | 'updatedAt'
+  >
 > & {
   client?: string;
   ownerUser?: string;
+  startDate?: Date | string;
+  endDate?: Date | string;
+  nextFollowUpAt?: Date | string;
   createdBy?: string;
   updatedBy?: string;
 };

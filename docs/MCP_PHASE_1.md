@@ -1,4 +1,4 @@
-# MCP Connector: Phases 1-4
+# MCP Connector: Phases 1-7
 
 ## What MCP does
 
@@ -149,6 +149,106 @@ the uploaded Cloudinary asset is deleted to avoid orphaned files.
 `upload_operation_proof_image` requires both `uploads:write` and
 `operations:write`, because it uploads a file and updates an operation item.
 
+## Phase 5: Plan authoring and client sharing
+
+Phase 5 expands `plans:write` and introduces `shares:write`.
+
+Plan authoring tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `create_draft_plan` | Create a priced Draft plan from confirmed inventory |
+| `update_draft_plan` | Update an unlocked Draft plan and recalculate pricing |
+| `clone_plan_to_draft` | Copy an existing plan into the next Draft version |
+
+Share tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `list_plan_share_links` | List recipients, URLs, statuses, expiry, and views |
+| `create_plan_share_link` | Create a client-facing share URL |
+| `disable_plan_share_link` | Disable an active share URL |
+
+Claude must read the campaign, plan, and inventory before authoring. Inventory
+still has to be active, commercially available, and freshly confirmed. Pricing
+is calculated by the platform from quantity, dates, selling price, internal
+cost, and tax; Claude does not calculate or persist totals directly.
+
+`update_draft_plan` replaces the inventory list when `items` is supplied. Claude
+must therefore send the complete desired final list, not only newly added
+locations.
+
+Creating a share from a Draft has important side effects:
+
+1. The plan moves to `Shared`.
+2. The plan becomes locked.
+3. The campaign moves to `Plan Shared`.
+4. A client-safe public URL is created.
+
+Claude must explain these effects and the recipient/channel/expiry before asking
+for confirmation. Client share output excludes internal costs, margins, and
+internal notes.
+
+## Phase 6: CRM, campaigns, and inventory maintenance
+
+Phase 6 introduces `crm:write` and `inventory:write`, and expands
+`campaigns:write`.
+
+| Tool | Purpose |
+| --- | --- |
+| `create_crm_entity` | Create a Brand, Agency, Individual, or Supplier/Owner |
+| `update_crm_entity` | Update CRM identity, contact, address, tax, tags, or notes |
+| `create_crm_contact` | Add a contact and optionally make it primary |
+| `update_crm_contact` | Update a contact, status, or primary designation |
+| `create_campaign` | Create a New campaign for an existing CRM client |
+| `update_campaign_details` | Update campaign brief, budget, dates, geography, owner, or follow-up |
+| `confirm_inventory` | Refresh confirmation and update availability or prices |
+| `change_inventory_status` | Admin-only inventory activation or deactivation |
+
+Claude must search CRM before creating records. The platform rejects duplicate
+CRM email, GST, and PAN identifiers. Marking a contact primary automatically
+unsets the previous primary contact.
+
+Campaign creation requires an existing Brand, Agency, or Individual CRM client;
+Supplier/Owner records cannot be campaign clients. Ownership defaults to the
+signed-in platform user unless an active owner user ID is supplied.
+
+Inventory confirmation records the signed-in user and refreshes the 30-day
+confirmation window. Claude must state the previous and proposed availability,
+internal cost, and selling price before requesting confirmation.
+
+Inventory activation and deactivation require both `inventory:write` and an
+Admin role. The tool is hidden from members, and the command service also
+rejects non-Admin calls.
+
+Every Phase 6 update requires the latest `updatedAt` returned by its read tool.
+If another user changed the record first, the write returns a conflict.
+
+## Phase 7: Reporting and operational intelligence
+
+Phase 7 introduces the read-only `reports:read` scope.
+
+| Tool | Purpose |
+| --- | --- |
+| `get_campaign_pipeline_report` | Pipeline stages, values, conversion, follow-ups, and top opportunities |
+| `get_inventory_health_report` | Availability, freshness, pricing coverage, and attention queue |
+| `get_operations_delivery_report` | Delivery progress, overdue mounting, proof backlog, and completion rates |
+| `get_supplier_performance_report` | Supplier volume, mounting, proof, completion, and overdue rates |
+| `get_profitability_report` | Admin-only revenue, internal cost, tax, and margin analysis |
+
+Reports are computed from current platform records and do not create files or
+change data. Optional `from` and `to` filters are inclusive calendar dates in
+`YYYY-MM-DD` format. Inventory and operations reports can also filter by city
+and category group.
+
+The profitability report is hidden from members because it exposes internal
+cost and margin. Supplier performance deliberately excludes prices and costs,
+so members with `reports:read` can use it for execution analysis.
+
+Every report returns its applied filters, generation timestamp, totals, and
+bounded detail lists. Percentages return zero when there is no denominator
+rather than producing invalid numeric values.
+
 ## Temporary Phase 1 authentication
 
 Phase 1 uses one long random bearer token bound to one active platform user:
@@ -188,7 +288,7 @@ URL: http://localhost:5000/mcp
 Authorization: Bearer <MCP_ACCESS_TOKEN>
 ```
 
-With only `platform:read`, confirm that the tool list contains the 14 read tools
+With only `platform:read`, confirm that the tool list contains the 15 read tools
 documented above and that tool calls return data without changing MongoDB
 records.
 
@@ -223,7 +323,7 @@ MCP_BASE_URL=https://internal-api.conektads.com
 GOOGLE_CLIENT_ID=your_web_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_web_oauth_client_secret
 GOOGLE_ALLOWED_DOMAIN=conektads.com
-MCP_SHARED_SCOPES=platform:read campaigns:write plans:write operations:write documents:write uploads:write
+MCP_SHARED_SCOPES=platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write crm:write inventory:write reports:read
 MCP_MAX_UPLOAD_BYTES=6291456
 CLOUDINARY_DOCUMENT_FOLDER=documents
 CLOUDINARY_DOCUMENT_DELIVERY_TYPE=authenticated
@@ -258,7 +358,7 @@ The protected-resource document must identify:
 ```text
 resource: https://internal-api.conektads.com/mcp
 authorization server: https://internal-api.conektads.com/
-scopes: platform:read campaigns:write plans:write operations:write documents:write uploads:write
+scopes: platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write crm:write inventory:write reports:read
 ```
 
 ### 4. Test with MCP Inspector
@@ -288,7 +388,7 @@ After deploying a phase with new scopes, remove and add the Claude connector
 again. Existing OAuth clients or tokens may retain the scope list granted when
 they were created.
 
-## Deploy Phase 4
+## Deploy Phases 4-6
 
 Build and deploy the updated backend image using the existing pipeline, or run
 the production Compose commands manually on EC2:
@@ -311,9 +411,11 @@ curl https://internal-api.conektads.com/api/health
 curl https://internal-api.conektads.com/.well-known/oauth-authorization-server
 ```
 
-The OAuth metadata must contain both new scopes. Remove and re-add the Claude
-connector, sign in again, then ask Claude to list its Conekt Ads tools. A fully
-scoped Admin connection exposes 27 tools.
+The OAuth metadata must contain the configured scopes. Remove and re-add the
+Claude connector, sign in again, then ask Claude to list its Conekt Ads tools.
+A fully scoped Admin connection exposes 46 tools. A fully scoped member
+connection exposes 44 tools because inventory status changes and profitability
+are Admin-only.
 
 Recommended smoke tests:
 

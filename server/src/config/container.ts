@@ -19,6 +19,8 @@ import { CrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import { CrmService } from '../services/crm.service.js';
 import type { ICrmService } from '../services/crm.service.js';
+import { CrmCommandService } from '../services/crmCommand.service.js';
+import type { ICrmCommandService } from '../services/crmCommand.service.js';
 import { DashboardService } from '../services/dashboard.service.js';
 import type { IDashboardService } from '../services/dashboard.service.js';
 import { DocumentRepository } from '../repositories/document.repository.js';
@@ -35,6 +37,8 @@ import { InventoryRepository } from '../repositories/inventory.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import { InventoryService } from '../services/inventory.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
+import { InventoryCommandService } from '../services/inventoryCommand.service.js';
+import type { IInventoryCommandService } from '../services/inventoryCommand.service.js';
 import { OperationCounterRepository } from '../repositories/operationCounter.repository.js';
 import type { IOperationCounterRepository } from '../repositories/operationCounter.repository.js';
 import { OperationRepository } from '../repositories/operation.repository.js';
@@ -49,15 +53,21 @@ import { PlanService } from '../services/plan.service.js';
 import type { IPlanService } from '../services/plan.service.js';
 import { PlanCommandService } from '../services/planCommand.service.js';
 import type { IPlanCommandService } from '../services/planCommand.service.js';
+import { PlanAuthoringCommandService } from '../services/planAuthoringCommand.service.js';
+import type { IPlanAuthoringCommandService } from '../services/planAuthoringCommand.service.js';
 import { PdfService } from '../services/pdf.service.js';
 import { ShareRepository } from '../repositories/share.repository.js';
 import type { IShareRepository } from '../repositories/share.repository.js';
 import { ShareService } from '../services/share.service.js';
 import type { IShareService } from '../services/share.service.js';
+import { ShareCommandService } from '../services/shareCommand.service.js';
+import type { IShareCommandService } from '../services/shareCommand.service.js';
 import { UploadService } from '../services/upload.service.js';
 import type { IUploadService } from '../services/upload.service.js';
 import { ProofUploadCommandService } from '../services/proofUploadCommand.service.js';
 import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
+import { ReportService } from '../services/report.service.js';
+import type { IReportService } from '../services/report.service.js';
 import { TOKENS } from './tokens.js';
 import { UserService } from '../services/user.service.js';
 import type { IUserService } from '../services/user.service.js';
@@ -84,6 +94,10 @@ container.registerSingleton<ICrmEntityRepository>(
   CrmEntityRepository,
 );
 container.registerSingleton<ICrmService>(TOKENS.CrmService, CrmService);
+container.registerSingleton<ICrmCommandService>(
+  TOKENS.CrmCommandService,
+  CrmCommandService,
+);
 container.registerSingleton<IDashboardService>(TOKENS.DashboardService, DashboardService);
 container.registerSingleton<IDocumentRepository>(
   TOKENS.DocumentRepository,
@@ -104,6 +118,10 @@ container.registerSingleton<IInventoryRepository>(
   InventoryRepository,
 );
 container.registerSingleton<IInventoryService>(TOKENS.InventoryService, InventoryService);
+container.registerSingleton<IInventoryCommandService>(
+  TOKENS.InventoryCommandService,
+  InventoryCommandService,
+);
 container.registerSingleton<IOperationCounterRepository>(
   TOKENS.OperationCounterRepository,
   OperationCounterRepository,
@@ -123,13 +141,22 @@ container.registerSingleton<IPlanCommandService>(
   TOKENS.PlanCommandService,
   PlanCommandService,
 );
+container.registerSingleton<IPlanAuthoringCommandService>(
+  TOKENS.PlanAuthoringCommandService,
+  PlanAuthoringCommandService,
+);
 container.registerSingleton<IProofUploadCommandService>(
   TOKENS.ProofUploadCommandService,
   ProofUploadCommandService,
 );
+container.registerSingleton<IReportService>(TOKENS.ReportService, ReportService);
 container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);
 container.registerSingleton<IShareRepository>(TOKENS.ShareRepository, ShareRepository);
 container.registerSingleton<IShareService>(TOKENS.ShareService, ShareService);
+container.registerSingleton<IShareCommandService>(
+  TOKENS.ShareCommandService,
+  ShareCommandService,
+);
 container.registerSingleton<IUploadService>(TOKENS.UploadService, UploadService);
 
 export { container };
