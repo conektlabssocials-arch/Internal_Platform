@@ -2,9 +2,10 @@ import { inject, injectable } from 'tsyringe';
 import type { Request, Response } from 'express';
 
 import { TOKENS } from '../config/tokens.js';
+import type { IShareService } from '../services/share.service.js';
+import type { IShareCommandService } from '../services/shareCommand.service.js';
 import { ACTIVITY_ACTIONS } from '../constants/activity.constants.js';
 import type { IActivityService } from '../services/activity.service.js';
-import type { IShareService } from '../services/share.service.js';
 import type { AuthTokenPayload } from '../types/auth.js';
 import { HttpError } from '../utils/httpError.js';
 
@@ -17,25 +18,19 @@ const authUser = (locals: { authUser?: AuthTokenPayload }) => {
 export class ShareController {
   constructor(
     @inject(TOKENS.ShareService) private readonly service: IShareService,
+    @inject(TOKENS.ShareCommandService)
+    private readonly commands: IShareCommandService,
     @inject(TOKENS.ActivityService) private readonly activity: IActivityService,
   ) {}
 
   create = async (req: Request, res: Response) => {
     const actor = authUser(res.locals);
-    const share = await this.service.create(
+    const share = await this.commands.create(
       req.params.planId,
       req.body,
-      actor.userId,
-    ) as any;
-    await this.activity.logEntityActivity({
-      actor, action: ACTIVITY_ACTIONS.SHARE_CREATED, entityType: 'Share',
-      entityId: share.id, entityTitle: share.metadata?.campaignCode,
-      parentEntityType: 'Plan', parentEntityId: share.plan,
-      parentEntityCode: share.metadata?.planVersionLabel,
-      message: `A share link was created for ${share.metadata?.campaignCode || 'a plan'}.`,
-      metadata: { shareChannel: share.channel, planVersionLabel: share.metadata?.planVersionLabel },
+      actor,
       req,
-    });
+    );
     res.status(201).json({ share, shareUrl: (share as { shareUrl: string }).shareUrl });
   };
 
@@ -44,13 +39,11 @@ export class ShareController {
   };
 
   disable = async (req: Request, res: Response) => {
-    const data = await this.service.disable(req.params.shareId) as any;
-    await this.activity.logEntityActivity({
-      actor: authUser(res.locals), action: ACTIVITY_ACTIONS.SHARE_DISABLED,
-      entityType: 'Share', entityId: data.id, entityTitle: data.metadata?.campaignCode,
-      parentEntityType: 'Plan', parentEntityId: data.plan,
-      message: `A share link for ${data.metadata?.campaignCode || 'a plan'} was disabled.`, req,
-    });
+    const data = await this.commands.disable(
+      req.params.shareId,
+      authUser(res.locals),
+      req,
+    );
     res.status(200).json({ data });
   };
 

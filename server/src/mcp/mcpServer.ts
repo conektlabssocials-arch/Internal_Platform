@@ -21,7 +21,10 @@ import type {
 import type { IOperationCommandService } from '../services/operationCommand.service.js';
 import type { IPlanService } from '../services/plan.service.js';
 import type { IPlanCommandService } from '../services/planCommand.service.js';
+import type { IPlanAuthoringCommandService } from '../services/planAuthoringCommand.service.js';
 import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
+import type { IShareService } from '../services/share.service.js';
+import type { IShareCommandService } from '../services/shareCommand.service.js';
 import type { McpActor } from './mcpAuth.js';
 import { MCP_SCOPES } from './mcpScopes.js';
 
@@ -79,6 +82,27 @@ const optionalAvailabilityStatus = z.preprocess(
   },
   z.enum(['available', 'booked', 'hold', 'unknown']).optional(),
 );
+const optionalIsoDateTime = z.preprocess(
+  emptyToUndefined,
+  z.string().datetime({ offset: true }).optional(),
+);
+const optionalMoney = z.preprocess(
+  emptyToUndefined,
+  z.coerce.number().min(0).optional(),
+);
+const optionalPlanText = z.preprocess(
+  emptyToUndefined,
+  z.string().trim().min(1).max(2000).optional(),
+);
+const planItemInput = z.object({
+  inventory: z.string().min(1).describe('Inventory MongoDB ID'),
+  startDate: optionalIsoDateTime,
+  endDate: optionalIsoDateTime,
+  quantity: z.coerce.number().int().min(1).max(1000).default(1),
+  unitSellingPrice: z.coerce.number().min(0),
+  unitInternalCost: z.coerce.number().min(0),
+  notes: optionalPlanText,
+});
 
 const asQuery = (value: number | undefined) => value?.toString();
 const asBooleanQuery = (value: boolean | 'true' | 'false' | undefined) =>
@@ -136,7 +160,7 @@ export const createPhase1McpServer = (
 ) => {
   const server = new McpServer({
     name: 'conekt-ads-internal-platform',
-    version: '0.4.0',
+    version: '0.5.0',
   });
 
   const activity = container.resolve<IActivityService>(TOKENS.ActivityService);
@@ -147,6 +171,7 @@ export const createPhase1McpServer = (
   const inventory = container.resolve<IInventoryService>(TOKENS.InventoryService);
   const operations = container.resolve<IOperationService>(TOKENS.OperationService);
   const plans = container.resolve<IPlanService>(TOKENS.PlanService);
+  const shares = container.resolve<IShareService>(TOKENS.ShareService);
 
   if (scopes.includes(MCP_SCOPES.CampaignsWrite)) {
     const campaignCommands = container.resolve<ICampaignCommandService>(
@@ -247,6 +272,129 @@ export const createPhase1McpServer = (
     const planCommands = container.resolve<IPlanCommandService>(
       TOKENS.PlanCommandService,
     );
+    const planAuthoring = container.resolve<IPlanAuthoringCommandService>(
+      TOKENS.PlanAuthoringCommandService,
+    );
+
+    server.registerTool(
+      'create_draft_plan',
+      {
+        title: 'Create draft plan',
+        description:
+          'Creates a new Draft plan for a campaign using confirmed, fresh inventory. Read the campaign and each inventory item first, summarize locations, dates, selling prices, internal costs, tax, total, and margin, then obtain explicit confirmation.',
+        inputSchema: {
+          campaignId: z.string().min(1),
+          expectedCampaignStatus: z.enum([
+            'New',
+            'In Discussion',
+            'Plan Shared',
+            'Negotiating',
+            'Won',
+            'Lost',
+            'On Hold',
+          ]),
+          expectedCampaignUpdatedAt: z.string().datetime({ offset: true }),
+          title: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(250).optional(),
+          ),
+          items: z.array(planItemInput).min(1).max(50),
+          taxPercentage: z.coerce.number().min(0).max(100).default(0),
+          clientNotes: optionalPlanText,
+          internalNotes: optionalPlanText,
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        campaignId,
+        expectedCampaignStatus,
+        expectedCampaignUpdatedAt,
+        title,
+        items,
+        taxPercentage,
+        clientNotes,
+        internalNotes,
+        confirm: _confirm,
+      }) =>
+        runTool('create_draft_plan', actor, () =>
+          planAuthoring.create(
+            campaignId,
+            {
+              expectedCampaignStatus,
+              expectedCampaignUpdatedAt,
+              title,
+              items,
+              taxPercentage,
+              clientNotes,
+              internalNotes,
+            },
+            actor,
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'update_draft_plan',
+      {
+        title: 'Update draft plan',
+        description:
+          'Updates an unlocked Draft plan. When changing inventory, items must contain the complete desired final list because it replaces the current list. Read the plan and inventory first, summarize pricing and margin changes, then obtain explicit confirmation.',
+        inputSchema: {
+          planId: z.string().min(1),
+          expectedUpdatedAt: z.string().datetime({ offset: true }),
+          title: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(250).optional(),
+          ),
+          items: z.preprocess(
+            (value) => (value === null ? undefined : value),
+            z.array(planItemInput).min(1).max(50).optional(),
+          ),
+          taxPercentage: optionalMoney.refine(
+            (value) => value === undefined || value <= 100,
+            'taxPercentage must be 100 or less',
+          ),
+          clientNotes: optionalPlanText,
+          internalNotes: optionalPlanText,
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ planId, expectedUpdatedAt, confirm: _confirm, ...mutation }) =>
+        runTool('update_draft_plan', actor, () =>
+          planAuthoring.update(
+            planId,
+            { expectedUpdatedAt, ...mutation },
+            actor,
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'clone_plan_to_draft',
+      {
+        title: 'Clone plan to draft',
+        description:
+          'Clones a plan into the next unlocked Draft version. Read the source plan, explain that all current items and pricing will be copied, then obtain explicit confirmation.',
+        inputSchema: {
+          planId: z.string().min(1),
+          expectedUpdatedAt: z.string().datetime({ offset: true }),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ planId, expectedUpdatedAt, confirm: _confirm }) =>
+        runTool('clone_plan_to_draft', actor, () =>
+          planAuthoring.clone(planId, expectedUpdatedAt, actor),
+        ),
+    );
 
     server.registerTool(
       'change_plan_status',
@@ -286,6 +434,74 @@ export const createPhase1McpServer = (
             },
             actor,
           ),
+        ),
+    );
+  }
+
+  if (scopes.includes(MCP_SCOPES.SharesWrite)) {
+    const shareCommands = container.resolve<IShareCommandService>(
+      TOKENS.ShareCommandService,
+    );
+
+    server.registerTool(
+      'create_plan_share_link',
+      {
+        title: 'Create plan share link',
+        description:
+          'Creates a client-facing share URL. If the plan is Draft, this action changes it to Shared, locks it, and updates the campaign status. Read the plan, explain this side effect and recipient details, then obtain explicit confirmation.',
+        inputSchema: {
+          planId: z.string().min(1),
+          expectedPlanStatus: z.enum([
+            'Draft',
+            'Shared',
+            'Negotiating',
+            'Won',
+            'Lost',
+          ]),
+          expectedPlanUpdatedAt: z.string().datetime({ offset: true }),
+          expiresAt: optionalIsoDateTime,
+          sharedWithName: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(200).optional(),
+          ),
+          sharedWithEmail: z.preprocess(
+            emptyToUndefined,
+            z.string().email().max(320).optional(),
+          ),
+          sharedWithPhone: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(3).max(40).optional(),
+          ),
+          channel: z.enum(['WhatsApp', 'Email', 'Phone', 'Other']).default('Other'),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ planId, confirm: _confirm, ...input }) =>
+        runTool('create_plan_share_link', actor, () =>
+          shareCommands.create(planId, input, actor),
+        ),
+    );
+
+    server.registerTool(
+      'disable_plan_share_link',
+      {
+        title: 'Disable plan share link',
+        description:
+          'Disables an active client share URL immediately. List the plan shares, identify the recipient and URL, explain that future access will stop, then obtain explicit confirmation.',
+        inputSchema: {
+          shareId: z.string().min(1),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ shareId, confirm: _confirm }) =>
+        runTool('disable_plan_share_link', actor, () =>
+          shareCommands.disable(shareId, actor),
         ),
     );
   }
@@ -1084,6 +1300,23 @@ export const createPhase1McpServer = (
         (await documents.listByOperation(operationId)).map((document) =>
           withDocumentDownloadUrl(document as { id: string }),
         ),
+      ),
+  );
+
+  server.registerTool(
+    'list_plan_share_links',
+    {
+      title: 'List plan share links',
+      description:
+        'Lists active, disabled, and expired client share links for a plan, including recipient, channel, expiry, and view counts.',
+      inputSchema: {
+        planId: z.string().min(1),
+      },
+      annotations: readOnlyAnnotations,
+    },
+    ({ planId }) =>
+      runTool('list_plan_share_links', actor, () =>
+        shares.listByPlan(planId),
       ),
   );
 

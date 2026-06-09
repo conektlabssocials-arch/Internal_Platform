@@ -49,11 +49,15 @@ import { PlanService } from '../services/plan.service.js';
 import type { IPlanService } from '../services/plan.service.js';
 import { PlanCommandService } from '../services/planCommand.service.js';
 import type { IPlanCommandService } from '../services/planCommand.service.js';
+import { PlanAuthoringCommandService } from '../services/planAuthoringCommand.service.js';
+import type { IPlanAuthoringCommandService } from '../services/planAuthoringCommand.service.js';
 import { PdfService } from '../services/pdf.service.js';
 import { ShareRepository } from '../repositories/share.repository.js';
 import type { IShareRepository } from '../repositories/share.repository.js';
 import { ShareService } from '../services/share.service.js';
 import type { IShareService } from '../services/share.service.js';
+import { ShareCommandService } from '../services/shareCommand.service.js';
+import type { IShareCommandService } from '../services/shareCommand.service.js';
 import { UploadService } from '../services/upload.service.js';
 import type { IUploadService } from '../services/upload.service.js';
 import { ProofUploadCommandService } from '../services/proofUploadCommand.service.js';
@@ -123,6 +127,10 @@ container.registerSingleton<IPlanCommandService>(
   TOKENS.PlanCommandService,
   PlanCommandService,
 );
+container.registerSingleton<IPlanAuthoringCommandService>(
+  TOKENS.PlanAuthoringCommandService,
+  PlanAuthoringCommandService,
+);
 container.registerSingleton<IProofUploadCommandService>(
   TOKENS.ProofUploadCommandService,
   ProofUploadCommandService,
@@ -130,6 +138,10 @@ container.registerSingleton<IProofUploadCommandService>(
 container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);
 container.registerSingleton<IShareRepository>(TOKENS.ShareRepository, ShareRepository);
 container.registerSingleton<IShareService>(TOKENS.ShareService, ShareService);
+container.registerSingleton<IShareCommandService>(
+  TOKENS.ShareCommandService,
+  ShareCommandService,
+);
 container.registerSingleton<IUploadService>(TOKENS.UploadService, UploadService);
 
 export { container };

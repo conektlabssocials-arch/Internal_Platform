@@ -1,4 +1,4 @@
-# MCP Connector: Phases 1-4
+# MCP Connector: Phases 1-5
 
 ## What MCP does
 
@@ -149,6 +149,46 @@ the uploaded Cloudinary asset is deleted to avoid orphaned files.
 `upload_operation_proof_image` requires both `uploads:write` and
 `operations:write`, because it uploads a file and updates an operation item.
 
+## Phase 5: Plan authoring and client sharing
+
+Phase 5 expands `plans:write` and introduces `shares:write`.
+
+Plan authoring tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `create_draft_plan` | Create a priced Draft plan from confirmed inventory |
+| `update_draft_plan` | Update an unlocked Draft plan and recalculate pricing |
+| `clone_plan_to_draft` | Copy an existing plan into the next Draft version |
+
+Share tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `list_plan_share_links` | List recipients, URLs, statuses, expiry, and views |
+| `create_plan_share_link` | Create a client-facing share URL |
+| `disable_plan_share_link` | Disable an active share URL |
+
+Claude must read the campaign, plan, and inventory before authoring. Inventory
+still has to be active, commercially available, and freshly confirmed. Pricing
+is calculated by the platform from quantity, dates, selling price, internal
+cost, and tax; Claude does not calculate or persist totals directly.
+
+`update_draft_plan` replaces the inventory list when `items` is supplied. Claude
+must therefore send the complete desired final list, not only newly added
+locations.
+
+Creating a share from a Draft has important side effects:
+
+1. The plan moves to `Shared`.
+2. The plan becomes locked.
+3. The campaign moves to `Plan Shared`.
+4. A client-safe public URL is created.
+
+Claude must explain these effects and the recipient/channel/expiry before asking
+for confirmation. Client share output excludes internal costs, margins, and
+internal notes.
+
 ## Temporary Phase 1 authentication
 
 Phase 1 uses one long random bearer token bound to one active platform user:
@@ -188,7 +228,7 @@ URL: http://localhost:5000/mcp
 Authorization: Bearer <MCP_ACCESS_TOKEN>
 ```
 
-With only `platform:read`, confirm that the tool list contains the 14 read tools
+With only `platform:read`, confirm that the tool list contains the 15 read tools
 documented above and that tool calls return data without changing MongoDB
 records.
 
@@ -223,7 +263,7 @@ MCP_BASE_URL=https://internal-api.conektads.com
 GOOGLE_CLIENT_ID=your_web_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_web_oauth_client_secret
 GOOGLE_ALLOWED_DOMAIN=conektads.com
-MCP_SHARED_SCOPES=platform:read campaigns:write plans:write operations:write documents:write uploads:write
+MCP_SHARED_SCOPES=platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write
 MCP_MAX_UPLOAD_BYTES=6291456
 CLOUDINARY_DOCUMENT_FOLDER=documents
 CLOUDINARY_DOCUMENT_DELIVERY_TYPE=authenticated
@@ -258,7 +298,7 @@ The protected-resource document must identify:
 ```text
 resource: https://internal-api.conektads.com/mcp
 authorization server: https://internal-api.conektads.com/
-scopes: platform:read campaigns:write plans:write operations:write documents:write uploads:write
+scopes: platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write
 ```
 
 ### 4. Test with MCP Inspector
@@ -311,9 +351,9 @@ curl https://internal-api.conektads.com/api/health
 curl https://internal-api.conektads.com/.well-known/oauth-authorization-server
 ```
 
-The OAuth metadata must contain both new scopes. Remove and re-add the Claude
-connector, sign in again, then ask Claude to list its Conekt Ads tools. A fully
-scoped Admin connection exposes 27 tools.
+The OAuth metadata must contain the configured scopes. Remove and re-add the
+Claude connector, sign in again, then ask Claude to list its Conekt Ads tools.
+A fully scoped Admin connection exposes 33 tools.
 
 Recommended smoke tests:
 
