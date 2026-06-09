@@ -51,6 +51,7 @@ export interface ICrmService {
     updatedBy: string,
   ): Promise<CrmEntityDto>;
   listContacts(entityId: string): Promise<ContactDto[]>;
+  getContactById(contactId: string): Promise<ContactDto>;
   createContact(entityId: string, input: ContactMutationDto): Promise<ContactDto>;
   updateContact(contactId: string, input: ContactMutationDto): Promise<ContactDto>;
   setContactStatus(
@@ -217,6 +218,10 @@ export class CrmService implements ICrmService {
     await this.getEntityDocument(entityId);
     const contacts = await this.contactRepository.findByEntity(entityId);
     return contacts.map(mapContactToDto);
+  }
+
+  async getContactById(contactId: string) {
+    return mapContactToDto(await this.getContactDocument(contactId));
   }
 
   async createContact(entityId: string, input: ContactMutationDto) {

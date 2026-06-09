@@ -1,4 +1,4 @@
-# MCP Connector: Phases 1-5
+# MCP Connector: Phases 1-6
 
 ## What MCP does
 
@@ -189,6 +189,41 @@ Claude must explain these effects and the recipient/channel/expiry before asking
 for confirmation. Client share output excludes internal costs, margins, and
 internal notes.
 
+## Phase 6: CRM, campaigns, and inventory maintenance
+
+Phase 6 introduces `crm:write` and `inventory:write`, and expands
+`campaigns:write`.
+
+| Tool | Purpose |
+| --- | --- |
+| `create_crm_entity` | Create a Brand, Agency, Individual, or Supplier/Owner |
+| `update_crm_entity` | Update CRM identity, contact, address, tax, tags, or notes |
+| `create_crm_contact` | Add a contact and optionally make it primary |
+| `update_crm_contact` | Update a contact, status, or primary designation |
+| `create_campaign` | Create a New campaign for an existing CRM client |
+| `update_campaign_details` | Update campaign brief, budget, dates, geography, owner, or follow-up |
+| `confirm_inventory` | Refresh confirmation and update availability or prices |
+| `change_inventory_status` | Admin-only inventory activation or deactivation |
+
+Claude must search CRM before creating records. The platform rejects duplicate
+CRM email, GST, and PAN identifiers. Marking a contact primary automatically
+unsets the previous primary contact.
+
+Campaign creation requires an existing Brand, Agency, or Individual CRM client;
+Supplier/Owner records cannot be campaign clients. Ownership defaults to the
+signed-in platform user unless an active owner user ID is supplied.
+
+Inventory confirmation records the signed-in user and refreshes the 30-day
+confirmation window. Claude must state the previous and proposed availability,
+internal cost, and selling price before requesting confirmation.
+
+Inventory activation and deactivation require both `inventory:write` and an
+Admin role. The tool is hidden from members, and the command service also
+rejects non-Admin calls.
+
+Every Phase 6 update requires the latest `updatedAt` returned by its read tool.
+If another user changed the record first, the write returns a conflict.
+
 ## Temporary Phase 1 authentication
 
 Phase 1 uses one long random bearer token bound to one active platform user:
@@ -263,7 +298,7 @@ MCP_BASE_URL=https://internal-api.conektads.com
 GOOGLE_CLIENT_ID=your_web_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_web_oauth_client_secret
 GOOGLE_ALLOWED_DOMAIN=conektads.com
-MCP_SHARED_SCOPES=platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write
+MCP_SHARED_SCOPES=platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write crm:write inventory:write
 MCP_MAX_UPLOAD_BYTES=6291456
 CLOUDINARY_DOCUMENT_FOLDER=documents
 CLOUDINARY_DOCUMENT_DELIVERY_TYPE=authenticated
@@ -298,7 +333,7 @@ The protected-resource document must identify:
 ```text
 resource: https://internal-api.conektads.com/mcp
 authorization server: https://internal-api.conektads.com/
-scopes: platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write
+scopes: platform:read campaigns:write plans:write operations:write documents:write uploads:write shares:write crm:write inventory:write
 ```
 
 ### 4. Test with MCP Inspector
@@ -328,7 +363,7 @@ After deploying a phase with new scopes, remove and add the Claude connector
 again. Existing OAuth clients or tokens may retain the scope list granted when
 they were created.
 
-## Deploy Phase 4
+## Deploy Phases 4-6
 
 Build and deploy the updated backend image using the existing pipeline, or run
 the production Compose commands manually on EC2:
@@ -353,7 +388,8 @@ curl https://internal-api.conektads.com/.well-known/oauth-authorization-server
 
 The OAuth metadata must contain the configured scopes. Remove and re-add the
 Claude connector, sign in again, then ask Claude to list its Conekt Ads tools.
-A fully scoped Admin connection exposes 33 tools.
+A fully scoped Admin connection exposes 41 tools. A fully scoped member
+connection exposes 40 tools because inventory status changes are Admin-only.
 
 Recommended smoke tests:
 
