@@ -25,11 +25,11 @@ import { McpOAuthAuthorizationModel } from '../models/mcpOAuthAuthorization.mode
 import { McpOAuthClientModel } from '../models/mcpOAuthClient.model.js';
 import { McpOAuthTokenModel } from '../models/mcpOAuthToken.model.js';
 import { UserModel } from '../models/user.model.js';
+import { supportedMcpScopes } from './mcpScopes.js';
 
 const accessTokenLifetimeSeconds = 60 * 60;
 const refreshTokenLifetimeSeconds = 30 * 24 * 60 * 60;
 const authorizationLifetimeMs = 10 * 60 * 1000;
-const supportedScopes = ['platform:read'];
 
 const randomToken = () => randomBytes(32).toString('base64url');
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -52,9 +52,15 @@ const getGoogleCallbackUrl = () =>
   `${getMcpBaseUrl()}/oauth/google/callback`;
 
 const validateScopes = (scopes: string[] | undefined) => {
-  const requested = scopes?.length ? scopes : supportedScopes;
-  if (requested.some((scope) => !supportedScopes.includes(scope))) {
-    throw new InvalidScopeError('Only platform:read is supported');
+  const requested = scopes?.length ? scopes : supportedMcpScopes;
+  if (
+    requested.some((scope: string) =>
+      !supportedMcpScopes.includes(scope as never),
+    )
+  ) {
+    throw new InvalidScopeError(
+      `Supported scopes are ${supportedMcpScopes.join(' ')}`,
+    );
   }
   return requested;
 };
@@ -266,7 +272,9 @@ export class ConektMcpOAuthProvider implements OAuthServerProvider {
 
     if (!token) throw new InvalidGrantError('Refresh token is invalid or expired');
     const requestedScopes = validateScopes(scopes || token.scopes);
-    if (requestedScopes.some((scope) => !token.scopes.includes(scope))) {
+    if (
+      requestedScopes.some((scope: string) => !token.scopes.includes(scope))
+    ) {
       throw new InvalidScopeError('Refresh scope exceeds the original grant');
     }
 

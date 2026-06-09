@@ -8,6 +8,7 @@ import type { CrmEntityFiltersDto } from '../dto/crm.dto.js';
 import type { InventoryFiltersDto } from '../dto/inventory.dto.js';
 import type { IActivityService } from '../services/activity.service.js';
 import type { ICampaignService } from '../services/campaign.service.js';
+import type { ICampaignCommandService } from '../services/campaignCommand.service.js';
 import type { ICrmService } from '../services/crm.service.js';
 import type { IDashboardService } from '../services/dashboard.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
@@ -17,12 +18,23 @@ import type {
 } from '../services/operation.service.js';
 import type { IPlanService } from '../services/plan.service.js';
 import type { McpActor } from './mcpAuth.js';
+import { MCP_SCOPES } from './mcpScopes.js';
 
 const readOnlyAnnotations = {
   readOnlyHint: true,
   destructiveHint: false,
   idempotentHint: true,
   openWorldHint: false,
+};
+const writeAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: false,
+  openWorldHint: false,
+};
+const statusWriteAnnotations = {
+  ...writeAnnotations,
+  destructiveHint: true,
 };
 
 const emptyToUndefined = (value: unknown) =>
@@ -108,10 +120,13 @@ const runTool = async (
   }
 };
 
-export const createPhase1McpServer = (actor: McpActor) => {
+export const createPhase1McpServer = (
+  actor: McpActor,
+  scopes: string[] = [MCP_SCOPES.PlatformRead],
+) => {
   const server = new McpServer({
     name: 'conekt-ads-internal-platform',
-    version: '0.1.1',
+    version: '0.2.0',
   });
 
   const activity = container.resolve<IActivityService>(TOKENS.ActivityService);
@@ -121,6 +136,101 @@ export const createPhase1McpServer = (actor: McpActor) => {
   const inventory = container.resolve<IInventoryService>(TOKENS.InventoryService);
   const operations = container.resolve<IOperationService>(TOKENS.OperationService);
   const plans = container.resolve<IPlanService>(TOKENS.PlanService);
+
+  if (scopes.includes(MCP_SCOPES.CampaignsWrite)) {
+    const campaignCommands = container.resolve<ICampaignCommandService>(
+      TOKENS.CampaignCommandService,
+    );
+
+    server.registerTool(
+      'update_campaign_follow_up',
+      {
+        title: 'Update campaign follow-up',
+        description:
+          'Schedules the next follow-up for a campaign. Before calling, read the campaign, tell the user the campaign code, current follow-up, and proposed follow-up, then obtain explicit confirmation. Set confirm to true only after confirmation.',
+        inputSchema: {
+          campaignId: z.string().min(1).describe('Campaign MongoDB ID'),
+          nextFollowUpAt: z
+            .string()
+            .datetime({ offset: true })
+            .describe('Confirmed follow-up date and time in ISO 8601 format'),
+          expectedCurrentFollowUpAt: z
+            .union([z.string().datetime({ offset: true }), z.null()])
+            .describe(
+              'Follow-up value most recently read from the campaign, or null when none is scheduled',
+            ),
+          followUpNote: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(500).optional(),
+          ),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: writeAnnotations,
+      },
+      ({ campaignId, confirm: _confirm, ...input }) =>
+        runTool('update_campaign_follow_up', actor, () =>
+          campaignCommands.updateFollowUp(campaignId, input, actor),
+        ),
+    );
+
+    server.registerTool(
+      'change_campaign_status',
+      {
+        title: 'Change campaign status',
+        description:
+          'Changes a campaign status. Before calling, read the campaign, explain the current and proposed statuses and any reason, then obtain explicit user confirmation. Lost requires a reason. Set confirm to true only after confirmation.',
+        inputSchema: {
+          campaignId: z.string().min(1).describe('Campaign MongoDB ID'),
+          expectedCurrentStatus: z.enum([
+            'New',
+            'In Discussion',
+            'Plan Shared',
+            'Negotiating',
+            'Won',
+            'Lost',
+            'On Hold',
+          ]),
+          newStatus: z.enum([
+            'New',
+            'In Discussion',
+            'Plan Shared',
+            'Negotiating',
+            'Won',
+            'Lost',
+            'On Hold',
+          ]),
+          reason: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(500).optional(),
+          ),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        campaignId,
+        expectedCurrentStatus,
+        newStatus,
+        reason,
+        confirm: _confirm,
+      }) =>
+        runTool('change_campaign_status', actor, () =>
+          campaignCommands.changeStatus(
+            campaignId,
+            {
+              expectedCurrentStatus,
+              status: newStatus,
+              reason,
+            },
+            actor,
+          ),
+        ),
+    );
+  }
 
   server.registerTool(
     'get_dashboard_overview',

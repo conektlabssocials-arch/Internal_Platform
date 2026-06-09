@@ -2,6 +2,7 @@ export const TOKENS = {
   ActivityService: Symbol('ActivityService'),
   AuthService: Symbol('AuthService'),
   CampaignCounterRepository: Symbol('CampaignCounterRepository'),
+  CampaignCommandService: Symbol('CampaignCommandService'),
   CampaignRepository: Symbol('CampaignRepository'),
   CampaignService: Symbol('CampaignService'),
   ContactRepository: Symbol('ContactRepository'),

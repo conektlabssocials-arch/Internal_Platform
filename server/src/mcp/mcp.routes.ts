@@ -12,7 +12,8 @@ router.use(requireMcpAccess);
 
 router.post('/', async (req, res) => {
   const actor = res.locals.mcpActor as McpActor;
-  const server = createPhase1McpServer(actor);
+  const scopes = (res.locals.mcpScopes || []) as string[];
+  const server = createPhase1McpServer(actor, scopes);
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });

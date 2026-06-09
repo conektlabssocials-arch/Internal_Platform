@@ -11,6 +11,8 @@ import { CampaignRepository } from '../repositories/campaign.repository.js';
 import type { ICampaignRepository } from '../repositories/campaign.repository.js';
 import { CampaignService } from '../services/campaign.service.js';
 import type { ICampaignService } from '../services/campaign.service.js';
+import { CampaignCommandService } from '../services/campaignCommand.service.js';
+import type { ICampaignCommandService } from '../services/campaignCommand.service.js';
 import { ContactRepository } from '../repositories/contact.repository.js';
 import type { IContactRepository } from '../repositories/contact.repository.js';
 import { CrmEntityRepository } from '../repositories/crmEntity.repository.js';
@@ -64,6 +66,10 @@ container.registerSingleton<ICampaignCounterRepository>(
 );
 container.registerSingleton<ICampaignRepository>(TOKENS.CampaignRepository, CampaignRepository);
 container.registerSingleton<ICampaignService>(TOKENS.CampaignService, CampaignService);
+container.registerSingleton<ICampaignCommandService>(
+  TOKENS.CampaignCommandService,
+  CampaignCommandService,
+);
 container.registerSingleton<IContactRepository>(TOKENS.ContactRepository, ContactRepository);
 container.registerSingleton<ICrmEntityRepository>(
   TOKENS.CrmEntityRepository,

@@ -12,6 +12,7 @@ import {
   getMcpBaseUrl,
   getMcpResourceUrl,
 } from './mcpOAuthProvider.js';
+import { MCP_SCOPES, supportedMcpScopes } from './mcpScopes.js';
 
 let provider: ConektMcpOAuthProvider | undefined;
 
@@ -32,7 +33,7 @@ export const createMcpOAuthRouter = () => {
       issuerUrl,
       baseUrl: issuerUrl,
       resourceServerUrl,
-      scopesSupported: ['platform:read'],
+      scopesSupported: supportedMcpScopes,
       resourceName: 'Conekt Ads Internal Platform',
       serviceDocumentationUrl: new URL(
         `${getMcpBaseUrl()}/api/health`,
@@ -83,7 +84,7 @@ export const requireMcpOAuthAccess: RequestHandler = (req, res, next) => {
   const resourceServerUrl = getMcpResourceUrl();
   const middleware = requireBearerAuth({
     verifier: getProvider(),
-    requiredScopes: ['platform:read'],
+    requiredScopes: [MCP_SCOPES.PlatformRead],
     resourceMetadataUrl:
       getOAuthProtectedResourceMetadataUrl(resourceServerUrl),
   });
@@ -106,6 +107,7 @@ export const requireMcpOAuthAccess: RequestHandler = (req, res, next) => {
     }
 
     res.locals.mcpActor = actor;
+    res.locals.mcpScopes = req.auth?.scopes || [];
     next();
   });
 };

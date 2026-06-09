@@ -1,4 +1,4 @@
-# MCP Phase 1: Read-only Claude access
+# MCP Connector: Phase 1 and Phase 2
 
 ## What MCP does
 
@@ -15,7 +15,7 @@ POST https://internal-api.conektads.com/mcp
 It uses the Streamable HTTP MCP transport. The implementation is stateless, so
 each request is independent and the server does not keep Claude conversation data.
 
-## Why Phase 1 is read-only
+## Phase 1: Read-only access
 
 Claude can search and explain platform data, but it cannot create, update, delete,
 approve, or change anything. This lets the team validate usefulness, permissions,
@@ -39,6 +39,28 @@ Every Phase 1 tool is marked with MCP read-only and non-destructive annotations.
 | `search_operations` | Find execution work, pending proof, or overdue items |
 | `get_operation` | Read complete execution progress and item states |
 | `get_recent_activity` | Read the internal activity history |
+
+## Phase 2: Controlled campaign updates
+
+Phase 2 adds two tools when the OAuth token contains `campaigns:write`:
+
+| Tool | Purpose |
+| --- | --- |
+| `update_campaign_follow_up` | Schedule a campaign's next follow-up |
+| `change_campaign_status` | Change a campaign status with an optional reason |
+
+Both tools:
+
+1. Require Claude to read the campaign first.
+2. Require `confirm: true` after explicit user confirmation.
+3. Carry the last-read follow-up or status to prevent stale overwrites.
+4. Run through the same command service as the REST application.
+5. Attribute the change to the signed-in platform user.
+6. Write the standard campaign activity log.
+
+`change_campaign_status` requires a reason when the new status is `Lost`.
+The tools cannot create campaigns, edit campaign pricing or ownership, delete
+records, or modify plans and operations.
 
 ## Temporary Phase 1 authentication
 
@@ -142,7 +164,7 @@ The protected-resource document must identify:
 ```text
 resource: https://internal-api.conektads.com/mcp
 authorization server: https://internal-api.conektads.com/
-scope: platform:read
+scopes: platform:read campaigns:write
 ```
 
 ### 4. Test with MCP Inspector
@@ -168,6 +190,10 @@ The server supports dynamic client registration, so OAuth client ID and secret
 advanced settings should normally be left empty. Claude discovers the OAuth
 endpoints and opens the Google Workspace sign-in flow.
 
+After deploying Phase 2, disconnect and reconnect the Claude connector. Existing
+tokens only contain the scopes granted when they were issued, so reconnecting is
+required before the two campaign write tools appear.
+
 Claude reaches this URL from Anthropic's cloud. `localhost`, private EC2 ports,
 and internal-only DNS names will not work.
 
@@ -178,4 +204,4 @@ and internal-only DNS names will not work.
 3. Never put client secrets or tokens in the connector URL, source control, or logs.
 4. Restrict nginx request size and add rate limiting for `/mcp`.
 5. Review tool logs for `mcp_tool_completed` and `mcp_tool_failed`.
-6. Keep the connector scope at `platform:read` during Phase 1.
+6. Confirm Claude asks before each write and that the activity appears in Audit Logs.
