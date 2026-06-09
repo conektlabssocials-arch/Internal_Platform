@@ -12,7 +12,10 @@ import {
   getMcpBaseUrl,
   getMcpResourceUrl,
 } from './mcpOAuthProvider.js';
-import { MCP_SCOPES, supportedMcpScopes } from './mcpScopes.js';
+import {
+  configuredMcpScopes,
+  supportedMcpScopes,
+} from './mcpScopes.js';
 
 let provider: ConektMcpOAuthProvider | undefined;
 
@@ -84,7 +87,7 @@ export const requireMcpOAuthAccess: RequestHandler = (req, res, next) => {
   const resourceServerUrl = getMcpResourceUrl();
   const middleware = requireBearerAuth({
     verifier: getProvider(),
-    requiredScopes: [MCP_SCOPES.PlatformRead],
+    requiredScopes: configuredMcpScopes(),
     resourceMetadataUrl:
       getOAuthProtectedResourceMetadataUrl(resourceServerUrl),
   });

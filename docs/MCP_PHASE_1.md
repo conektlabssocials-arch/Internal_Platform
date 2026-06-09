@@ -231,7 +231,9 @@ CLOUDINARY_DOCUMENT_DELIVERY_TYPE=authenticated
 
 In OAuth mode, `MCP_ACCESS_TOKEN` and `MCP_ACTOR_EMAIL` are not used. Access
 tokens are short-lived, refresh tokens rotate, and only token hashes are stored
-in MongoDB.
+in MongoDB. `MCP_SHARED_SCOPES` is the OAuth connector allowlist and is included
+in the `/mcp` authentication challenge, so Claude requests those scopes during
+sign-in.
 
 Copy the updated nginx example to the active nginx configuration. The dedicated
 `/mcp` location disables proxy buffering and allows longer MCP responses:

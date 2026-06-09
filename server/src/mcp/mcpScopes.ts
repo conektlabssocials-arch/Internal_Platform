@@ -8,3 +8,14 @@ export const MCP_SCOPES = {
 } as const;
 
 export const supportedMcpScopes = Object.values(MCP_SCOPES);
+
+export const configuredMcpScopes = (
+  fallback: readonly string[] = supportedMcpScopes,
+) => {
+  const configured = process.env.MCP_SHARED_SCOPES
+    ?.split(/[\s,]+/)
+    .filter(Boolean)
+    .filter((scope) => supportedMcpScopes.includes(scope as never));
+
+  return configured?.length ? configured : [...fallback];
+};
