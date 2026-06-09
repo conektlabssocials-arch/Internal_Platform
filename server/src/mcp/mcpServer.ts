@@ -25,11 +25,47 @@ const readOnlyAnnotations = {
   openWorldHint: false,
 };
 
-const optionalText = z.string().trim().min(1).optional();
-const optionalLimit = z.number().int().min(1).max(50).optional();
-const optionalPage = z.number().int().min(1).optional();
+const emptyToUndefined = (value: unknown) =>
+  value === null || value === '' ? undefined : value;
+
+const optionalText = z.preprocess(
+  emptyToUndefined,
+  z.string().trim().min(1).optional(),
+);
+const optionalLimit = z.preprocess(
+  emptyToUndefined,
+  z.coerce.number().int().min(1).max(50).optional(),
+);
+const optionalPage = z.preprocess(
+  emptyToUndefined,
+  z.coerce.number().int().min(1).optional(),
+);
+const optionalBooleanFilter = z.preprocess(
+  emptyToUndefined,
+  z.union([z.boolean(), z.enum(['true', 'false'])]).optional(),
+);
+const optionalInventoryStatus = z.preprocess(
+  (value) => {
+    if (value === null || value === '') return undefined;
+    if (value === true) return 'active';
+    if (value === false) return 'inactive';
+    return value;
+  },
+  z.enum(['active', 'inactive']).optional(),
+);
+const optionalAvailabilityStatus = z.preprocess(
+  (value) => {
+    if (value === null || value === '') return undefined;
+    if (value === true) return 'available';
+    if (value === false) return 'unknown';
+    return value;
+  },
+  z.enum(['available', 'booked', 'hold', 'unknown']).optional(),
+);
 
 const asQuery = (value: number | undefined) => value?.toString();
+const asBooleanQuery = (value: boolean | 'true' | 'false' | undefined) =>
+  value === undefined ? undefined : value.toString();
 
 const textResult = (data: unknown) => ({
   content: [
@@ -75,7 +111,7 @@ const runTool = async (
 export const createPhase1McpServer = (actor: McpActor) => {
   const server = new McpServer({
     name: 'conekt-ads-internal-platform',
-    version: '0.1.0',
+    version: '0.1.1',
   });
 
   const activity = container.resolve<IActivityService>(TOKENS.ActivityService);
@@ -149,19 +185,27 @@ export const createPhase1McpServer = (actor: McpActor) => {
     {
       title: 'Search inventory',
       description:
-        'Searches advertising inventory by category, location, availability, confirmation freshness, or text.',
+        'Searches advertising inventory. For available inventory, set availabilityStatus to available and status to active. Use city for the requested city and categoryGroup for Outdoor, Auto, Bus, or Mobile Van.',
       inputSchema: {
         search: optionalText,
-        categoryGroup: optionalText.describe(
-          'Outdoor, Auto, Bus, or Mobile Van',
+        categoryGroup: z.preprocess(
+          emptyToUndefined,
+          z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van']).optional(),
         ),
         subCategory: optionalText,
-        city: optionalText,
+        city: optionalText.describe(
+          'City name, for example Bangalore or Bengaluru',
+        ),
         area: optionalText,
-        status: optionalText.describe('active or inactive'),
-        availabilityStatus: optionalText,
-        confirmationStatus: optionalText.describe(
-          'fresh, stale, or never_confirmed',
+        status: optionalInventoryStatus.describe(
+          'Record status. Use active for inventory currently in use.',
+        ),
+        availabilityStatus: optionalAvailabilityStatus.describe(
+          'Commercial availability: available, booked, hold, or unknown.',
+        ),
+        confirmationStatus: z.preprocess(
+          emptyToUndefined,
+          z.enum(['fresh', 'stale', 'never_confirmed']).optional(),
         ),
         page: optionalPage,
         limit: optionalLimit,
@@ -211,7 +255,9 @@ export const createPhase1McpServer = (actor: McpActor) => {
         category: optionalText,
         geo: optionalText,
         priority: optionalText,
-        followUpDue: optionalText.describe('Use true to find due follow-ups'),
+        followUpDue: optionalBooleanFilter.describe(
+          'Set true to find due follow-ups',
+        ),
         page: optionalPage,
         limit: optionalLimit,
       },
@@ -221,6 +267,7 @@ export const createPhase1McpServer = (actor: McpActor) => {
       runTool('search_campaigns', actor, () =>
         campaigns.listCampaigns({
           ...input,
+          followUpDue: asBooleanQuery(input.followUpDue),
           page: asQuery(input.page),
           limit: asQuery(input.limit),
         } satisfies CampaignFiltersDto),
@@ -287,8 +334,10 @@ export const createPhase1McpServer = (actor: McpActor) => {
         priority: optionalText,
         mountingFrom: optionalText.describe('ISO date'),
         mountingTo: optionalText.describe('ISO date'),
-        proofPending: optionalText.describe('Use true for pending proof'),
-        overdue: optionalText.describe('Use true for overdue work'),
+        proofPending: optionalBooleanFilter.describe(
+          'Set true for pending proof',
+        ),
+        overdue: optionalBooleanFilter.describe('Set true for overdue work'),
         page: optionalPage,
         limit: optionalLimit,
       },
@@ -298,6 +347,8 @@ export const createPhase1McpServer = (actor: McpActor) => {
       runTool('search_operations', actor, () =>
         operations.list({
           ...input,
+          proofPending: asBooleanQuery(input.proofPending),
+          overdue: asBooleanQuery(input.overdue),
           page: asQuery(input.page),
           limit: asQuery(input.limit),
         } satisfies OperationFilters),
