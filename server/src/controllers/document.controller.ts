@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 
 import { TOKENS } from '../config/tokens.js';
 import type { IDocumentService } from '../services/document.service.js';
+import type { IDocumentCommandService } from '../services/documentCommand.service.js';
 import type { IActivityService } from '../services/activity.service.js';
 import { ACTIVITY_ACTIONS } from '../constants/activity.constants.js';
 import type { AuthTokenPayload } from '../types/auth.js';
@@ -18,24 +19,20 @@ export class DocumentController {
   constructor(
     @inject(TOKENS.DocumentService)
     private readonly service: IDocumentService,
+    @inject(TOKENS.DocumentCommandService)
+    private readonly commands: IDocumentCommandService,
     @inject(TOKENS.ActivityService)
     private readonly activity: IActivityService,
   ) {}
 
   generate = async (req: Request, res: Response) => {
     const actor = authUser(res.locals);
-    const data: any = await this.service.generate(
+    const data = await this.commands.generatePlanDocument(
       req.params.planId,
-      req.body.documentType,
-      actor.userId,
+      { documentType: req.body.documentType },
+      actor,
+      req,
     );
-    await this.activity.logEntityActivity({
-      actor, action: ACTIVITY_ACTIONS.DOCUMENT_GENERATED, entityType: 'Document',
-      entityId: data.id, entityCode: data.metadata?.campaignCode, entityTitle: data.fileName,
-      parentEntityType: 'Plan', parentEntityId: data.plan,
-      message: `${data.documentType} PDF was generated.`,
-      metadata: { documentType: data.documentType, fileName: data.fileName, ...data.metadata }, req,
-    });
     res.status(201).json({ data });
   };
 
@@ -45,18 +42,12 @@ export class DocumentController {
 
   generateOperation = async (req: Request, res: Response) => {
     const actor = authUser(res.locals);
-    const data: any = await this.service.generateOperation(
+    const data = await this.commands.generateOperationDocument(
       req.params.operationId,
-      req.body.documentType,
-      actor.userId,
+      { documentType: req.body.documentType },
+      actor,
+      req,
     );
-    await this.activity.logEntityActivity({
-      actor, action: ACTIVITY_ACTIONS.DOCUMENT_GENERATED, entityType: 'Document',
-      entityId: data.id, entityCode: data.metadata?.operationCode, entityTitle: data.fileName,
-      parentEntityType: 'Operation', parentEntityId: data.operation,
-      message: `${data.documentType} PDF was generated.`,
-      metadata: { documentType: data.documentType, fileName: data.fileName, ...data.metadata }, req,
-    });
     res.status(201).json({ data });
   };
 

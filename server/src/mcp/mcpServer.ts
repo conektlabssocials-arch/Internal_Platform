@@ -11,6 +11,8 @@ import type { ICampaignService } from '../services/campaign.service.js';
 import type { ICampaignCommandService } from '../services/campaignCommand.service.js';
 import type { ICrmService } from '../services/crm.service.js';
 import type { IDashboardService } from '../services/dashboard.service.js';
+import type { IDocumentService } from '../services/document.service.js';
+import type { IDocumentCommandService } from '../services/documentCommand.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
 import type {
   IOperationService,
@@ -19,6 +21,7 @@ import type {
 import type { IOperationCommandService } from '../services/operationCommand.service.js';
 import type { IPlanService } from '../services/plan.service.js';
 import type { IPlanCommandService } from '../services/planCommand.service.js';
+import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
 import type { McpActor } from './mcpAuth.js';
 import { MCP_SCOPES } from './mcpScopes.js';
 
@@ -90,6 +93,11 @@ const textResult = (data: unknown) => ({
   ],
 });
 
+const withDocumentDownloadUrl = <T extends { id: string }>(document: T) => ({
+  ...document,
+  downloadUrl: `${(process.env.CLIENT_URL || '').replace(/\/+$/, '')}/api/documents/${document.id}/download`,
+});
+
 const runTool = async (
   toolName: string,
   actor: McpActor,
@@ -128,13 +136,14 @@ export const createPhase1McpServer = (
 ) => {
   const server = new McpServer({
     name: 'conekt-ads-internal-platform',
-    version: '0.3.0',
+    version: '0.4.0',
   });
 
   const activity = container.resolve<IActivityService>(TOKENS.ActivityService);
   const campaigns = container.resolve<ICampaignService>(TOKENS.CampaignService);
   const crm = container.resolve<ICrmService>(TOKENS.CrmService);
   const dashboard = container.resolve<IDashboardService>(TOKENS.DashboardService);
+  const documents = container.resolve<IDocumentService>(TOKENS.DocumentService);
   const inventory = container.resolve<IInventoryService>(TOKENS.InventoryService);
   const operations = container.resolve<IOperationService>(TOKENS.OperationService);
   const plans = container.resolve<IPlanService>(TOKENS.PlanService);
@@ -614,6 +623,156 @@ export const createPhase1McpServer = (
     );
   }
 
+  if (scopes.includes(MCP_SCOPES.DocumentsWrite)) {
+    const documentCommands = container.resolve<IDocumentCommandService>(
+      TOKENS.DocumentCommandService,
+    );
+    const planDocumentTypes =
+      actor.role === 'admin'
+        ? (['PlanProposal', 'Quotation', 'InternalCostSheet'] as const)
+        : (['PlanProposal', 'Quotation'] as const);
+
+    server.registerTool(
+      'generate_plan_document',
+      {
+        title: 'Generate plan document',
+        description:
+          'Generates a PDF from the latest saved plan. Read the plan first, explain the document audience and contents, then obtain explicit confirmation. Internal Cost Sheet contains cost and margin and is admin-only.',
+        inputSchema: {
+          planId: z.string().min(1),
+          expectedUpdatedAt: z
+            .string()
+            .datetime({ offset: true })
+            .describe('Plan updatedAt value from the most recent get_plan call'),
+          documentType: z.enum(planDocumentTypes),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ planId, expectedUpdatedAt, documentType, confirm: _confirm }) =>
+        runTool('generate_plan_document', actor, async () =>
+          withDocumentDownloadUrl(
+            await documentCommands.generatePlanDocument(
+              planId,
+              { expectedUpdatedAt, documentType },
+              actor,
+            ),
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'generate_operation_document',
+      {
+        title: 'Generate operation document',
+        description:
+          'Generates a Work Order, Purchase Order, or Execution Report PDF from the latest operation. Read the operation, explain the audience and any partial-report warning, then obtain explicit confirmation.',
+        inputSchema: {
+          operationId: z.string().min(1),
+          expectedUpdatedAt: z
+            .string()
+            .datetime({ offset: true })
+            .describe(
+              'Operation updatedAt value from the most recent get_operation call',
+            ),
+          documentType: z.enum([
+            'WorkOrder',
+            'PurchaseOrder',
+            'ExecutionReport',
+          ]),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        operationId,
+        expectedUpdatedAt,
+        documentType,
+        confirm: _confirm,
+      }) =>
+        runTool('generate_operation_document', actor, async () =>
+          withDocumentDownloadUrl(
+            await documentCommands.generateOperationDocument(
+              operationId,
+              { expectedUpdatedAt, documentType },
+              actor,
+            ),
+          ),
+        ),
+    );
+  }
+
+  if (
+    scopes.includes(MCP_SCOPES.UploadsWrite) &&
+    scopes.includes(MCP_SCOPES.OperationsWrite)
+  ) {
+    const proofUploads = container.resolve<IProofUploadCommandService>(
+      TOKENS.ProofUploadCommandService,
+    );
+
+    server.registerTool(
+      'upload_operation_proof_image',
+      {
+        title: 'Upload operation proof image',
+        description:
+          'Uploads one JPEG, PNG, or WebP proof image to Cloudinary and attaches it to one operation item. Read the operation first, identify the exact item, explain the file and current proof state, then obtain explicit confirmation. Maximum raw image size is 6 MB.',
+        inputSchema: {
+          operationId: z.string().min(1),
+          itemId: z.string().min(1),
+          expectedUpdatedAt: z
+            .string()
+            .datetime({ offset: true })
+            .describe(
+              'Operation updatedAt value from the most recent get_operation call',
+            ),
+          fileName: z.string().trim().min(1).max(180),
+          mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+          base64Data: z
+            .string()
+            .min(4)
+            .max(8_500_000)
+            .describe('Base64-encoded image bytes, without markdown'),
+          notes: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(1000).optional(),
+          ),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        operationId,
+        itemId,
+        expectedUpdatedAt,
+        fileName,
+        mimeType,
+        base64Data,
+        notes,
+        confirm: _confirm,
+      }) =>
+        runTool('upload_operation_proof_image', actor, () =>
+          proofUploads.uploadAndAttach(
+            operationId,
+            itemId,
+            {
+              expectedUpdatedAt,
+              fileName,
+              mimeType,
+              base64Data,
+              notes,
+            },
+            actor,
+          ),
+        ),
+    );
+  }
+
   server.registerTool(
     'get_dashboard_overview',
     {
@@ -887,6 +1046,44 @@ export const createPhase1McpServer = (
           page: asQuery(input.page),
           limit: asQuery(input.limit),
         }),
+      ),
+  );
+
+  server.registerTool(
+    'list_plan_documents',
+    {
+      title: 'List plan documents',
+      description:
+        'Lists PDFs previously generated for a plan, including a same-origin authenticated download URL.',
+      inputSchema: {
+        planId: z.string().min(1),
+      },
+      annotations: readOnlyAnnotations,
+    },
+    ({ planId }) =>
+      runTool('list_plan_documents', actor, async () =>
+        (await documents.listByPlan(planId)).map((document) =>
+          withDocumentDownloadUrl(document as { id: string }),
+        ),
+      ),
+  );
+
+  server.registerTool(
+    'list_operation_documents',
+    {
+      title: 'List operation documents',
+      description:
+        'Lists PDFs previously generated for an operation, including a same-origin authenticated download URL.',
+      inputSchema: {
+        operationId: z.string().min(1),
+      },
+      annotations: readOnlyAnnotations,
+    },
+    ({ operationId }) =>
+      runTool('list_operation_documents', actor, async () =>
+        (await documents.listByOperation(operationId)).map((document) =>
+          withDocumentDownloadUrl(document as { id: string }),
+        ),
       ),
   );
 

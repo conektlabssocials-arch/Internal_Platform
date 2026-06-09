@@ -221,7 +221,7 @@ test('Phase 3 scopes expose plan and operation workflow tools', async () => {
 
   const tools = await client.listTools();
   const names = new Set(tools.tools.map((tool) => tool.name));
-  assert.equal(tools.tools.length, 22);
+  assert.equal(tools.tools.length, 24);
   assert.equal(names.has('change_plan_status'), true);
   assert.equal(names.has('change_operation_status'), true);
   assert.equal(names.has('update_operation_item_status'), true);
@@ -230,6 +230,38 @@ test('Phase 3 scopes expose plan and operation workflow tools', async () => {
   assert.equal(names.has('update_operation_mounting'), true);
   assert.equal(names.has('update_operation_proof'), true);
   assert.equal(names.has('update_operation_takedown'), true);
+
+  await client.close();
+  await server.close();
+});
+
+test('Phase 4 scopes expose document generation and proof upload tools', async () => {
+  const server = createPhase1McpServer(
+    {
+      userId: '000000000000000000000001',
+      email: 'admin@conektads.com',
+      name: 'Admin',
+      role: 'admin',
+    },
+    Object.values(MCP_SCOPES),
+  );
+  const client = new Client({
+    name: 'mcp-phase4-scope-regression',
+    version: '1.0.0',
+  });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+
+  const tools = await client.listTools();
+  const names = new Set(tools.tools.map((tool) => tool.name));
+  assert.equal(tools.tools.length, 27);
+  assert.equal(names.has('list_plan_documents'), true);
+  assert.equal(names.has('list_operation_documents'), true);
+  assert.equal(names.has('generate_plan_document'), true);
+  assert.equal(names.has('generate_operation_document'), true);
+  assert.equal(names.has('upload_operation_proof_image'), true);
 
   await client.close();
   await server.close();

@@ -25,6 +25,8 @@ import { DocumentRepository } from '../repositories/document.repository.js';
 import type { IDocumentRepository } from '../repositories/document.repository.js';
 import { DocumentService } from '../services/document.service.js';
 import type { IDocumentService } from '../services/document.service.js';
+import { DocumentCommandService } from '../services/documentCommand.service.js';
+import type { IDocumentCommandService } from '../services/documentCommand.service.js';
 import { GeocodingService } from '../services/geocoding.service.js';
 import type { IGeocodingService } from '../services/geocoding.service.js';
 import { InventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
@@ -54,6 +56,8 @@ import { ShareService } from '../services/share.service.js';
 import type { IShareService } from '../services/share.service.js';
 import { UploadService } from '../services/upload.service.js';
 import type { IUploadService } from '../services/upload.service.js';
+import { ProofUploadCommandService } from '../services/proofUploadCommand.service.js';
+import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
 import { TOKENS } from './tokens.js';
 import { UserService } from '../services/user.service.js';
 import type { IUserService } from '../services/user.service.js';
@@ -86,6 +90,10 @@ container.registerSingleton<IDocumentRepository>(
   DocumentRepository,
 );
 container.registerSingleton<IDocumentService>(TOKENS.DocumentService, DocumentService);
+container.registerSingleton<IDocumentCommandService>(
+  TOKENS.DocumentCommandService,
+  DocumentCommandService,
+);
 container.registerSingleton<IGeocodingService>(TOKENS.GeocodingService, GeocodingService);
 container.registerSingleton<IInventoryCounterRepository>(
   TOKENS.InventoryCounterRepository,
@@ -114,6 +122,10 @@ container.registerSingleton<IPlanService>(TOKENS.PlanService, PlanService);
 container.registerSingleton<IPlanCommandService>(
   TOKENS.PlanCommandService,
   PlanCommandService,
+);
+container.registerSingleton<IProofUploadCommandService>(
+  TOKENS.ProofUploadCommandService,
+  ProofUploadCommandService,
 );
 container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);
 container.registerSingleton<IShareRepository>(TOKENS.ShareRepository, ShareRepository);
