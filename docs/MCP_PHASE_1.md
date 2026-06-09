@@ -1,4 +1,4 @@
-# MCP Connector: Phase 1 and Phase 2
+# MCP Connector: Phases 1-3
 
 ## What MCP does
 
@@ -61,6 +61,47 @@ Both tools:
 `change_campaign_status` requires a reason when the new status is `Lost`.
 The tools cannot create campaigns, edit campaign pricing or ownership, delete
 records, or modify plans and operations.
+
+## Phase 3: Plan and operation workflows
+
+Phase 3 introduces `plans:write` and `operations:write`.
+
+Plan tool:
+
+| Tool | Purpose |
+| --- | --- |
+| `change_plan_status` | Move a plan through its existing validated workflow |
+
+Operation tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `change_operation_status` | Change the overall operation status |
+| `update_operation_item_status` | Change one execution item's status and notes |
+| `update_operation_creative` | Record creative receipt and existing file URLs |
+| `update_operation_purchase_order` | Record PO state, number, and existing file URL |
+| `update_operation_mounting` | Schedule or complete mounting |
+| `update_operation_proof` | Record proof state and existing photo URLs |
+| `update_operation_takedown` | Schedule or complete takedown |
+
+The plan service continues to enforce transitions:
+
+```text
+Draft -> Shared or Lost
+Shared -> Negotiating, Won, or Lost
+Negotiating -> Won or Lost
+```
+
+Marking a plan `Won` creates its operation work order using the existing
+platform workflow. Operation cancellation still requires an Admin user.
+
+All Phase 3 tools require explicit confirmation. Operation item tools also
+require the `updatedAt` value returned by the most recent `get_operation` call.
+If another user changes the operation first, the tool returns a conflict and
+Claude must read it again.
+
+Phase 3 records existing file URLs but does not upload files. File upload and
+document-generation actions remain outside this phase.
 
 ## Temporary Phase 1 authentication
 
@@ -164,7 +205,7 @@ The protected-resource document must identify:
 ```text
 resource: https://internal-api.conektads.com/mcp
 authorization server: https://internal-api.conektads.com/
-scopes: platform:read campaigns:write
+scopes: platform:read campaigns:write plans:write operations:write
 ```
 
 ### 4. Test with MCP Inspector
@@ -190,9 +231,9 @@ The server supports dynamic client registration, so OAuth client ID and secret
 advanced settings should normally be left empty. Claude discovers the OAuth
 endpoints and opens the Google Workspace sign-in flow.
 
-After deploying Phase 2, disconnect and reconnect the Claude connector. Existing
-tokens only contain the scopes granted when they were issued, so reconnecting is
-required before the two campaign write tools appear.
+After deploying a phase with new scopes, remove and add the Claude connector
+again. Existing OAuth clients or tokens may retain the scope list granted when
+they were created.
 
 Claude reaches this URL from Anthropic's cloud. `localhost`, private EC2 ports,
 and internal-only DNS names will not work.

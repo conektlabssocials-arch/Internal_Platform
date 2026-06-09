@@ -4,7 +4,7 @@ import type { Request, Response } from 'express';
 import { TOKENS } from '../config/tokens.js';
 import type { mapPlanToDto } from '../dto/plan.dto.js';
 import type { IPlanService } from '../services/plan.service.js';
-import type { IOperationService } from '../services/operation.service.js';
+import type { IPlanCommandService } from '../services/planCommand.service.js';
 import type { IActivityService } from '../services/activity.service.js';
 import { ACTIVITY_ACTIONS } from '../constants/activity.constants.js';
 import type { AuthTokenPayload } from '../types/auth.js';
@@ -21,8 +21,9 @@ type PlanDto = ReturnType<typeof mapPlanToDto>;
 export class PlanController {
   constructor(
     @inject(TOKENS.PlanService) private readonly service: IPlanService,
+    @inject(TOKENS.PlanCommandService)
+    private readonly commands: IPlanCommandService,
     @inject(TOKENS.ActivityService) private readonly activity: IActivityService,
-    @inject(TOKENS.OperationService) private readonly operations: IOperationService,
   ) {}
 
   listByCampaign = async (req: Request, res: Response) => {
@@ -100,45 +101,10 @@ export class PlanController {
     res.status(200).json({ data });
   };
   status = async (req: Request, res: Response) => {
-    const before = await this.service.getById(req.params.id) as PlanDto;
     const actor = user(res.locals);
-    let operationExisted = false;
-    if (req.body.status === 'Won') {
-      try {
-        await this.operations.getByPlan(req.params.id);
-        operationExisted = true;
-      } catch {
-        operationExisted = false;
-      }
-    }
-    const data = await this.service.updateStatus(req.params.id, {
+    const data = await this.commands.changeStatus(req.params.id, {
       status: req.body.status,
-      actorId: actor.userId,
-    }) as PlanDto;
-    const action = data.status === 'Shared' ? ACTIVITY_ACTIONS.PLAN_SHARED : data.status === 'Won' ? ACTIVITY_ACTIONS.PLAN_WON : data.status === 'Lost' ? ACTIVITY_ACTIONS.PLAN_LOST : ACTIVITY_ACTIONS.PLAN_STATUS_CHANGED;
-    await this.activity.logEntityActivity({
-      actor, action, entityType: 'Plan', entityId: data.id, entityCode: data.versionLabel,
-      entityTitle: data.title, parentEntityType: 'Campaign', parentEntityId: data.campaign?.id,
-      parentEntityCode: data.campaign?.campaignCode,
-      message: `Plan ${data.versionLabel} status changed from ${before.status} to ${data.status}.`,
-      changes: [{ field: 'status', from: before.status, to: data.status }],
-      metadata: { statusFrom: before.status, statusTo: data.status, planVersionLabel: data.versionLabel }, req,
-    });
-    if (data.status === 'Won' && !operationExisted) {
-      const operation = await this.operations.getByPlan(data.id) as {
-        id: string;
-        operationCode: string;
-        campaignTitle?: string | null;
-      };
-      await this.activity.logEntityActivity({
-        actor, action: ACTIVITY_ACTIONS.OPERATION_CREATED, entityType: 'Operation',
-        entityId: operation.id, entityCode: operation.operationCode,
-        entityTitle: operation.campaignTitle ?? data.title,
-        parentEntityType: 'Plan', parentEntityId: data.id,
-        parentEntityCode: data.versionLabel,
-        message: `${operation.operationCode} was created from Plan ${data.versionLabel}.`, req,
-      });
-    }
+    }, actor, req);
     res.status(200).json({ data });
   };
   delete = async (req: Request, res: Response) => {

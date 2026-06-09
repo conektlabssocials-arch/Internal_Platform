@@ -6,6 +6,7 @@ import { ACTIVITY_ACTIONS } from '../constants/activity.constants.js';
 import type { mapOperationToDto } from '../dto/operation.dto.js';
 import type { IActivityService } from '../services/activity.service.js';
 import type { IOperationService } from '../services/operation.service.js';
+import type { IOperationCommandService } from '../services/operationCommand.service.js';
 import type { AuthTokenPayload } from '../types/auth.js';
 import { HttpError } from '../utils/httpError.js';
 
@@ -14,14 +15,14 @@ const actor = (locals: { authUser?: AuthTokenPayload }) => {
   return locals.authUser;
 };
 type OperationDto = ReturnType<typeof mapOperationToDto>;
-const operationItem = (operation: OperationDto, itemId: string) =>
-  operation.items.find((item) => item.id === itemId);
 
 @injectable()
 export class OperationController {
   constructor(
     @inject(TOKENS.OperationService)
     private readonly service: IOperationService,
+    @inject(TOKENS.OperationCommandService)
+    private readonly commands: IOperationCommandService,
     @inject(TOKENS.ActivityService)
     private readonly activity: IActivityService,
   ) {}
@@ -57,118 +58,107 @@ export class OperationController {
   };
   update = async (req: Request, res: Response) => {
     const user = actor(res.locals);
-    const before = await this.service.getById(req.params.id) as OperationDto;
-    const data = await this.service.update(req.params.id, req.body, {
-      userId: user.userId,
-      role: user.role,
-    }) as OperationDto;
-    await this.activity.logEntityActivity({
-      actor: user, action: ACTIVITY_ACTIONS.OPERATION_UPDATED, entityType: 'Operation',
-      entityId: data.id, entityCode: data.operationCode, entityTitle: data.campaignTitle ?? undefined,
-      message: `${data.operationCode} was updated.`,
-      changes: this.activity.buildChangeSet(before, data, ['operationOwner.id', 'priority', 'status', 'importantDates', 'notes']),
+    const data = await this.commands.updateOperation(
+      req.params.id,
+      req.body,
+      user,
       req,
-    });
+    );
     res.status(200).json({
       data,
     });
   };
   status = async (req: Request, res: Response) => {
     const user = actor(res.locals);
-    const before = await this.service.getById(req.params.id) as OperationDto;
-    const data = await this.service.updateStatus(req.params.id, req.body.status, {
-      userId: user.userId,
-      role: user.role,
-    }) as OperationDto;
-    await this.activity.logEntityActivity({
-      actor: user, action: ACTIVITY_ACTIONS.OPERATION_STATUS_CHANGED, entityType: 'Operation',
-      entityId: data.id, entityCode: data.operationCode, entityTitle: data.campaignTitle ?? undefined,
-      message: `${data.operationCode} status changed from ${before.status} to ${data.status}.`,
-      changes: [{ field: 'status', from: before.status, to: data.status }],
-      metadata: { statusFrom: before.status, statusTo: data.status }, req,
-    });
+    const data = await this.commands.changeStatus(req.params.id, {
+      status: req.body.status,
+    }, user, req);
     res.status(200).json({
       data,
     });
   };
   item = async (req: Request, res: Response) => {
     const user = actor(res.locals);
-    const data = await this.service.updateItem(
-      req.params.id, req.params.itemId, req.body, user.userId,
-    ) as OperationDto;
-    await this.logItem(req, user, data, ACTIVITY_ACTIONS.OPERATION_ITEM_UPDATED, 'updated');
+    const data = await this.commands.updateItem(
+      req.params.id,
+      req.params.itemId,
+      'item',
+      { mutation: req.body },
+      user,
+      req,
+    );
     res.status(200).json({
       data,
     });
   };
   creative = async (req: Request, res: Response) => {
     const user = actor(res.locals);
-    const data = await this.service.updateCreative(
-      req.params.id, req.params.itemId, req.body, user.userId,
-    ) as OperationDto;
-    await this.logItem(req, user, data, ACTIVITY_ACTIONS.CREATIVE_UPDATED, 'creative was updated for');
+    const data = await this.commands.updateItem(
+      req.params.id,
+      req.params.itemId,
+      'creative',
+      { mutation: req.body },
+      user,
+      req,
+    );
     res.status(200).json({
       data,
     });
   };
   purchaseOrder = async (req: Request, res: Response) => {
     const user = actor(res.locals);
-    const data = await this.service.updatePurchaseOrder(
-      req.params.id, req.params.itemId, req.body, user.userId,
-    ) as OperationDto;
-    await this.logItem(req, user, data, ACTIVITY_ACTIONS.PO_UPDATED, 'purchase order was updated for');
+    const data = await this.commands.updateItem(
+      req.params.id,
+      req.params.itemId,
+      'purchaseOrder',
+      { mutation: req.body },
+      user,
+      req,
+    );
     res.status(200).json({
       data,
     });
   };
   mounting = async (req: Request, res: Response) => {
     const user = actor(res.locals);
-    const data = await this.service.updateMounting(
-      req.params.id, req.params.itemId, req.body, user.userId,
-    ) as OperationDto;
-    await this.logItem(req, user, data, ACTIVITY_ACTIONS.MOUNTING_UPDATED, 'mounting was updated for');
+    const data = await this.commands.updateItem(
+      req.params.id,
+      req.params.itemId,
+      'mounting',
+      { mutation: req.body },
+      user,
+      req,
+    );
     res.status(200).json({
       data,
     });
   };
   proof = async (req: Request, res: Response) => {
     const user = actor(res.locals);
-    const data = await this.service.updateProof(
-      req.params.id, req.params.itemId, req.body, user.userId,
-    ) as OperationDto;
-    await this.logItem(req, user, data, ACTIVITY_ACTIONS.PROOF_UPDATED, 'proof was updated for');
+    const data = await this.commands.updateItem(
+      req.params.id,
+      req.params.itemId,
+      'proof',
+      { mutation: req.body },
+      user,
+      req,
+    );
     res.status(200).json({
       data,
     });
   };
   takedown = async (req: Request, res: Response) => {
     const user = actor(res.locals);
-    const data = await this.service.updateTakedown(
-      req.params.id, req.params.itemId, req.body, user.userId,
-    ) as OperationDto;
-    await this.logItem(req, user, data, ACTIVITY_ACTIONS.TAKEDOWN_UPDATED, 'takedown was updated for');
+    const data = await this.commands.updateItem(
+      req.params.id,
+      req.params.itemId,
+      'takedown',
+      { mutation: req.body },
+      user,
+      req,
+    );
     res.status(200).json({
       data,
-    });
-  };
-
-  private logItem = async (
-    req: Request,
-    user: AuthTokenPayload,
-    operation: OperationDto,
-    action: string,
-    verb: string,
-  ) => {
-    const item = operationItem(operation, req.params.itemId);
-    await this.activity.logEntityActivity({
-      actor: user, action, entityType: 'OperationItem',
-      entityId: item?.id, entityCode: item?.inventoryCode, entityTitle: item?.title,
-      parentEntityType: 'Operation', parentEntityId: operation.id,
-      parentEntityCode: operation.operationCode,
-      message: verb === 'updated'
-        ? `${item?.inventoryCode || 'Operation item'} was updated.`
-        : `${operation.operationCode} ${verb} ${item?.inventoryCode || 'an item'}.`,
-      req,
     });
   };
 }

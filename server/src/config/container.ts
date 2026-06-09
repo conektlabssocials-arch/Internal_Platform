@@ -39,10 +39,14 @@ import { OperationRepository } from '../repositories/operation.repository.js';
 import type { IOperationRepository } from '../repositories/operation.repository.js';
 import { OperationService } from '../services/operation.service.js';
 import type { IOperationService } from '../services/operation.service.js';
+import { OperationCommandService } from '../services/operationCommand.service.js';
+import type { IOperationCommandService } from '../services/operationCommand.service.js';
 import { PlanRepository } from '../repositories/plan.repository.js';
 import type { IPlanRepository } from '../repositories/plan.repository.js';
 import { PlanService } from '../services/plan.service.js';
 import type { IPlanService } from '../services/plan.service.js';
+import { PlanCommandService } from '../services/planCommand.service.js';
+import type { IPlanCommandService } from '../services/planCommand.service.js';
 import { PdfService } from '../services/pdf.service.js';
 import { ShareRepository } from '../repositories/share.repository.js';
 import type { IShareRepository } from '../repositories/share.repository.js';
@@ -101,8 +105,16 @@ container.registerSingleton<IOperationRepository>(
   OperationRepository,
 );
 container.registerSingleton<IOperationService>(TOKENS.OperationService, OperationService);
+container.registerSingleton<IOperationCommandService>(
+  TOKENS.OperationCommandService,
+  OperationCommandService,
+);
 container.registerSingleton<IPlanRepository>(TOKENS.PlanRepository, PlanRepository);
 container.registerSingleton<IPlanService>(TOKENS.PlanService, PlanService);
+container.registerSingleton<IPlanCommandService>(
+  TOKENS.PlanCommandService,
+  PlanCommandService,
+);
 container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);
 container.registerSingleton<IShareRepository>(TOKENS.ShareRepository, ShareRepository);
 container.registerSingleton<IShareService>(TOKENS.ShareService, ShareService);

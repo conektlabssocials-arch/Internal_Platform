@@ -16,7 +16,9 @@ import type {
   IOperationService,
   OperationFilters,
 } from '../services/operation.service.js';
+import type { IOperationCommandService } from '../services/operationCommand.service.js';
 import type { IPlanService } from '../services/plan.service.js';
+import type { IPlanCommandService } from '../services/planCommand.service.js';
 import type { McpActor } from './mcpAuth.js';
 import { MCP_SCOPES } from './mcpScopes.js';
 
@@ -126,7 +128,7 @@ export const createPhase1McpServer = (
 ) => {
   const server = new McpServer({
     name: 'conekt-ads-internal-platform',
-    version: '0.2.0',
+    version: '0.3.0',
   });
 
   const activity = container.resolve<IActivityService>(TOKENS.ActivityService);
@@ -225,6 +227,386 @@ export const createPhase1McpServer = (
               expectedCurrentStatus,
               status: newStatus,
               reason,
+            },
+            actor,
+          ),
+        ),
+    );
+  }
+
+  if (scopes.includes(MCP_SCOPES.PlansWrite)) {
+    const planCommands = container.resolve<IPlanCommandService>(
+      TOKENS.PlanCommandService,
+    );
+
+    server.registerTool(
+      'change_plan_status',
+      {
+        title: 'Change plan status',
+        description:
+          'Changes a plan status using the platform workflow. Read the plan first, explain the current and proposed statuses and side effects, then obtain explicit confirmation. Marking Won also creates an operation work order.',
+        inputSchema: {
+          planId: z.string().min(1).describe('Plan MongoDB ID'),
+          expectedCurrentStatus: z.enum([
+            'Draft',
+            'Shared',
+            'Negotiating',
+            'Won',
+            'Lost',
+          ]),
+          newStatus: z.enum([
+            'Draft',
+            'Shared',
+            'Negotiating',
+            'Won',
+            'Lost',
+          ]),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ planId, expectedCurrentStatus, newStatus, confirm: _confirm }) =>
+        runTool('change_plan_status', actor, () =>
+          planCommands.changeStatus(
+            planId,
+            {
+              expectedCurrentStatus,
+              status: newStatus,
+            },
+            actor,
+          ),
+        ),
+    );
+  }
+
+  if (scopes.includes(MCP_SCOPES.OperationsWrite)) {
+    const operationCommands = container.resolve<IOperationCommandService>(
+      TOKENS.OperationCommandService,
+    );
+    const operationStatuses = [
+      'Pending',
+      'In Progress',
+      'Partially Mounted',
+      'Mounted',
+      'Proof Pending',
+      'Completed',
+      'On Hold',
+      'Cancelled',
+    ] as const;
+    const operationItemStatuses = [
+      'Pending',
+      'Creative Pending',
+      'PO Pending',
+      'Mounting Scheduled',
+      'Mounted',
+      'Proof Uploaded',
+      'Completed',
+      'On Hold',
+      'Cancelled',
+    ] as const;
+    const expectedUpdatedAt = z
+      .string()
+      .datetime({ offset: true })
+      .describe('Operation updatedAt value from the most recent get_operation call');
+    const confirmed = z
+      .literal(true)
+      .describe('Must be true after the user explicitly confirms');
+    const optionalNote = z.preprocess(
+      emptyToUndefined,
+      z.string().trim().min(1).max(1000).optional(),
+    );
+    const optionalUrls = z.preprocess(
+      (value) => (value === null ? undefined : value),
+      z.array(z.string().url()).max(20).optional(),
+    );
+
+    server.registerTool(
+      'change_operation_status',
+      {
+        title: 'Change operation status',
+        description:
+          'Changes an operation status. Read the operation first, explain the current and proposed statuses, then obtain explicit confirmation. Only admins can cancel operations.',
+        inputSchema: {
+          operationId: z.string().min(1),
+          expectedCurrentStatus: z.enum(operationStatuses),
+          expectedUpdatedAt,
+          newStatus: z.enum(operationStatuses),
+          confirm: confirmed,
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        operationId,
+        expectedCurrentStatus,
+        expectedUpdatedAt: lastReadAt,
+        newStatus,
+        confirm: _confirm,
+      }) =>
+        runTool('change_operation_status', actor, () =>
+          operationCommands.changeStatus(
+            operationId,
+            {
+              expectedCurrentStatus,
+              expectedUpdatedAt: lastReadAt,
+              status: newStatus,
+            },
+            actor,
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'update_operation_item_status',
+      {
+        title: 'Update operation item status',
+        description:
+          'Updates one operation item status and optional notes. Read the operation first and confirm the item and proposed status with the user.',
+        inputSchema: {
+          operationId: z.string().min(1),
+          itemId: z.string().min(1),
+          expectedUpdatedAt,
+          newItemStatus: z.enum(operationItemStatuses),
+          notes: optionalNote,
+          confirm: confirmed,
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        operationId,
+        itemId,
+        expectedUpdatedAt: lastReadAt,
+        newItemStatus,
+        notes,
+        confirm: _confirm,
+      }) =>
+        runTool('update_operation_item_status', actor, () =>
+          operationCommands.updateItem(
+            operationId,
+            itemId,
+            'item',
+            {
+              expectedUpdatedAt: lastReadAt,
+              mutation: { itemStatus: newItemStatus, notes },
+            },
+            actor,
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'update_operation_creative',
+      {
+        title: 'Update operation creative',
+        description:
+          'Marks creative received or not received for one operation item, with optional file URLs and notes. Read and confirm the item first.',
+        inputSchema: {
+          operationId: z.string().min(1),
+          itemId: z.string().min(1),
+          expectedUpdatedAt,
+          received: z.boolean(),
+          fileUrls: optionalUrls,
+          notes: optionalNote,
+          confirm: confirmed,
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        operationId,
+        itemId,
+        expectedUpdatedAt: lastReadAt,
+        received,
+        fileUrls,
+        notes,
+        confirm: _confirm,
+      }) =>
+        runTool('update_operation_creative', actor, () =>
+          operationCommands.updateItem(
+            operationId,
+            itemId,
+            'creative',
+            {
+              expectedUpdatedAt: lastReadAt,
+              mutation: { received, fileUrls, notes },
+            },
+            actor,
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'update_operation_purchase_order',
+      {
+        title: 'Update operation purchase order',
+        description:
+          'Marks a purchase order sent or not sent for one operation item and records its number, file URL, or notes. Read and confirm the item first.',
+        inputSchema: {
+          operationId: z.string().min(1),
+          itemId: z.string().min(1),
+          expectedUpdatedAt,
+          sent: z.boolean(),
+          poNumber: optionalText,
+          poFileUrl: z.preprocess(
+            emptyToUndefined,
+            z.string().url().optional(),
+          ),
+          notes: optionalNote,
+          confirm: confirmed,
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        operationId,
+        itemId,
+        expectedUpdatedAt: lastReadAt,
+        sent,
+        poNumber,
+        poFileUrl,
+        notes,
+        confirm: _confirm,
+      }) =>
+        runTool('update_operation_purchase_order', actor, () =>
+          operationCommands.updateItem(
+            operationId,
+            itemId,
+            'purchaseOrder',
+            {
+              expectedUpdatedAt: lastReadAt,
+              mutation: { sent, poNumber, poFileUrl, notes },
+            },
+            actor,
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'update_operation_mounting',
+      {
+        title: 'Update operation mounting',
+        description:
+          'Updates mounting schedule or completion for one operation item. Read the operation first and confirm the item, date, and completion state.',
+        inputSchema: {
+          operationId: z.string().min(1),
+          itemId: z.string().min(1),
+          expectedUpdatedAt,
+          scheduledDate: z.preprocess(
+            emptyToUndefined,
+            z.string().datetime({ offset: true }).optional(),
+          ),
+          completed: z.boolean(),
+          vendorNotes: optionalNote,
+          internalNotes: optionalNote,
+          confirm: confirmed,
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        operationId,
+        itemId,
+        expectedUpdatedAt: lastReadAt,
+        scheduledDate,
+        completed,
+        vendorNotes,
+        internalNotes,
+        confirm: _confirm,
+      }) =>
+        runTool('update_operation_mounting', actor, () =>
+          operationCommands.updateItem(
+            operationId,
+            itemId,
+            'mounting',
+            {
+              expectedUpdatedAt: lastReadAt,
+              mutation: {
+                scheduledDate,
+                completed,
+                vendorNotes,
+                internalNotes,
+              },
+            },
+            actor,
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'update_operation_proof',
+      {
+        title: 'Update operation proof',
+        description:
+          'Marks execution proof uploaded or not uploaded and records existing photo URLs or notes for one operation item. This tool does not upload files. Read and confirm first.',
+        inputSchema: {
+          operationId: z.string().min(1),
+          itemId: z.string().min(1),
+          expectedUpdatedAt,
+          uploaded: z.boolean(),
+          photoUrls: optionalUrls,
+          notes: optionalNote,
+          confirm: confirmed,
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        operationId,
+        itemId,
+        expectedUpdatedAt: lastReadAt,
+        uploaded,
+        photoUrls,
+        notes,
+        confirm: _confirm,
+      }) =>
+        runTool('update_operation_proof', actor, () =>
+          operationCommands.updateItem(
+            operationId,
+            itemId,
+            'proof',
+            {
+              expectedUpdatedAt: lastReadAt,
+              mutation: { uploaded, photoUrls, notes },
+            },
+            actor,
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'update_operation_takedown',
+      {
+        title: 'Update operation takedown',
+        description:
+          'Updates takedown schedule or completion for one operation item. Read the operation first and confirm the item, date, and completion state.',
+        inputSchema: {
+          operationId: z.string().min(1),
+          itemId: z.string().min(1),
+          expectedUpdatedAt,
+          scheduledDate: z.preprocess(
+            emptyToUndefined,
+            z.string().datetime({ offset: true }).optional(),
+          ),
+          completed: z.boolean(),
+          notes: optionalNote,
+          confirm: confirmed,
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        operationId,
+        itemId,
+        expectedUpdatedAt: lastReadAt,
+        scheduledDate,
+        completed,
+        notes,
+        confirm: _confirm,
+      }) =>
+        runTool('update_operation_takedown', actor, () =>
+          operationCommands.updateItem(
+            operationId,
+            itemId,
+            'takedown',
+            {
+              expectedUpdatedAt: lastReadAt,
+              mutation: { scheduledDate, completed, notes },
             },
             actor,
           ),

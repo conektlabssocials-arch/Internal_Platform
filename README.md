@@ -255,7 +255,8 @@ npm start
 The backend includes a disabled-by-default MCP endpoint at `/mcp`. Phase 1
 provides read-only access to dashboards, CRM, inventory, campaigns, plans,
 operations, and activity. Phase 2 adds scoped, confirmed campaign follow-up and
-status updates.
+status updates. Phase 3 adds scoped, confirmed plan status and operation
+execution workflow updates.
 
 Setup, security boundaries, tool details, and MCP Inspector instructions are in
 [`docs/MCP_PHASE_1.md`](docs/MCP_PHASE_1.md).
