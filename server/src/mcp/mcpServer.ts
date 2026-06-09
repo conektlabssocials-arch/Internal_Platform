@@ -10,10 +10,12 @@ import type { IActivityService } from '../services/activity.service.js';
 import type { ICampaignService } from '../services/campaign.service.js';
 import type { ICampaignCommandService } from '../services/campaignCommand.service.js';
 import type { ICrmService } from '../services/crm.service.js';
+import type { ICrmCommandService } from '../services/crmCommand.service.js';
 import type { IDashboardService } from '../services/dashboard.service.js';
 import type { IDocumentService } from '../services/document.service.js';
 import type { IDocumentCommandService } from '../services/documentCommand.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
+import type { IInventoryCommandService } from '../services/inventoryCommand.service.js';
 import type {
   IOperationService,
   OperationFilters,
@@ -103,6 +105,73 @@ const planItemInput = z.object({
   unitInternalCost: z.coerce.number().min(0),
   notes: optionalPlanText,
 });
+const optionalShortText = z.preprocess(
+  emptyToUndefined,
+  z.string().trim().min(1).max(500).optional(),
+);
+const optionalEmail = z.preprocess(
+  emptyToUndefined,
+  z.string().email().max(320).optional(),
+);
+const optionalStringList = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z.array(z.string().trim().min(1).max(100)).max(30).optional(),
+);
+const crmAddressInput = z.object({
+  line1: optionalShortText,
+  line2: optionalShortText,
+  city: optionalShortText,
+  state: optionalShortText,
+  pincode: optionalShortText,
+  country: optionalShortText,
+});
+const contactMutationInput = {
+  name: z.string().trim().min(1).max(200),
+  role: optionalShortText,
+  phone: optionalShortText,
+  email: optionalEmail,
+  whatsapp: optionalShortText,
+  isPrimary: z.boolean().default(false),
+  notes: optionalPlanText,
+};
+const campaignMutationInput = {
+  title: z.string().trim().min(1).max(250),
+  source: z.enum([
+    'Call',
+    'WhatsApp',
+    'Email',
+    'Referral',
+    'Walk-in',
+    'Website',
+    'Other',
+  ]),
+  brief: z.string().trim().min(1).max(5000),
+  objective: optionalPlanText,
+  budgetType: z.enum(['fixed', 'range', 'unknown']).default('unknown'),
+  budget: z
+    .object({
+      min: optionalMoney,
+      max: optionalMoney,
+      fixed: optionalMoney,
+    })
+    .optional(),
+  startDate: optionalIsoDateTime,
+  endDate: optionalIsoDateTime,
+  geos: optionalStringList,
+  targetAudience: optionalPlanText,
+  categoriesOfInterest: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z
+      .array(z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van']))
+      .max(4)
+      .optional(),
+  ),
+  expectedRevenue: optionalMoney,
+  priority: z.enum(['Low', 'Medium', 'High']).default('Medium'),
+  nextFollowUpAt: optionalIsoDateTime,
+  notes: optionalPlanText,
+  tags: optionalStringList,
+};
 
 const asQuery = (value: number | undefined) => value?.toString();
 const asBooleanQuery = (value: boolean | 'true' | 'false' | undefined) =>
@@ -160,7 +229,7 @@ export const createPhase1McpServer = (
 ) => {
   const server = new McpServer({
     name: 'conekt-ads-internal-platform',
-    version: '0.5.0',
+    version: '0.6.0',
   });
 
   const activity = container.resolve<IActivityService>(TOKENS.ActivityService);
@@ -176,6 +245,95 @@ export const createPhase1McpServer = (
   if (scopes.includes(MCP_SCOPES.CampaignsWrite)) {
     const campaignCommands = container.resolve<ICampaignCommandService>(
       TOKENS.CampaignCommandService,
+    );
+
+    server.registerTool(
+      'create_campaign',
+      {
+        title: 'Create campaign',
+        description:
+          'Creates a New campaign for an existing Brand, Agency, or Individual CRM client. Search and read the client first, summarize the brief, budget, dates, geography, categories, priority, and owner, then obtain explicit confirmation. Ownership defaults to the signed-in user.',
+        inputSchema: {
+          client: z.string().min(1).describe('CRM client MongoDB ID'),
+          expectedClientUpdatedAt: z.string().datetime({ offset: true }),
+          ...campaignMutationInput,
+          ownerUser: optionalText.describe(
+            'Optional active platform user ID; defaults to the signed-in user',
+          ),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ confirm: _confirm, ...input }) =>
+        runTool('create_campaign', actor, () =>
+          campaignCommands.createCampaign(input, actor),
+        ),
+    );
+
+    server.registerTool(
+      'update_campaign_details',
+      {
+        title: 'Update campaign details',
+        description:
+          'Updates campaign brief, budget, dates, geography, categories, priority, notes, tags, follow-up, client, or owner. Read the campaign first, summarize all changes, then obtain explicit confirmation.',
+        inputSchema: {
+          campaignId: z.string().min(1),
+          expectedUpdatedAt: z.string().datetime({ offset: true }),
+          title: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(250).optional(),
+          ),
+          client: optionalText,
+          ownerUser: optionalText,
+          source: z.preprocess(
+            emptyToUndefined,
+            z
+              .enum([
+                'Call',
+                'WhatsApp',
+                'Email',
+                'Referral',
+                'Walk-in',
+                'Website',
+                'Other',
+              ])
+              .optional(),
+          ),
+          brief: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(5000).optional(),
+          ),
+          objective: optionalPlanText,
+          budgetType: z.preprocess(
+            emptyToUndefined,
+            z.enum(['fixed', 'range', 'unknown']).optional(),
+          ),
+          budget: campaignMutationInput.budget,
+          startDate: optionalIsoDateTime,
+          endDate: optionalIsoDateTime,
+          geos: optionalStringList,
+          targetAudience: optionalPlanText,
+          categoriesOfInterest: campaignMutationInput.categoriesOfInterest,
+          expectedRevenue: optionalMoney,
+          priority: z.preprocess(
+            emptyToUndefined,
+            z.enum(['Low', 'Medium', 'High']).optional(),
+          ),
+          nextFollowUpAt: optionalIsoDateTime,
+          notes: optionalPlanText,
+          tags: optionalStringList,
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ campaignId, confirm: _confirm, ...input }) =>
+        runTool('update_campaign_details', actor, () =>
+          campaignCommands.updateCampaign(campaignId, input, actor),
+        ),
     );
 
     server.registerTool(
@@ -266,6 +424,213 @@ export const createPhase1McpServer = (
           ),
         ),
     );
+  }
+
+  if (scopes.includes(MCP_SCOPES.CrmWrite)) {
+    const crmCommands = container.resolve<ICrmCommandService>(
+      TOKENS.CrmCommandService,
+    );
+    const entityFields = {
+      displayName: optionalShortText,
+      gstNumber: optionalShortText,
+      panNumber: optionalShortText,
+      email: optionalEmail,
+      phone: optionalShortText,
+      whatsapp: optionalShortText,
+      website: z.preprocess(
+        emptyToUndefined,
+        z.string().url().max(500).optional(),
+      ),
+      address: crmAddressInput.optional(),
+      tags: optionalStringList,
+      notes: optionalPlanText,
+    };
+
+    server.registerTool(
+      'create_crm_entity',
+      {
+        title: 'Create CRM entity',
+        description:
+          'Creates a Brand, Agency, Individual, or Supplier/Owner CRM record. Search CRM first for matching name, email, GST, or PAN, summarize the new record, then obtain explicit confirmation. Duplicate identifiers are rejected.',
+        inputSchema: {
+          entityType: z.enum([
+            'Brand',
+            'Agency',
+            'Individual',
+            'SupplierOwner',
+          ]),
+          name: z.string().trim().min(1).max(250),
+          ...entityFields,
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ confirm: _confirm, ...input }) =>
+        runTool('create_crm_entity', actor, () =>
+          crmCommands.createEntity(input, actor),
+        ),
+    );
+
+    server.registerTool(
+      'update_crm_entity',
+      {
+        title: 'Update CRM entity',
+        description:
+          'Updates an existing CRM record. Read it first, summarize changed contact, tax, address, tag, and note fields, then obtain explicit confirmation.',
+        inputSchema: {
+          entityId: z.string().min(1),
+          expectedUpdatedAt: z.string().datetime({ offset: true }),
+          name: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(250).optional(),
+          ),
+          ...entityFields,
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ entityId, confirm: _confirm, ...input }) =>
+        runTool('update_crm_entity', actor, () =>
+          crmCommands.updateEntity(entityId, input, actor),
+        ),
+    );
+
+    server.registerTool(
+      'create_crm_contact',
+      {
+        title: 'Create CRM contact',
+        description:
+          'Adds a contact to a CRM record. Read the CRM record and existing contacts first, explain whether this will replace the current primary contact, then obtain explicit confirmation.',
+        inputSchema: {
+          entityId: z.string().min(1),
+          ...contactMutationInput,
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ entityId, confirm: _confirm, ...input }) =>
+        runTool('create_crm_contact', actor, () =>
+          crmCommands.createContact(entityId, input, actor),
+        ),
+    );
+
+    server.registerTool(
+      'update_crm_contact',
+      {
+        title: 'Update CRM contact',
+        description:
+          'Updates a CRM contact. Read the parent CRM record first, summarize all changes and any primary-contact replacement, then obtain explicit confirmation.',
+        inputSchema: {
+          entityId: z.string().min(1),
+          contactId: z.string().min(1),
+          expectedUpdatedAt: z.string().datetime({ offset: true }),
+          name: z.preprocess(
+            emptyToUndefined,
+            z.string().trim().min(1).max(200).optional(),
+          ),
+          role: optionalShortText,
+          phone: optionalShortText,
+          email: optionalEmail,
+          whatsapp: optionalShortText,
+          isPrimary: z.preprocess(
+            (value) => (value === null ? undefined : value),
+            z.boolean().optional(),
+          ),
+          notes: optionalPlanText,
+          status: z.preprocess(
+            emptyToUndefined,
+            z.enum(['active', 'inactive']).optional(),
+          ),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ contactId, confirm: _confirm, ...input }) =>
+        runTool('update_crm_contact', actor, () =>
+          crmCommands.updateContact(contactId, input, actor),
+        ),
+    );
+  }
+
+  if (scopes.includes(MCP_SCOPES.InventoryWrite)) {
+    const inventoryCommands = container.resolve<IInventoryCommandService>(
+      TOKENS.InventoryCommandService,
+    );
+
+    server.registerTool(
+      'confirm_inventory',
+      {
+        title: 'Confirm inventory',
+        description:
+          'Refreshes inventory confirmation and may update availability, internal cost, and selling price. Read the inventory first, state the current and proposed commercial values, then obtain explicit confirmation.',
+        inputSchema: {
+          inventoryId: z.string().min(1),
+          expectedUpdatedAt: z.string().datetime({ offset: true }),
+          availabilityStatus: z.enum([
+            'available',
+            'booked',
+            'hold',
+            'unknown',
+          ]),
+          internalCost: optionalMoney,
+          sellingPrice: optionalMoney,
+          confirmationNote: z.string().trim().min(1).max(1000),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ inventoryId, confirm: _confirm, ...input }) =>
+        runTool('confirm_inventory', actor, () =>
+          inventoryCommands.confirm(inventoryId, input, actor),
+        ),
+    );
+
+    if (actor.role === 'admin') {
+      server.registerTool(
+        'change_inventory_status',
+        {
+          title: 'Change inventory status',
+          description:
+            'Admin-only activation or deactivation of an inventory record. Read it first, explain the operational impact, then obtain explicit confirmation.',
+          inputSchema: {
+            inventoryId: z.string().min(1),
+            expectedCurrentStatus: z.enum(['active', 'inactive']),
+            expectedUpdatedAt: z.string().datetime({ offset: true }),
+            newStatus: z.enum(['active', 'inactive']),
+            confirm: z
+              .literal(true)
+              .describe('Must be true after the user explicitly confirms'),
+          },
+          annotations: statusWriteAnnotations,
+        },
+        ({
+          inventoryId,
+          expectedCurrentStatus,
+          expectedUpdatedAt,
+          newStatus,
+          confirm: _confirm,
+        }) =>
+          runTool('change_inventory_status', actor, () =>
+            inventoryCommands.changeStatus(
+              inventoryId,
+              expectedCurrentStatus,
+              expectedUpdatedAt,
+              newStatus,
+              actor,
+            ),
+          ),
+      );
+    }
   }
 
   if (scopes.includes(MCP_SCOPES.PlansWrite)) {

@@ -5,8 +5,6 @@ import { TOKENS } from '../config/tokens.js';
 import type { CampaignDto, CampaignFiltersDto } from '../dto/campaign.dto.js';
 import type { ICampaignService } from '../services/campaign.service.js';
 import type { ICampaignCommandService } from '../services/campaignCommand.service.js';
-import type { IActivityService } from '../services/activity.service.js';
-import { ACTIVITY_ACTIONS } from '../constants/activity.constants.js';
 import type { AuthTokenPayload } from '../types/auth.js';
 import { HttpError } from '../utils/httpError.js';
 
@@ -21,7 +19,6 @@ export class CampaignController {
     @inject(TOKENS.CampaignService) private readonly service: ICampaignService,
     @inject(TOKENS.CampaignCommandService)
     private readonly commands: ICampaignCommandService,
-    @inject(TOKENS.ActivityService) private readonly activity: IActivityService,
   ) {}
 
   list = async (req: Request, res: Response) => {
@@ -38,17 +35,10 @@ export class CampaignController {
   };
   create = async (req: Request, res: Response) => {
     const user = authUser(res.locals);
-    const data = await this.service.createCampaign({
+    const data = await this.commands.createCampaign({
       ...req.body,
       ownerUser: req.body.ownerUser || user.userId,
-      createdBy: user.userId,
-      updatedBy: user.userId,
-    }) as CampaignDto;
-    await this.activity.logEntityActivity({
-      actor: user, action: ACTIVITY_ACTIONS.CAMPAIGN_CREATED, entityType: 'Campaign',
-      entityId: data.id, entityCode: data.campaignCode, entityTitle: data.title,
-      message: `${data.campaignCode} campaign was created.`, req,
-    });
+    }, user, req);
     res.status(201).json({ data });
   };
   update = async (req: Request, res: Response) => {

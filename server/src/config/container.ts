@@ -19,6 +19,8 @@ import { CrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import { CrmService } from '../services/crm.service.js';
 import type { ICrmService } from '../services/crm.service.js';
+import { CrmCommandService } from '../services/crmCommand.service.js';
+import type { ICrmCommandService } from '../services/crmCommand.service.js';
 import { DashboardService } from '../services/dashboard.service.js';
 import type { IDashboardService } from '../services/dashboard.service.js';
 import { DocumentRepository } from '../repositories/document.repository.js';
@@ -35,6 +37,8 @@ import { InventoryRepository } from '../repositories/inventory.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import { InventoryService } from '../services/inventory.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
+import { InventoryCommandService } from '../services/inventoryCommand.service.js';
+import type { IInventoryCommandService } from '../services/inventoryCommand.service.js';
 import { OperationCounterRepository } from '../repositories/operationCounter.repository.js';
 import type { IOperationCounterRepository } from '../repositories/operationCounter.repository.js';
 import { OperationRepository } from '../repositories/operation.repository.js';
@@ -88,6 +92,10 @@ container.registerSingleton<ICrmEntityRepository>(
   CrmEntityRepository,
 );
 container.registerSingleton<ICrmService>(TOKENS.CrmService, CrmService);
+container.registerSingleton<ICrmCommandService>(
+  TOKENS.CrmCommandService,
+  CrmCommandService,
+);
 container.registerSingleton<IDashboardService>(TOKENS.DashboardService, DashboardService);
 container.registerSingleton<IDocumentRepository>(
   TOKENS.DocumentRepository,
@@ -108,6 +116,10 @@ container.registerSingleton<IInventoryRepository>(
   InventoryRepository,
 );
 container.registerSingleton<IInventoryService>(TOKENS.InventoryService, InventoryService);
+container.registerSingleton<IInventoryCommandService>(
+  TOKENS.InventoryCommandService,
+  InventoryCommandService,
+);
 container.registerSingleton<IOperationCounterRepository>(
   TOKENS.OperationCounterRepository,
   OperationCounterRepository,

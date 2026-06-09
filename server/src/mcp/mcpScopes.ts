@@ -6,6 +6,8 @@ export const MCP_SCOPES = {
   DocumentsWrite: 'documents:write',
   UploadsWrite: 'uploads:write',
   SharesWrite: 'shares:write',
+  CrmWrite: 'crm:write',
+  InventoryWrite: 'inventory:write',
 } as const;
 
 export const supportedMcpScopes = Object.values(MCP_SCOPES);

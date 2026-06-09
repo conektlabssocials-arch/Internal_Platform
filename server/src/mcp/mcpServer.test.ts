@@ -8,6 +8,7 @@ import { TOKENS } from '../config/tokens.js';
 import type { InventoryFiltersDto } from '../dto/inventory.dto.js';
 import type { ICampaignCommandService } from '../services/campaignCommand.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
+import type { IInventoryCommandService } from '../services/inventoryCommand.service.js';
 import type { IOperationCommandService } from '../services/operationCommand.service.js';
 import type { IPlanAuthoringCommandService } from '../services/planAuthoringCommand.service.js';
 import { createPhase1McpServer } from './mcpServer.js';
@@ -222,7 +223,7 @@ test('Phase 3 scopes expose plan and operation workflow tools', async () => {
 
   const tools = await client.listTools();
   const names = new Set(tools.tools.map((tool) => tool.name));
-  assert.equal(tools.tools.length, 28);
+  assert.equal(tools.tools.length, 30);
   assert.equal(names.has('change_plan_status'), true);
   assert.equal(names.has('change_operation_status'), true);
   assert.equal(names.has('update_operation_item_status'), true);
@@ -257,7 +258,7 @@ test('Phase 4 scopes expose document generation and proof upload tools', async (
 
   const tools = await client.listTools();
   const names = new Set(tools.tools.map((tool) => tool.name));
-  assert.equal(tools.tools.length, 33);
+  assert.equal(tools.tools.length, 41);
   assert.equal(names.has('list_plan_documents'), true);
   assert.equal(names.has('list_operation_documents'), true);
   assert.equal(names.has('generate_plan_document'), true);
@@ -269,6 +270,14 @@ test('Phase 4 scopes expose document generation and proof upload tools', async (
   assert.equal(names.has('list_plan_share_links'), true);
   assert.equal(names.has('create_plan_share_link'), true);
   assert.equal(names.has('disable_plan_share_link'), true);
+  assert.equal(names.has('create_campaign'), true);
+  assert.equal(names.has('update_campaign_details'), true);
+  assert.equal(names.has('create_crm_entity'), true);
+  assert.equal(names.has('update_crm_entity'), true);
+  assert.equal(names.has('create_crm_contact'), true);
+  assert.equal(names.has('update_crm_contact'), true);
+  assert.equal(names.has('confirm_inventory'), true);
+  assert.equal(names.has('change_inventory_status'), true);
 
   await client.close();
   await server.close();
@@ -428,6 +437,80 @@ test('draft plan MCP tool requires confirmation and forwards commercial inputs',
     argumentsWithoutConfirmation.items,
   );
   assert.deepEqual(received?.actor, actor);
+
+  await client.close();
+  await server.close();
+});
+
+test('inventory confirmation requires confirmation and status tool is admin-only', async () => {
+  let received: Record<string, unknown> | undefined;
+  const commands = {
+    confirm: async (
+      inventoryId: string,
+      input: Record<string, unknown>,
+      actor: Record<string, unknown>,
+    ) => {
+      received = { inventoryId, input, actor };
+      return {
+        id: inventoryId,
+        inventoryCode: 'OUT-BLR-CBD-0001',
+        title: 'MG Road',
+        availabilityStatus: 'available',
+        confirmationStatus: 'fresh',
+      };
+    },
+  } as unknown as IInventoryCommandService;
+  container.registerInstance(TOKENS.InventoryCommandService, commands);
+  const member = {
+    userId: '000000000000000000000002',
+    email: 'member@conektads.com',
+    name: 'Member',
+    role: 'member' as const,
+  };
+  const server = createPhase1McpServer(member, [
+    MCP_SCOPES.PlatformRead,
+    MCP_SCOPES.InventoryWrite,
+  ]);
+  const client = new Client({
+    name: 'mcp-phase6-inventory-regression',
+    version: '1.0.0',
+  });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+
+  const tools = await client.listTools();
+  assert.equal(
+    tools.tools.some((tool) => tool.name === 'confirm_inventory'),
+    true,
+  );
+  assert.equal(
+    tools.tools.some((tool) => tool.name === 'change_inventory_status'),
+    false,
+  );
+
+  const argumentsWithoutConfirmation = {
+    inventoryId: '000000000000000000000010',
+    expectedUpdatedAt: '2026-06-10T09:00:00.000Z',
+    availabilityStatus: 'available',
+    sellingPrice: 500000,
+    confirmationNote: 'Confirmed with owner',
+  };
+  const rejected = await client.callTool({
+    name: 'confirm_inventory',
+    arguments: { ...argumentsWithoutConfirmation, confirm: false },
+  });
+  assert.equal(rejected.isError, true);
+  assert.equal(received, undefined);
+
+  const accepted = await client.callTool({
+    name: 'confirm_inventory',
+    arguments: { ...argumentsWithoutConfirmation, confirm: true },
+  });
+  assert.equal(accepted.isError, undefined);
+  assert.equal(received?.inventoryId, argumentsWithoutConfirmation.inventoryId);
+  assert.deepEqual(received?.actor, member);
 
   await client.close();
   await server.close();

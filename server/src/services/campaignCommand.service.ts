@@ -10,6 +10,7 @@ import type {
 import type { CampaignStatus } from '../models/campaign.model.js';
 import type { IActivityService } from './activity.service.js';
 import type { ICampaignService } from './campaign.service.js';
+import type { ICrmService } from './crm.service.js';
 import { HttpError } from '../utils/httpError.js';
 
 export type CampaignCommandActor = {
@@ -31,10 +32,23 @@ export type CampaignStatusInput = {
   reason?: string;
 };
 
+export type CampaignCreateInput = CampaignMutationDto & {
+  expectedClientUpdatedAt?: string;
+};
+
+export type CampaignUpdateInput = CampaignMutationDto & {
+  expectedUpdatedAt?: string;
+};
+
 export interface ICampaignCommandService {
+  createCampaign(
+    input: CampaignCreateInput,
+    actor: CampaignCommandActor,
+    req?: Request,
+  ): Promise<CampaignDto>;
   updateCampaign(
     id: string,
-    input: CampaignMutationDto,
+    input: CampaignUpdateInput,
     actor: CampaignCommandActor,
     req?: Request,
   ): Promise<CampaignDto>;
@@ -65,17 +79,71 @@ export class CampaignCommandService implements ICampaignCommandService {
     private readonly campaigns: ICampaignService,
     @inject(TOKENS.ActivityService)
     private readonly activity: IActivityService,
+    @inject(TOKENS.CrmService)
+    private readonly crm: ICrmService,
   ) {}
+
+  async createCampaign(
+    input: CampaignCreateInput,
+    actor: CampaignCommandActor,
+    req?: Request,
+  ) {
+    if (!input.client) throw new HttpError(400, 'client is required');
+    const client = await this.crm.getEntityById(input.client);
+    if (client.status !== 'active') {
+      throw new HttpError(400, 'Campaign client must be an active CRM record');
+    }
+    if (
+      input.expectedClientUpdatedAt &&
+      timestamp(client.updatedAt) !== timestamp(input.expectedClientUpdatedAt)
+    ) {
+      throw new HttpError(
+        409,
+        'CRM client changed since it was read. Read it again before creating the campaign.',
+      );
+    }
+    const {
+      expectedClientUpdatedAt: _expectedClientUpdatedAt,
+      ...mutation
+    } = input;
+    const data = (await this.campaigns.createCampaign({
+      ...mutation,
+      ownerUser: mutation.ownerUser || actor.userId,
+      createdBy: actor.userId,
+      updatedBy: actor.userId,
+    })) as CampaignDto;
+    await this.activity.logEntityActivity({
+      actor,
+      action: ACTIVITY_ACTIONS.CAMPAIGN_CREATED,
+      entityType: 'Campaign',
+      entityId: data.id,
+      entityCode: data.campaignCode,
+      entityTitle: data.title,
+      message: `${data.campaignCode} campaign was created.`,
+      req,
+    });
+    return data;
+  }
 
   async updateCampaign(
     id: string,
-    input: CampaignMutationDto,
+    input: CampaignUpdateInput,
     actor: CampaignCommandActor,
     req?: Request,
   ) {
     const before = (await this.campaigns.getCampaignById(id)) as CampaignDto;
+    if (
+      input.expectedUpdatedAt &&
+      timestamp(before.updatedAt) !== timestamp(input.expectedUpdatedAt)
+    ) {
+      throw new HttpError(
+        409,
+        'Campaign changed since it was read. Read it again before updating.',
+      );
+    }
+    const { expectedUpdatedAt: _expectedUpdatedAt, ...mutation } = input;
     const data = (await this.campaigns.updateCampaign(id, {
-      ...input,
+      ...mutation,
       createdBy: undefined,
       updatedBy: actor.userId,
     })) as CampaignDto;
