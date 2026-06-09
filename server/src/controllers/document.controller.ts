@@ -3,6 +3,8 @@ import type { Request, Response } from 'express';
 
 import { TOKENS } from '../config/tokens.js';
 import type { IDocumentService } from '../services/document.service.js';
+import type { IActivityService } from '../services/activity.service.js';
+import { ACTIVITY_ACTIONS } from '../constants/activity.constants.js';
 import type { AuthTokenPayload } from '../types/auth.js';
 import { HttpError } from '../utils/httpError.js';
 
@@ -16,14 +18,24 @@ export class DocumentController {
   constructor(
     @inject(TOKENS.DocumentService)
     private readonly service: IDocumentService,
+    @inject(TOKENS.ActivityService)
+    private readonly activity: IActivityService,
   ) {}
 
   generate = async (req: Request, res: Response) => {
-    const data = await this.service.generate(
+    const actor = authUser(res.locals);
+    const data: any = await this.service.generate(
       req.params.planId,
       req.body.documentType,
-      authUser(res.locals).userId,
+      actor.userId,
     );
+    await this.activity.logEntityActivity({
+      actor, action: ACTIVITY_ACTIONS.DOCUMENT_GENERATED, entityType: 'Document',
+      entityId: data.id, entityCode: data.metadata?.campaignCode, entityTitle: data.fileName,
+      parentEntityType: 'Plan', parentEntityId: data.plan,
+      message: `${data.documentType} PDF was generated.`,
+      metadata: { documentType: data.documentType, fileName: data.fileName, ...data.metadata }, req,
+    });
     res.status(201).json({ data });
   };
 
@@ -31,8 +43,36 @@ export class DocumentController {
     res.status(200).json({ data: await this.service.listByPlan(req.params.planId) });
   };
 
+  generateOperation = async (req: Request, res: Response) => {
+    const actor = authUser(res.locals);
+    const data: any = await this.service.generateOperation(
+      req.params.operationId,
+      req.body.documentType,
+      actor.userId,
+    );
+    await this.activity.logEntityActivity({
+      actor, action: ACTIVITY_ACTIONS.DOCUMENT_GENERATED, entityType: 'Document',
+      entityId: data.id, entityCode: data.metadata?.operationCode, entityTitle: data.fileName,
+      parentEntityType: 'Operation', parentEntityId: data.operation,
+      message: `${data.documentType} PDF was generated.`,
+      metadata: { documentType: data.documentType, fileName: data.fileName, ...data.metadata }, req,
+    });
+    res.status(201).json({ data });
+  };
+
+  listByOperation = async (req: Request, res: Response) => {
+    res.status(200).json({
+      data: await this.service.listByOperation(req.params.operationId),
+    });
+  };
+
   download = async (req: Request, res: Response) => {
     const file = await this.service.getDownload(req.params.documentId);
+    await this.activity.logEntityActivity({
+      actor: authUser(res.locals), action: ACTIVITY_ACTIONS.DOCUMENT_DOWNLOADED,
+      entityType: 'Document', entityId: req.params.documentId, entityTitle: file.fileName,
+      message: `${file.fileName} was downloaded.`, visibility: 'admin_only', req,
+    });
     if (file.remoteUrl) {
       const response = await fetch(file.remoteUrl);
       if (!response.ok) {

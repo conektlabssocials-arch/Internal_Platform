@@ -1,13 +1,25 @@
 import mongoose, { Schema } from 'mongoose';
 import type { HydratedDocument, InferSchemaType } from 'mongoose';
 
-export const documentTypes = ['PlanProposal', 'Quotation', 'InternalCostSheet'] as const;
+export const documentTypes = [
+  'PlanProposal',
+  'Quotation',
+  'InternalCostSheet',
+  'WorkOrder',
+  'PurchaseOrder',
+  'ExecutionReport',
+] as const;
 
 const documentMetadataSchema = new Schema(
   {
     planVersionLabel: String,
     campaignCode: String,
+    campaignTitle: String,
     clientName: String,
+    operationCode: String,
+    supplierName: String,
+    poNumber: String,
+    partial: Boolean,
     grandTotal: Number,
   },
   { _id: false },
@@ -17,6 +29,7 @@ const documentSchema = new Schema(
   {
     plan: { type: Schema.Types.ObjectId, ref: 'Plan', required: true },
     campaign: { type: Schema.Types.ObjectId, ref: 'Campaign', required: true },
+    operation: { type: Schema.Types.ObjectId, ref: 'Operation' },
     documentType: { type: String, enum: documentTypes, required: true },
     versionNumber: { type: Number, required: true },
     fileName: { type: String, required: true },

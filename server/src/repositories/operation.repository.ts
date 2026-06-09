@@ -9,6 +9,9 @@ import type { OperationDocument } from '../models/operation.model.js';
 const populateOperation = (query: any) =>
   query
     .populate('operationOwner', 'name email role')
+    .populate('campaign', 'campaignCode title')
+    .populate('plan', 'versionNumber versionLabel title status')
+    .populate('client', 'displayName name')
     .populate('createdBy', 'name email role')
     .populate('updatedBy', 'name email role');
 

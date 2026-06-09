@@ -17,6 +17,7 @@ import { buildClientPlanMapData } from '../../utils/planMapData';
 import NonMapInventoryList from '../maps/NonMapInventoryList';
 import SharedPlanMap from '../maps/SharedPlanMap';
 import OperationDetail from '../operations/OperationDetail';
+import ActivityTimeline from '../activity/ActivityTimeline';
 import DocumentPanel from './DocumentPanel';
 import InventorySelector from './InventorySelector';
 import SharePanel from './SharePanel';
@@ -344,6 +345,7 @@ const PlanBuilder = ({
               beforeCreate={saveBeforeArtifact}
               onPlanShared={refreshAfterShare}
             />
+            <ActivityTimeline entityType="Plan" entityId={plan.id} compact />
           </div>
 
           <aside className="h-fit min-w-0 rounded-lg border border-slate-200 bg-white p-4 xl:sticky xl:top-4">

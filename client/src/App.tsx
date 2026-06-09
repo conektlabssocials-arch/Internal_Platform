@@ -13,6 +13,7 @@ import Plans from './pages/Plans';
 import PlatformSettings from './pages/PlatformSettings';
 import PublicSharedPlan from './pages/PublicSharedPlan';
 import Users from './pages/Users';
+import AuditLogs from './pages/AuditLogs';
 
 const App = () => {
   return (
@@ -39,6 +40,14 @@ const App = () => {
           element={
             <AdminRoute>
               <Users />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="settings/audit-logs"
+          element={
+            <AdminRoute>
+              <AuditLogs />
             </AdminRoute>
           }
         />

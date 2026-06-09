@@ -5,6 +5,7 @@ import { clonePlan, createPlan, deletePlan, getPlansByCampaign, updatePlanStatus
 import { useAuth } from '../../context/AuthContext';
 import type { Campaign } from '../../types/campaign';
 import type { Plan, PlanStatus } from '../../types/plan';
+import ActivityTimeline from '../activity/ActivityTimeline';
 import PlanBuilder from '../plans/PlanBuilder';
 
 const money = (value?: number) => value === undefined ? '-' : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -109,7 +110,7 @@ const CampaignDetail = ({
             </div>
           )}
         </section>
-        <div className="mt-5"><Placeholder title="Activity" text="Campaign activity will appear here later." /></div>
+        <div className="mt-5"><ActivityTimeline entityType="Campaign" entityId={campaign.id} /></div>
       </div>
       {planId ? <PlanBuilder planId={planId} onClose={() => setPlanId(null)} onChanged={() => { loadPlans(); onChanged?.(); }} /> : null}
     </div>
@@ -118,7 +119,6 @@ const CampaignDetail = ({
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => <section className="rounded-lg border border-slate-200 bg-slate-50/60 p-4"><h3 className="mb-3 font-semibold">{title}</h3><dl className="grid gap-3 sm:grid-cols-2">{children}</dl></section>;
 const Detail = ({ label, value, wide }: { label: string; value?: string; wide?: boolean }) => <div className={wide ? 'sm:col-span-2' : ''}><dt className="text-xs font-medium text-slate-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{value || '-'}</dd></div>;
-const Placeholder = ({ title, text }: { title: string; text: string }) => <section className="rounded-lg border border-dashed border-slate-300 p-4"><h3 className="font-semibold">{title}</h3><p className="mt-2 text-sm text-slate-500">{text}</p></section>;
 const PlanBadge = ({ status }: { status: PlanStatus }) => <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium">{status}</span>;
 const secondary = 'rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100';
 const small = 'rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100';

@@ -1,4 +1,5 @@
 export const TOKENS = {
+  ActivityService: Symbol('ActivityService'),
   AuthService: Symbol('AuthService'),
   CampaignCounterRepository: Symbol('CampaignCounterRepository'),
   CampaignRepository: Symbol('CampaignRepository'),
@@ -6,6 +7,7 @@ export const TOKENS = {
   ContactRepository: Symbol('ContactRepository'),
   CrmEntityRepository: Symbol('CrmEntityRepository'),
   CrmService: Symbol('CrmService'),
+  DashboardService: Symbol('DashboardService'),
   DocumentRepository: Symbol('DocumentRepository'),
   DocumentService: Symbol('DocumentService'),
   GeocodingService: Symbol('GeocodingService'),

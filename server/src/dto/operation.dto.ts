@@ -7,12 +7,17 @@ const ref = (value: any) =>
       ? { id: value.toString(), name: '' }
       : undefined;
 
+const id = (value: any) =>
+  value && typeof value === 'object' && value._id
+    ? value._id.toString()
+    : value?.toString();
+
 export const mapOperationToDto = (operation: OperationDocument) => ({
   id: operation._id.toString(),
   operationCode: operation.operationCode,
-  campaign: operation.campaign.toString(),
-  plan: operation.plan.toString(),
-  client: operation.client?.toString(),
+  campaign: id(operation.campaign),
+  plan: id(operation.plan),
+  client: id(operation.client),
   planVersionLabel: operation.planVersionLabel,
   campaignCode: operation.campaignCode,
   campaignTitle: operation.campaignTitle,
@@ -39,6 +44,10 @@ export const mapOperationToDto = (operation: OperationDocument) => ({
     totalSqFt: item.totalSqFt,
     campaignStartDate: item.campaignStartDate,
     campaignEndDate: item.campaignEndDate,
+    unitSellingPrice: item.unitSellingPrice,
+    totalSellingPrice: item.totalSellingPrice,
+    unitInternalCost: item.unitInternalCost,
+    totalInternalCost: item.totalInternalCost,
     supplierName: item.supplierName,
     ownerName: item.ownerName,
     supplierEntity: item.supplierEntity?.toString(),

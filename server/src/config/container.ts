@@ -3,6 +3,8 @@ import { container } from 'tsyringe';
 
 import { AuthService } from '../services/auth.service.js';
 import type { IAuthService } from '../services/auth.service.js';
+import { ActivityService } from '../services/activity.service.js';
+import type { IActivityService } from '../services/activity.service.js';
 import { CampaignCounterRepository } from '../repositories/campaignCounter.repository.js';
 import type { ICampaignCounterRepository } from '../repositories/campaignCounter.repository.js';
 import { CampaignRepository } from '../repositories/campaign.repository.js';
@@ -15,6 +17,8 @@ import { CrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import { CrmService } from '../services/crm.service.js';
 import type { ICrmService } from '../services/crm.service.js';
+import { DashboardService } from '../services/dashboard.service.js';
+import type { IDashboardService } from '../services/dashboard.service.js';
 import { DocumentRepository } from '../repositories/document.repository.js';
 import type { IDocumentRepository } from '../repositories/document.repository.js';
 import { DocumentService } from '../services/document.service.js';
@@ -51,6 +55,7 @@ import { UserRepository } from '../repositories/user.repository.js';
 import type { IUserRepository } from '../repositories/user.repository.js';
 
 container.registerSingleton<IUserRepository>(TOKENS.UserRepository, UserRepository);
+container.registerSingleton<IActivityService>(TOKENS.ActivityService, ActivityService);
 container.registerSingleton<IUserService>(TOKENS.UserService, UserService);
 container.registerSingleton<IAuthService>(TOKENS.AuthService, AuthService);
 container.registerSingleton<ICampaignCounterRepository>(
@@ -65,6 +70,7 @@ container.registerSingleton<ICrmEntityRepository>(
   CrmEntityRepository,
 );
 container.registerSingleton<ICrmService>(TOKENS.CrmService, CrmService);
+container.registerSingleton<IDashboardService>(TOKENS.DashboardService, DashboardService);
 container.registerSingleton<IDocumentRepository>(
   TOKENS.DocumentRepository,
   DocumentRepository,

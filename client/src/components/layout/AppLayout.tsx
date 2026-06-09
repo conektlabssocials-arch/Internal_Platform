@@ -30,6 +30,7 @@ const navSections: NavSection[] = [
     items: [
       { label: 'Platform Settings', to: '/settings/platform' },
       { label: 'Users', to: '/settings/users', roles: ['admin'] },
+      { label: 'Audit Logs', to: '/settings/audit-logs', roles: ['admin'] },
     ],
   },
 ];
@@ -105,8 +106,8 @@ const AppLayout = () => {
         </div>
       </aside>
 
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur sm:px-6 lg:px-8">
+      <div className="min-w-0 lg:pl-64">
+        <header className="sticky top-0 z-10 min-w-0 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-slate-500">Internal workspace</p>
@@ -148,7 +149,7 @@ const AppLayout = () => {
           </nav>
         </header>
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
+        <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
         </main>
       </div>

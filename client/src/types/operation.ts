@@ -40,6 +40,10 @@ export type OperationItem = {
   totalSqFt?: number;
   campaignStartDate?: string;
   campaignEndDate?: string;
+  unitSellingPrice?: number;
+  totalSellingPrice?: number;
+  unitInternalCost?: number;
+  totalInternalCost?: number;
   supplierName?: string;
   ownerName?: string;
   creative: {

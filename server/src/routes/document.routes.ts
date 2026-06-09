@@ -12,6 +12,14 @@ const auth = container.resolve(AuthMiddleware);
 router.use(auth.requireAuth);
 router.post('/plans/:planId/generate', asyncHandler(controller.generate));
 router.get('/plans/:planId', asyncHandler(controller.listByPlan));
+router.post(
+  '/operations/:operationId/generate',
+  asyncHandler(controller.generateOperation),
+);
+router.get(
+  '/operations/:operationId',
+  asyncHandler(controller.listByOperation),
+);
 router.get('/:documentId/download', asyncHandler(controller.download));
 
 export default router;

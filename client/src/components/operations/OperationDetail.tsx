@@ -11,8 +11,10 @@ import type {
   OperationPriority,
   OperationStatus,
 } from '../../types/operation';
+import OperationDocumentPanel from './OperationDocumentPanel';
 import OperationItemTracker from './OperationItemTracker';
 import OperationStatusBadge from './OperationStatusBadge';
+import ActivityTimeline from '../activity/ActivityTimeline';
 
 const statuses: OperationStatus[] = [
   'Pending',
@@ -122,6 +124,9 @@ const OperationDetail = ({
                 {isAdmin && operation.status !== 'Cancelled' ? <button type="button" onClick={() => void cancel()} className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Cancel</button> : null}
               </div>
             </div>
+
+            <OperationDocumentPanel operation={operation} />
+            <ActivityTimeline entityType="Operation" entityId={operation.id} compact />
 
             <div>
               <div className="mb-3 flex items-center justify-between">
