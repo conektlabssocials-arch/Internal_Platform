@@ -126,7 +126,6 @@ DOCKERHUB_TOKEN
 EC2_HOST
 EC2_USER
 EC2_SSH_KEY
-VITE_GOOGLE_CLIENT_ID
 VITE_MAPBOX_ACCESS_TOKEN
 ```
 
@@ -217,6 +216,12 @@ Authorized redirect URI: http://localhost:5000/api/auth/google/callback
 ```
 
 Use the exact deployed frontend, backend, and callback URLs in production. Add the resulting credentials to `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL`.
+
+The production frontend proxies `/api` through `https://internal.conektads.com`, so use this callback in both Google Cloud and the server environment:
+
+```text
+https://internal.conektads.com/api/auth/google/callback
+```
 
 There is no public registration. An Admin must add each user's lowercase Workspace email under Settings → Users. Google login succeeds only when the email exists, belongs to an allowed domain, and the user is active.
 

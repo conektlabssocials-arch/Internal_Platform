@@ -1,10 +1,10 @@
 const configuredLegacyUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
-const legacyServerUrl = configuredLegacyUrl?.replace(/\/api$/, '');
-export const SERVER_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  legacyServerUrl ||
-  'http://localhost:5000'
-).replace(/\/$/, '');
+const configuredServerUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '');
+const legacyServerUrl = configuredLegacyUrl?.startsWith('/')
+  ? ''
+  : configuredLegacyUrl?.replace(/\/api$/, '');
+export const SERVER_BASE_URL =
+  configuredServerUrl ?? legacyServerUrl ?? 'http://localhost:5000';
 export const API_BASE_URL = configuredLegacyUrl?.endsWith('/api')
   ? configuredLegacyUrl
   : `${SERVER_BASE_URL}/api`;
