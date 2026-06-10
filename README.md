@@ -22,7 +22,7 @@ This first version includes the project foundation, Google Workspace SSO, and si
 ```txt
 client/
   React + Vite + Tailwind frontend
-
+ 
 server/
   Node.js + Express backend
   route -> controller -> service -> repository -> model
