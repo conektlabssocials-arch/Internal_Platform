@@ -28,6 +28,7 @@ const seedAdmin = async () => {
       email,
       role: 'admin',
       status: 'active',
+      authProvider: 'google',
     });
 
     console.log(`Admin user created: ${email}`);

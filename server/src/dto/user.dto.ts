@@ -1,4 +1,9 @@
-import type { UserDocument, UserRole, UserStatus } from '../models/user.model.js';
+import type {
+  AuthProvider,
+  UserDocument,
+  UserRole,
+  UserStatus,
+} from '../models/user.model.js';
 
 export type UserDto = {
   id: string;
@@ -7,6 +12,7 @@ export type UserDto = {
   role: UserRole;
   status: UserStatus;
   avatarUrl?: string;
+  authProvider: AuthProvider;
   lastLoginAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
@@ -16,6 +22,7 @@ export type CreateUserDto = {
   name?: string;
   email?: string;
   role?: UserRole;
+  authProvider?: AuthProvider;
   createdBy?: string;
 };
 
@@ -34,6 +41,7 @@ export const mapUserToDto = (user: UserDocument): UserDto => ({
   role: user.role,
   status: user.status,
   avatarUrl: user.avatarUrl ?? undefined,
+  authProvider: user.authProvider || 'dev',
   lastLoginAt: user.lastLoginAt ?? undefined,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,

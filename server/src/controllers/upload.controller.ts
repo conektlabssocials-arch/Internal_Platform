@@ -89,11 +89,13 @@ export class UploadController {
 
   download = async (req: Request, res: Response) => {
     const file = await this.service.getInternalDownload(req.params.uploadId);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.redirect(file.url);
   };
 
   publicDownload = async (req: Request, res: Response) => {
     const file = await this.service.getPublicDownload(req.params.uploadId);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.redirect(file.url);
   };
 

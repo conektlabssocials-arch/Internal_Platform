@@ -1,16 +1,19 @@
-import { apiRequest } from './apiClient';
+import { apiRequest, SERVER_BASE_URL } from './apiClient';
 import type { User } from '../types/auth';
 
 type AuthResponse = {
   user: User;
 };
 
-export const loginWithGoogleRequest = async (credential: string) => {
-  const data = await apiRequest<AuthResponse>('/auth/google', {
-    method: 'POST',
-    body: { credential },
-  });
+export const startGoogleLogin = () => {
+  window.location.assign(`${SERVER_BASE_URL}/api/auth/google`);
+};
 
+export const devLoginRequest = async (email: string) => {
+  const data = await apiRequest<AuthResponse>('/auth/dev-login', {
+    method: 'POST',
+    body: { email },
+  });
   return data.user;
 };
 

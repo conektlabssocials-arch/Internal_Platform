@@ -1,8 +1,19 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const configuredLegacyUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
+const legacyServerUrl = configuredLegacyUrl?.replace(/\/api$/, '');
+export const SERVER_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  legacyServerUrl ||
+  'http://localhost:5000'
+).replace(/\/$/, '');
+export const API_BASE_URL = configuredLegacyUrl?.endsWith('/api')
+  ? configuredLegacyUrl
+  : `${SERVER_BASE_URL}/api`;
 
 type ApiOptions = Omit<RequestInit, 'body'> & {
   body?: BodyInit | object | null;
 };
+
+export const AUTH_UNAUTHORIZED_EVENT = 'conekt:auth-unauthorized';
 
 export const apiRequest = async <T>(path: string, options: ApiOptions = {}): Promise<T> => {
   const headers = new Headers(options.headers);
@@ -28,6 +39,12 @@ export const apiRequest = async <T>(path: string, options: ApiOptions = {}): Pro
       message = data.message || message;
     } catch {
       message = response.statusText || message;
+    }
+
+    if (response.status === 401 && path !== '/auth/me') {
+      window.dispatchEvent(
+        new CustomEvent(AUTH_UNAUTHORIZED_EVENT, { detail: { message } }),
+      );
     }
 
     throw new Error(message);

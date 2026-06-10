@@ -44,6 +44,7 @@ export class UserController {
       name: req.body.name,
       email: req.body.email,
       role: req.body.role,
+      authProvider: 'google',
       createdBy: authUserId,
     });
     await this.activity.logEntityActivity({
