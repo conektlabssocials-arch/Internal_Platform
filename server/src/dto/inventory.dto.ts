@@ -23,6 +23,7 @@ export type InventoryDto = {
     source?: 'manual' | 'map_picker' | 'reverse_geocode';
   };
   photos: string[];
+  photoUploads: string[];
   ownerName?: string;
   ownerPhone?: string;
   supplierName?: string;
@@ -169,6 +170,7 @@ export const mapInventoryToDto = (
       }
     : undefined,
   photos: item.photos || [],
+  photoUploads: (item.photoUploads || []).map((upload) => upload.toString()),
   ownerName: item.ownerName ?? undefined,
   ownerPhone: item.ownerPhone ?? undefined,
   supplierName: item.supplierName ?? undefined,

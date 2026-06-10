@@ -7,16 +7,17 @@ import {
   createInventory,
   deactivateInventory,
   getInventory,
+  getInventoryById,
   getInventoryCodePreview,
   getInventorySummary,
   importInventory,
   reverseGeocode,
   updateInventory,
-  uploadInventoryImages,
 } from '../api/inventoryApi';
 import { getCrmEntityById, searchSuppliers } from '../api/crmApi';
 import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard';
 import ActivityTimeline from '../components/activity/ActivityTimeline';
+import InventoryPhotoUploads from '../components/uploads/InventoryPhotoUploads';
 import LocationPicker from '../components/map/LocationPicker';
 import {
   INVENTORY_CATEGORIES,
@@ -536,11 +537,14 @@ const Inventory = () => {
 
       if (editingItem) {
         await updateInventory(editingItem.id, payload);
+        closeForm();
       } else {
-        await createInventory(payload);
+        const created = await createInventory(payload);
+        setEditingItem(created);
+        setForm(itemToForm(created));
+        setPreviewCode(created.inventoryCode);
       }
 
-      closeForm();
       await refreshCurrentView();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save inventory');
@@ -791,6 +795,13 @@ const Inventory = () => {
           onFormChange={setForm}
           onCategoryGroupChange={setFormCategoryGroup}
           onLocationChange={handleLocationChange}
+          onInventoryChanged={async () => {
+            if (!editingItem) return;
+            const refreshed = await getInventoryById(editingItem.id);
+            setEditingItem(refreshed);
+            setForm(itemToForm(refreshed));
+            await refreshCurrentView();
+          }}
         />
       ) : null}
 
@@ -886,7 +897,20 @@ const InventoryTable = ({
             {items.map((item) => (
               <tr key={item.id}>
                 <td className="px-4 py-4 font-medium text-slate-900">{item.inventoryCode}</td>
-                <td className="min-w-56 px-4 py-4 text-slate-700">{item.title}</td>
+                <td className="min-w-64 px-4 py-4 text-slate-700">
+                  <div className="flex items-center gap-3">
+                    {item.photos[0] ? (
+                      <img
+                        src={item.photos[0]}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-md border border-slate-200 object-cover"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-50" />
+                    )}
+                    <span>{item.title}</span>
+                  </div>
+                </td>
                 <td className="px-4 py-4 text-slate-600">{item.categoryGroup}</td>
                 <td className="px-4 py-4 text-slate-600">{item.subCategory}</td>
                 <td className="px-4 py-4 text-slate-600">{item.city}</td>
@@ -962,6 +986,7 @@ type InventoryFormModalProps = {
   onFormChange: (form: InventoryFormState) => void;
   onCategoryGroupChange: (categoryGroup: CategoryGroup) => void;
   onLocationChange: (location: { latitude: number; longitude: number }) => void;
+  onInventoryChanged: () => Promise<void>;
 };
 
 const InventoryFormModal = ({
@@ -978,6 +1003,7 @@ const InventoryFormModal = ({
   onFormChange,
   onCategoryGroupChange,
   onLocationChange,
+  onInventoryChanged,
 }: InventoryFormModalProps) => (
   <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/40 px-4 py-8">
     <div className="mx-auto max-w-5xl overflow-hidden rounded-lg bg-white p-6 shadow-xl">
@@ -1135,7 +1161,16 @@ const InventoryFormModal = ({
           <TextField label="Owner Name" value={form.ownerName} onChange={(value) => onFormChange({ ...form, ownerName: value })} />
           <TextField label="Owner Phone" value={form.ownerPhone} onChange={(value) => onFormChange({ ...form, ownerPhone: value })} />
           <TextField label="Supplier Name" value={form.supplierName} onChange={(value) => onFormChange({ ...form, supplierName: value })} />
-          <ImageUploadField label="Photos" value={form.photos} onChange={(photos) => onFormChange({ ...form, photos })} />
+          <TextField
+            label="Legacy Photo URLs"
+            value={form.photos.join(', ')}
+            onChange={(value) =>
+              onFormChange({
+                ...form,
+                photos: value.split(',').map((item) => item.trim()).filter(Boolean),
+              })
+            }
+          />
           <TextField label="Tags" value={form.tagsText} onChange={(value) => onFormChange({ ...form, tagsText: value })} />
           <TextField label="Internal Notes" value={form.internalNotes} onChange={(value) => onFormChange({ ...form, internalNotes: value })} />
         </FormSection>
@@ -1183,6 +1218,21 @@ const InventoryFormModal = ({
             <TextField label="Rate Per Day" value={form.ratePerDay} onChange={(value) => onFormChange({ ...form, ratePerDay: value })} />
           </FormSection>
         ) : null}
+
+        {editingItem ? (
+          <InventoryPhotoUploads
+            inventoryId={editingItem.id}
+            legacyUrls={form.photos}
+            onChanged={onInventoryChanged}
+          />
+        ) : (
+          <section className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+            <h4 className="text-sm font-semibold text-slate-900">Inventory Photos</h4>
+            <p className="mt-1 text-xs text-slate-500">
+              Save the inventory details first. Photo upload will become available here immediately.
+            </p>
+          </section>
+        )}
 
         {editingItem ? (
           <ActivityTimeline entityType="Inventory" entityId={editingItem.id} compact />
@@ -1398,75 +1448,6 @@ const SupplierEntityField = ({
           Clear CRM link
         </button>
       ) : null}
-    </div>
-  );
-};
-
-type ImageUploadFieldProps = {
-  label: string;
-  value: string[];
-  onChange: (value: string[]) => void;
-};
-
-const ImageUploadField = ({ label, value, onChange }: ImageUploadFieldProps) => {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleFiles = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) {
-      return;
-    }
-
-    setUploading(true);
-    setError(null);
-
-    try {
-      const urls = await uploadInventoryImages(Array.from(fileList));
-      onChange([...value, ...urls]);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const removePhoto = (url: string) => {
-    onChange(value.filter((item) => item !== url));
-  };
-
-  return (
-    <div className="md:col-span-3">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
-      <div className="mt-1 flex flex-wrap gap-3">
-        {value.map((url) => (
-          <div key={url} className="group relative h-24 w-24 overflow-hidden rounded-md border border-slate-300">
-            <img src={url} alt="Inventory" className="h-full w-full object-cover" />
-            <button
-              type="button"
-              onClick={() => removePhoto(url)}
-              className="absolute right-1 top-1 hidden rounded-full bg-slate-900/80 px-1.5 text-xs text-white group-hover:block"
-              aria-label="Remove photo"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-        <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-slate-300 text-center text-xs text-slate-500 hover:border-slate-900 hover:text-slate-700">
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            disabled={uploading}
-            onChange={(event) => {
-              void handleFiles(event.target.files);
-              event.target.value = '';
-            }}
-            className="hidden"
-          />
-          {uploading ? 'Uploading...' : '+ Add image'}
-        </label>
-      </div>
-      {error ? <span className="mt-1 block text-xs text-rose-600">{error}</span> : null}
     </div>
   );
 };

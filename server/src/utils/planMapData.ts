@@ -47,6 +47,7 @@ const baseItem = (item: PlanMapSourceItem, index: number) => ({
   quantity: item.quantity || 1,
   unitSellingPrice: item.unitSellingPrice || 0,
   totalSellingPrice: item.totalSellingPrice || 0,
+  photoUrl: item.photos?.[0],
 });
 
 export const buildPlanMapData = (items: PlanMapSourceItem[] = []) => {
@@ -63,7 +64,6 @@ export const buildPlanMapData = (items: PlanMapSourceItem[] = []) => {
       address: item.location?.address,
       latitude: item.location?.latitude as number,
       longitude: item.location?.longitude as number,
-      photoUrl: item.photos?.[0],
     }));
 
   const nonMapItems = items

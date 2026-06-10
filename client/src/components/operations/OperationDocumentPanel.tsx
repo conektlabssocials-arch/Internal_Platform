@@ -38,7 +38,9 @@ const OperationDocumentPanel = ({ operation }: { operation: Operation }) => {
   const proofUploadedCount = useMemo(
     () =>
       operation.items.filter(
-        (item) => item.proof.uploaded && item.proof.photoUrls?.length,
+        (item) =>
+          item.proof.uploaded &&
+          (item.proof.photoUrls?.length || item.proof.fileUploads?.length),
       ).length,
     [operation.items],
   );

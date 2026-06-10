@@ -162,39 +162,63 @@ docker compose -f docker-compose.prod.yml exec server npm run seed:admin
 Create `server/.env` from `server/.env.example`, or use `server/.env.local` for local development:
 
 ```env
+NODE_ENV=development
 PORT=5000
-MONGO_URI=mongodb://127.0.0.1:27017/conekt_ads_internal
+MONGO_URI=mongodb://127.0.0.1:27017/conekt_ads
 CLIENT_URL=http://localhost:5173
-GOOGLE_CLIENT_ID=your_google_oauth_client_id
-GOOGLE_ALLOWED_DOMAIN=conektads.com
+SERVER_URL=http://localhost:5000
+GOOGLE_CLIENT_ID=replace_google_client_id
+GOOGLE_CLIENT_SECRET=replace_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+GOOGLE_WORKSPACE_DOMAIN=conektads.com
+AUTH_ALLOWED_DOMAINS=conektads.com
+DEV_AUTH_ENABLED=true
 GEOCODING_PROVIDER=nominatim
 MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-CLOUDINARY_UPLOAD_FOLDER=inventory
-JWT_SECRET=replace_this_secret
+CLOUDINARY_UPLOAD_FOLDER=conekt-ads
+CLOUDINARY_DOCUMENT_FOLDER=documents
+CLOUDINARY_DOCUMENT_DELIVERY_TYPE=authenticated
+UPLOAD_STORAGE=cloudinary
+MAX_UPLOAD_SIZE_MB=50
+JWT_SECRET=replace_this_with_long_random_secret
 JWT_EXPIRES_IN=8h
 COOKIE_NAME=conekt_ads_token
-COOKIE_SECURE=true
+RATE_LIMIT_WINDOW_MINUTES=15
+RATE_LIMIT_MAX_REQUESTS=500
+AUTH_RATE_LIMIT_MAX_REQUESTS=20
 ```
 
 The backend also accepts `MONGODB_URI` for local compatibility.
 
-Inventory photos are uploaded to Cloudinary through the backend (`POST /api/uploads/image`). Set the `CLOUDINARY_*` variables to enable image uploads; `CLOUDINARY_UPLOAD_FOLDER` is optional and defaults to `inventory`.
+All new inventory, creative, purchase-order, proof, and PDF files are stored in Cloudinary. The application does not create a local upload folder. Inventory and proof images use public-safe delivery; internal creatives, purchase orders, and documents use authenticated delivery with short-lived download URLs.
 
-For local HTTP testing only, set `COOKIE_SECURE=false` in `server/.env.local` so the browser accepts the auth cookie.
+The tracked upload endpoints live under `/api/uploads`. The older `POST /api/uploads/image` endpoint remains available for compatibility with existing clients and MCP proof uploads.
 
 The client also needs:
 
 ```env
-VITE_GOOGLE_CLIENT_ID=your_google_oauth_client_id
+VITE_API_BASE_URL=http://localhost:5000
+VITE_ENABLE_DEV_LOGIN=true
 VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
 ```
 
 ## Auth Setup
 
-Auth uses Google Workspace SSO and stores the app session as a JWT in an httpOnly cookie. Users must exist in the platform and be active before they can sign in.
+Auth uses a server-side Google OAuth flow and stores the app session as a JWT in an httpOnly cookie. Production cookies are secure and `SameSite=Strict`; development cookies support local HTTP. Tokens are never exposed to frontend JavaScript or stored in browser storage.
+
+Create an OAuth 2.0 Web application in Google Cloud and configure:
+
+```txt
+Authorized JavaScript origin: http://localhost:5173
+Authorized redirect URI: http://localhost:5000/api/auth/google/callback
+```
+
+Use the exact deployed frontend, backend, and callback URLs in production. Add the resulting credentials to `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_CALLBACK_URL`.
+
+There is no public registration. An Admin must add each user's lowercase Workspace email under Settings → Users. Google login succeeds only when the email exists, belongs to an allowed domain, and the user is active.
 
 Seed the first admin:
 
@@ -203,23 +227,26 @@ cd server
 npm run seed:admin
 ```
 
-Then log in from the frontend with:
+For local testing, set both `DEV_AUTH_ENABLED=true` on the server and `VITE_ENABLE_DEV_LOGIN=true` on the client. Development login still requires a whitelisted active user:
 
 ```txt
 admin@conektads.com
 ```
 
+Development login is always disabled when `NODE_ENV=production`, even if its flag is accidentally enabled. See [server/SECURITY_CHECKLIST.md](server/SECURITY_CHECKLIST.md) before deployment.
+
 ## What Exists Now
 
 - Express server setup
 - MongoDB connection helper
-- CORS, JSON body parsing, dotenv config
-- Basic error middleware
+- Helmet, strict CORS, rate limiting, request sanitization, and hardened error handling
 - Flat backend folders for routes, controllers, services, repositories, DTOs, and models
 - Dependency injection with tsyringe
 - Base repository and user repository
 - `GET /api/health`
-- Google auth route: `POST /api/auth/google`
+- Google OAuth routes: `GET /api/auth/google`, `GET /api/auth/google/callback`
+- Compatibility Google ID-token route: `POST /api/auth/google`
+- Development-only auth route: `POST /api/auth/dev-login`
 - Auth routes: `POST /api/auth/logout`, `GET /api/auth/me`
 - User management routes for admin/member access
 - Inventory category summary and CRUD routes with filtering, auto-generated codes, confirmation, and admin-only activate/deactivate

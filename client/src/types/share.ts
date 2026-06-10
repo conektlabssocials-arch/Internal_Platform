@@ -63,6 +63,7 @@ export type PublicSharedPlan = {
       unitSellingPrice: number;
       totalSellingPrice: number;
       notes?: string;
+      photoUrl?: string;
     }>;
     pricing: {
       subtotal: number;
@@ -99,7 +100,7 @@ export type PlanMapItem = {
 
 export type NonMapPlanItem = Omit<
   PlanMapItem,
-  'address' | 'latitude' | 'longitude' | 'photoUrl'
+  'address' | 'latitude' | 'longitude'
 > & {
   route?: string;
   depot?: string;

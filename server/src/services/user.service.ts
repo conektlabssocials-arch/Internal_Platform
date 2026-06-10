@@ -13,7 +13,12 @@ export interface IUserService {
   getUserById(id: string): Promise<UserDocument>;
   getActiveUserDtoById(id: string): Promise<UserDto>;
   getActiveUserByEmail(email: string): Promise<UserDocument>;
-  recordLoginByEmail(email: string): Promise<UserDto>;
+  recordGoogleLogin(input: {
+    email: string;
+    googleId?: string;
+    avatarUrl?: string;
+  }): Promise<UserDto>;
+  recordDevLogin(email: string): Promise<UserDto>;
   createUser(input: CreateUserDto): Promise<UserDto>;
   updateUser(id: string, input: UpdateUserDto): Promise<UserDto>;
   setUserStatus(id: string, status: UserStatus, updatedBy?: string): Promise<UserDto>;
@@ -70,18 +75,33 @@ export class UserService implements IUserService {
     return mapUserToDto(user);
   }
 
-  async recordLoginByEmail(email: string) {
-    const user = await this.getActiveUserByEmail(email);
+  async recordGoogleLogin(input: {
+    email: string;
+    googleId?: string;
+    avatarUrl?: string;
+  }) {
+    const user = await this.getActiveUserByEmail(input.email);
+    if (input.googleId && !user.googleId) user.googleId = input.googleId;
+    if (input.avatarUrl) user.avatarUrl = input.avatarUrl;
+    user.authProvider = 'google';
     user.lastLoginAt = new Date();
 
     const savedUser = await this.userRepository.save(user);
     return mapUserToDto(savedUser);
   }
 
+  async recordDevLogin(email: string) {
+    const user = await this.getActiveUserByEmail(email);
+    user.authProvider = 'dev';
+    user.lastLoginAt = new Date();
+    return mapUserToDto(await this.userRepository.save(user));
+  }
+
   async createUser(input: CreateUserDto) {
     const name = input.name?.trim();
     const email = input.email ? normalizeEmail(input.email) : '';
     const role = input.role || 'member';
+    const authProvider = input.authProvider || 'google';
 
     if (!name || !email) {
       throw new HttpError(400, 'Name and email are required');
@@ -102,6 +122,7 @@ export class UserService implements IUserService {
       email,
       role,
       status: 'active',
+      authProvider,
       createdBy: input.createdBy ? new Types.ObjectId(input.createdBy) : undefined,
       updatedBy: input.createdBy ? new Types.ObjectId(input.createdBy) : undefined,
     });

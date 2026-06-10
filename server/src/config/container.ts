@@ -64,6 +64,10 @@ import { ShareCommandService } from '../services/shareCommand.service.js';
 import type { IShareCommandService } from '../services/shareCommand.service.js';
 import { UploadService } from '../services/upload.service.js';
 import type { IUploadService } from '../services/upload.service.js';
+import { UploadStorageService } from '../services/uploadStorage.service.js';
+import type { IUploadStorageService } from '../services/uploadStorage.service.js';
+import { UploadRepository } from '../repositories/upload.repository.js';
+import type { IUploadRepository } from '../repositories/upload.repository.js';
 import { ProofUploadCommandService } from '../services/proofUploadCommand.service.js';
 import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
 import { ReportService } from '../services/report.service.js';
@@ -156,6 +160,11 @@ container.registerSingleton<IShareService>(TOKENS.ShareService, ShareService);
 container.registerSingleton<IShareCommandService>(
   TOKENS.ShareCommandService,
   ShareCommandService,
+);
+container.registerSingleton<IUploadRepository>(TOKENS.UploadRepository, UploadRepository);
+container.registerSingleton<IUploadStorageService>(
+  TOKENS.UploadStorageService,
+  UploadStorageService,
 );
 container.registerSingleton<IUploadService>(TOKENS.UploadService, UploadService);
 

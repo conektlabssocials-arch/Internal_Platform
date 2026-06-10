@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   getOperationById,
@@ -11,10 +11,12 @@ import type {
   OperationPriority,
   OperationStatus,
 } from '../../types/operation';
+import ActivityTimeline from '../activity/ActivityTimeline';
 import OperationDocumentPanel from './OperationDocumentPanel';
 import OperationItemTracker from './OperationItemTracker';
 import OperationStatusBadge from './OperationStatusBadge';
-import ActivityTimeline from '../activity/ActivityTimeline';
+
+type WorkspaceTab = 'execution' | 'documents' | 'activity' | 'settings';
 
 const statuses: OperationStatus[] = [
   'Pending',
@@ -39,6 +41,7 @@ const OperationDetail = ({
 }) => {
   const { isAdmin } = useAuth();
   const [operation, setOperation] = useState<Operation | null>(null);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('execution');
   const [priority, setPriority] = useState<OperationPriority>('Medium');
   const [status, setStatus] = useState<OperationStatus>('Pending');
   const [notes, setNotes] = useState('');
@@ -62,7 +65,7 @@ const OperationDetail = ({
       .finally(() => setLoading(false));
   }, [operationId]);
 
-  const saveHeader = async () => {
+  const saveSettings = async () => {
     if (!operation) return;
     setSaving(true);
     setError('');
@@ -76,7 +79,7 @@ const OperationDetail = ({
   };
 
   const cancel = async () => {
-    if (!operation || !window.confirm('Cancel this Operations Work Order?')) return;
+    if (!operation || !window.confirm('Cancel this Work Order?')) return;
     setSaving(true);
     try {
       apply(await updateOperationStatus(operation.id, 'Cancelled'));
@@ -87,52 +90,150 @@ const OperationDetail = ({
     }
   };
 
+  const attention = useMemo(() => {
+    if (!operation) return { overdue: 0, proofPending: 0 };
+    const today = startOfToday();
+    return {
+      overdue: operation.items.filter(
+        (item) =>
+          item.mounting.scheduledDate &&
+          new Date(item.mounting.scheduledDate) < today &&
+          !item.mounting.completed,
+      ).length,
+      proofPending: operation.items.filter(
+        (item) => item.mounting.completed && !item.proof.uploaded,
+      ).length,
+    };
+  }, [operation]);
+
   if (loading) {
-    return <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 text-white">Loading Work Order...</div>;
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55">
+        <div className="rounded-md bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl">
+          Loading Work Order...
+        </div>
+      </div>
+    );
   }
   if (!operation) return null;
+
   const progress = operation.overallProgress;
+  const tabs: Array<{ id: WorkspaceTab; label: string; count?: number }> = [
+    { id: 'execution', label: 'Execution Items', count: operation.items.length },
+    { id: 'documents', label: 'Documents' },
+    { id: 'activity', label: 'Activity' },
+    { id: 'settings', label: 'Work Order Settings' },
+  ];
 
   return (
-    <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/55 px-3 py-5">
-      <div className="mx-auto w-full max-w-7xl rounded-lg bg-slate-50 p-5 shadow-xl">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-emerald-700">{operation.operationCode}</p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-900">{operation.campaignTitle}</h2>
-            <p className="mt-1 text-sm text-slate-500">{operation.clientName} · Plan {operation.planVersionLabel}</p>
+    <div className="fixed inset-0 z-[70] bg-slate-950/60 p-0 sm:p-4">
+      <div className="mx-auto flex h-full w-full max-w-[1500px] flex-col overflow-hidden bg-slate-50 shadow-2xl sm:rounded-lg">
+        <header className="shrink-0 border-b border-slate-200 bg-white">
+          <div className="flex items-start justify-between gap-4 px-5 py-4 lg:px-7">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-emerald-700">{operation.operationCode}</p>
+                <OperationStatusBadge status={operation.status} />
+                <PriorityBadge priority={operation.priority} />
+              </div>
+              <h2 className="mt-2 truncate text-xl font-semibold text-slate-900">
+                {operation.campaignTitle}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {operation.clientName} · {operation.campaignCode} · Plan {operation.planVersionLabel}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              aria-label="Close Work Order"
+            >
+              Close
+            </button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <OperationStatusBadge status={operation.status} />
-            <button type="button" onClick={onClose} className={secondary}>Close</button>
+
+          <div className="grid border-t border-slate-100 sm:grid-cols-2 lg:grid-cols-5">
+            <HeaderMetric label="Overall progress" value={`${progress.percentage}%`}>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full bg-emerald-600"
+                  style={{ width: `${progress.percentage}%` }}
+                />
+              </div>
+            </HeaderMetric>
+            <HeaderMetric
+              label="Execution items"
+              value={`${progress.completedItemCount} of ${progress.totalItems} complete`}
+            />
+            <HeaderMetric
+              label="Next mounting"
+              value={formatDate(operation.importantDates.firstMountingDate)}
+            />
+            <HeaderMetric
+              label="Needs attention"
+              value={
+                attention.overdue
+                  ? `${attention.overdue} overdue`
+                  : attention.proofPending
+                    ? `${attention.proofPending} proof pending`
+                    : 'Nothing urgent'
+              }
+              alert={Boolean(attention.overdue)}
+            />
+            <HeaderMetric
+              label="Owner"
+              value={operation.operationOwner?.name || operation.operationOwner?.email || 'Unassigned'}
+            />
           </div>
+
+          <nav className="flex gap-1 overflow-x-auto border-t border-slate-200 px-4 lg:px-6">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium ${
+                  activeTab === tab.id
+                    ? 'border-emerald-600 text-emerald-700'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {tab.label}
+                {tab.count !== undefined ? (
+                  <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                    {tab.count}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </nav>
         </header>
 
-        {error ? <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          {error ? (
+            <p className="mx-5 mt-5 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 lg:mx-7">
+              {error}
+            </p>
+          ) : null}
 
-        <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_340px]">
-          <div className="space-y-5">
-            <div className="rounded-md border border-slate-200 bg-white p-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <label><span className={label}>Status</span><select value={status} onChange={(event) => setStatus(event.target.value as OperationStatus)} className={input}>{statuses.filter((item) => isAdmin || item !== 'Cancelled').map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span className={label}>Priority</span><select value={priority} onChange={(event) => setPriority(event.target.value as OperationPriority)} className={input}>{priorities.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <div><span className={label}>Owner</span><p className="mt-2 text-sm font-medium text-slate-800">{operation.operationOwner?.name || operation.operationOwner?.email || 'Unassigned'}</p></div>
+          {activeTab === 'execution' ? (
+            <div className="mx-auto max-w-7xl px-5 py-6 lg:px-7">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Execution Items</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Open an item, then complete its stages from creative through proof.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <ProgressChip label="Creative" value={progress.creativeReceivedCount} total={progress.totalItems} />
+                  <ProgressChip label="PO" value={progress.poSentCount} total={progress.totalItems} />
+                  <ProgressChip label="Mounted" value={progress.mountingCompletedCount} total={progress.totalItems} />
+                  <ProgressChip label="Proof" value={progress.proofUploadedCount} total={progress.totalItems} />
+                </div>
               </div>
-              <label className="mt-4 block"><span className={label}>Operation notes</span><textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} className={input} /></label>
-              <div className="mt-3 flex gap-2">
-                <button type="button" disabled={saving} onClick={() => void saveHeader()} className={primary}>{saving ? 'Saving...' : 'Save Work Order'}</button>
-                {isAdmin && operation.status !== 'Cancelled' ? <button type="button" onClick={() => void cancel()} className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Cancel</button> : null}
-              </div>
-            </div>
 
-            <OperationDocumentPanel operation={operation} />
-            <ActivityTimeline entityType="Operation" entityId={operation.id} compact />
-
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="font-semibold text-slate-900">Execution Items</h3>
-                <span className="text-sm text-slate-500">{operation.items.length} items</span>
-              </div>
               <div className="space-y-3">
                 {operation.items.map((item) => (
                   <OperationItemTracker
@@ -142,45 +243,169 @@ const OperationDetail = ({
                     onUpdated={apply}
                   />
                 ))}
-                {!operation.items.length ? <p className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No execution items.</p> : null}
+                {!operation.items.length ? (
+                  <p className="rounded-md border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+                    No execution items are attached to this Work Order.
+                  </p>
+                ) : null}
               </div>
             </div>
-          </div>
+          ) : null}
 
-          <aside className="h-fit rounded-md border border-slate-200 bg-white p-4 lg:sticky lg:top-4">
-            <div className="flex items-end justify-between">
-              <div><p className="text-sm text-slate-500">Overall progress</p><p className="mt-1 text-3xl font-semibold">{progress.percentage}%</p></div>
-              <p className="text-xs text-slate-500">{progress.proofUploadedCount}/{progress.totalItems} proof uploaded</p>
+          {activeTab === 'documents' ? (
+            <div className="mx-auto max-w-7xl px-5 py-6 lg:px-7">
+              <OperationDocumentPanel operation={operation} />
             </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full bg-emerald-600" style={{ width: `${progress.percentage}%` }} /></div>
-            <dl className="mt-5 space-y-3 text-sm">
-              <Metric label="Creative received" value={`${progress.creativeReceivedCount}/${progress.totalItems}`} />
-              <Metric label="PO sent" value={`${progress.poSentCount}/${progress.totalItems}`} />
-              <Metric label="Mounted" value={`${progress.mountingCompletedCount}/${progress.totalItems}`} />
-              <Metric label="Proof uploaded" value={`${progress.proofUploadedCount}/${progress.totalItems}`} />
-              <Metric label="Completed items" value={`${progress.completedItemCount}/${progress.totalItems}`} />
-            </dl>
-            <div className="mt-5 border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-semibold">Important Dates</h3>
-              <dl className="mt-3 space-y-2 text-xs">
-                <Metric label="First mounting" value={formatDate(operation.importantDates.firstMountingDate)} />
-                <Metric label="Last mounting" value={formatDate(operation.importantDates.lastMountingDate)} />
-                <Metric label="First takedown" value={formatDate(operation.importantDates.firstTakedownDate)} />
-                <Metric label="Last takedown" value={formatDate(operation.importantDates.lastTakedownDate)} />
-              </dl>
+          ) : null}
+
+          {activeTab === 'activity' ? (
+            <div className="mx-auto max-w-5xl px-5 py-6 lg:px-7">
+              <div className="rounded-md border border-slate-200 bg-white p-5">
+                <h3 className="font-semibold text-slate-900">Work Order Activity</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Saved changes and execution updates for this Work Order.
+                </p>
+                <div className="mt-5">
+                  <ActivityTimeline entityType="Operation" entityId={operation.id} />
+                </div>
+              </div>
             </div>
-          </aside>
-        </section>
+          ) : null}
+
+          {activeTab === 'settings' ? (
+            <div className="mx-auto max-w-3xl px-5 py-6 lg:px-7">
+              <section className="rounded-md border border-slate-200 bg-white p-5">
+                <h3 className="font-semibold text-slate-900">Work Order Settings</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Manage overall ownership, priority, status, and internal notes.
+                </p>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <label>
+                    <span className={label}>Status</span>
+                    <select
+                      value={status}
+                      onChange={(event) => setStatus(event.target.value as OperationStatus)}
+                      className={input}
+                    >
+                      {statuses
+                        .filter((item) => isAdmin || item !== 'Cancelled')
+                        .map((item) => <option key={item}>{item}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span className={label}>Priority</span>
+                    <select
+                      value={priority}
+                      onChange={(event) => setPriority(event.target.value as OperationPriority)}
+                      className={input}
+                    >
+                      {priorities.map((item) => <option key={item}>{item}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <div className="mt-4 rounded-md bg-slate-50 px-4 py-3">
+                  <p className={label}>Operation owner</p>
+                  <p className="mt-1 text-sm font-medium text-slate-800">
+                    {operation.operationOwner?.name || operation.operationOwner?.email || 'Unassigned'}
+                  </p>
+                </div>
+                <label className="mt-4 block">
+                  <span className={label}>Internal Work Order notes</span>
+                  <textarea
+                    rows={5}
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    className={input}
+                  />
+                </label>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void saveSettings()}
+                    className={primary}
+                  >
+                    {saving ? 'Saving...' : 'Save Settings'}
+                  </button>
+                  {isAdmin && operation.status !== 'Cancelled' ? (
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => void cancel()}
+                      className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Cancel Work Order
+                    </button>
+                  ) : null}
+                </div>
+              </section>
+            </div>
+          ) : null}
+        </main>
       </div>
     </div>
   );
 };
 
-const Metric = ({ label, value }: { label: string; value: string }) => <div className="flex justify-between gap-4"><dt className="text-slate-500">{label}</dt><dd className="font-medium text-slate-800">{value}</dd></div>;
-const formatDate = (value?: string) => value ? new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value)) : '-';
+const HeaderMetric = ({
+  label: text,
+  value,
+  alert,
+  children,
+}: {
+  label: string;
+  value: string;
+  alert?: boolean;
+  children?: React.ReactNode;
+}) => (
+  <div className="border-b border-slate-100 px-5 py-3 sm:border-r lg:border-b-0 lg:last:border-r-0">
+    <p className="text-xs font-medium text-slate-500">{text}</p>
+    <p className={`mt-1 truncate text-sm font-semibold ${alert ? 'text-red-700' : 'text-slate-900'}`}>
+      {value}
+    </p>
+    {children}
+  </div>
+);
+
+const ProgressChip = ({
+  label: text,
+  value,
+  total,
+}: {
+  label: string;
+  value: number;
+  total: number;
+}) => (
+  <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600">
+    {text} <strong className="text-slate-900">{value}/{total}</strong>
+  </span>
+);
+
+const PriorityBadge = ({ priority }: { priority: OperationPriority }) => {
+  const tone =
+    priority === 'High'
+      ? 'bg-red-50 text-red-700'
+      : priority === 'Low'
+        ? 'bg-slate-100 text-slate-600'
+        : 'bg-amber-50 text-amber-700';
+  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>{priority} priority</span>;
+};
+
+const formatDate = (value?: string) =>
+  value
+    ? new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }).format(new Date(value))
+    : 'Not scheduled';
+const startOfToday = () => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
 const label = 'text-xs font-medium text-slate-600';
-const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900';
-const primary = 'rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400';
-const secondary = 'rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100';
+const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600';
+const primary = 'rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400';
 
 export default OperationDetail;

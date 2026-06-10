@@ -139,8 +139,19 @@ const PublicSharedPlan = () => {
                 {data.plan.items.map((item, index) => (
                   <tr key={`${item.title}-${index}`}>
                     <td className="px-4 py-4">
-                      <p className="font-medium">{item.title}</p>
-                      {item.notes ? <p className="mt-1 text-xs text-slate-500">{item.notes}</p> : null}
+                      <div className="flex items-start gap-3">
+                        {item.photoUrl ? (
+                          <img
+                            src={item.photoUrl}
+                            alt=""
+                            className="h-14 w-14 shrink-0 rounded-md object-cover"
+                          />
+                        ) : null}
+                        <div>
+                          <p className="font-medium">{item.title}</p>
+                          {item.notes ? <p className="mt-1 text-xs text-slate-500">{item.notes}</p> : null}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-slate-600">{item.categoryGroup} / {item.subCategory}</td>
                     <td className="px-4 py-4 text-slate-600">{item.city} / {item.area}</td>

@@ -29,6 +29,16 @@ const userSchema = new Schema(
       type: String,
       trim: true,
     },
+    googleId: {
+      type: String,
+      trim: true,
+      sparse: true,
+    },
+    authProvider: {
+      type: String,
+      enum: ['google', 'dev'],
+      default: 'dev',
+    },
     lastLoginAt: {
       type: Date,
     },
@@ -48,6 +58,7 @@ const userSchema = new Schema(
 
 export type UserRole = 'admin' | 'member';
 export type UserStatus = 'active' | 'inactive';
+export type AuthProvider = 'google' | 'dev';
 export type UserSchema = InferSchemaType<typeof userSchema>;
 export type UserDocument = HydratedDocument<UserSchema>;
 

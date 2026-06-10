@@ -33,6 +33,8 @@ export const TOKENS = {
   ShareService: Symbol('ShareService'),
   ShareCommandService: Symbol('ShareCommandService'),
   UploadService: Symbol('UploadService'),
+  UploadRepository: Symbol('UploadRepository'),
+  UploadStorageService: Symbol('UploadStorageService'),
   UserRepository: Symbol('UserRepository'),
   UserService: Symbol('UserService'),
 };

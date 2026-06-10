@@ -39,6 +39,10 @@ const creativeSchema = new Schema(
     received: { type: Boolean, default: false },
     receivedAt: Date,
     fileUrls: { type: [String], default: [] },
+    fileUploads: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Upload' }],
+      default: [],
+    },
     notes: String,
   },
   { _id: false },
@@ -51,6 +55,10 @@ const purchaseOrderSchema = new Schema(
     sentAt: Date,
     poNumber: String,
     poFileUrl: String,
+    fileUploads: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Upload' }],
+      default: [],
+    },
     notes: String,
   },
   { _id: false },
@@ -72,6 +80,10 @@ const proofSchema = new Schema(
     uploaded: { type: Boolean, default: false },
     uploadedAt: Date,
     photoUrls: { type: [String], default: [] },
+    fileUploads: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Upload' }],
+      default: [],
+    },
     notes: String,
   },
   { _id: false },
