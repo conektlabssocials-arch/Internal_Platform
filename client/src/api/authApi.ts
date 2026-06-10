@@ -6,7 +6,11 @@ type AuthResponse = {
 };
 
 export const startGoogleLogin = () => {
-  window.location.assign(`${SERVER_BASE_URL}/api/auth/google`);
+  window.location.assign(
+    SERVER_BASE_URL
+      ? `${SERVER_BASE_URL}/api/auth/google`
+      : '/api/auth/google',
+  );
 };
 
 export const devLoginRequest = async (email: string) => {
