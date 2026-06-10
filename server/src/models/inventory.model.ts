@@ -91,6 +91,10 @@ const inventorySchema = new Schema(
       type: [String],
       default: [],
     },
+    photoUploads: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Upload' }],
+      default: [],
+    },
     ownerName: {
       type: String,
       trim: true,

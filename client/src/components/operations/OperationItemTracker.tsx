@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import {
+  getOperationById,
   updateCreative,
   updateMounting,
   updateOperationItem,
@@ -8,12 +9,24 @@ import {
   updateProof,
   updateTakedown,
 } from '../../api/operationApi';
+import {
+  deleteUpload,
+  getUploads,
+  uploadOperationCreative,
+  uploadOperationPO,
+  uploadOperationProof,
+} from '../../api/uploadApi';
+import { useAuth } from '../../context/AuthContext';
 import type {
   Operation,
   OperationItem,
   OperationItemStatus,
 } from '../../types/operation';
+import type { UploadCategory, UploadedFile } from '../../types/upload';
 import OperationStatusBadge from './OperationStatusBadge';
+import FileUploadDropzone from '../uploads/FileUploadDropzone';
+import UploadedFileList from '../uploads/UploadedFileList';
+import ImagePreviewGrid from '../uploads/ImagePreviewGrid';
 
 const itemStatuses: OperationItemStatus[] = [
   'Pending',
@@ -36,12 +49,32 @@ const OperationItemTracker = ({
   item: OperationItem;
   onUpdated: (operation: Operation) => void;
 }) => {
+  const { isAdmin } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState(item);
   const [saving, setSaving] = useState('');
   const [error, setError] = useState('');
+  const [uploads, setUploads] = useState<UploadedFile[]>([]);
+  const [uploading, setUploading] = useState<UploadCategory | ''>('');
+  const [deletingId, setDeletingId] = useState('');
 
   useEffect(() => setDraft(item), [item]);
+
+  const loadUploads = async () => {
+    setUploads(await getUploads({
+      entityType: 'OperationItem',
+      entityId: operationId,
+      itemId: item.id,
+    }));
+  };
+
+  useEffect(() => {
+    if (expanded) {
+      void loadUploads().catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load files'),
+      );
+    }
+  }, [expanded, item.id, operationId]);
 
   const save = async (
     section: string,
@@ -63,6 +96,46 @@ const OperationItemTracker = ({
     new Date(draft.mounting.scheduledDate) < startOfToday() &&
     !draft.mounting.completed;
   const proofPending = draft.mounting.completed && !draft.proof.uploaded;
+  const filesByCategory = (category: UploadCategory) =>
+    uploads.filter((upload) => upload.category === category);
+
+  const uploadFiles = async (
+    category: 'creative' | 'purchase_order' | 'proof',
+    files: File[],
+  ) => {
+    setUploading(category);
+    setError('');
+    try {
+      const response =
+        category === 'creative'
+          ? await uploadOperationCreative(operationId, item.id, files)
+          : category === 'purchase_order'
+            ? await uploadOperationPO(operationId, item.id, files)
+            : await uploadOperationProof(operationId, item.id, files);
+      onUpdated(response.operation);
+      await loadUploads();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+      throw err;
+    } finally {
+      setUploading('');
+    }
+  };
+
+  const removeUpload = async (upload: UploadedFile) => {
+    if (!window.confirm(`Delete ${upload.originalName}?`)) return;
+    setDeletingId(upload.id);
+    setError('');
+    try {
+      await deleteUpload(upload.id);
+      onUpdated(await getOperationById(operationId));
+      await loadUploads();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setDeletingId('');
+    }
+  };
 
   return (
     <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
@@ -123,6 +196,19 @@ const OperationItemTracker = ({
                 onSecond={(received) => setDraft({ ...draft, creative: { ...draft.creative, received } })}
               />
               <Field label="File URLs, comma-separated" value={draft.creative.fileUrls.join(', ')} onChange={(value) => setDraft({ ...draft, creative: { ...draft.creative, fileUrls: splitUrls(value) } })} />
+              <FileUploadDropzone
+                accept={['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4', 'application/zip', 'application/x-zip-compressed']}
+                maxFiles={10}
+                maxFileSizeMb={50}
+                uploading={uploading === 'creative'}
+                label="Upload creative files"
+                onUpload={(files) => uploadFiles('creative', files)}
+              />
+              <UploadedFileList
+                files={filesByCategory('creative')}
+                deletingId={deletingId}
+                onDelete={isAdmin ? removeUpload : undefined}
+              />
               <TextArea label="Notes" value={draft.creative.notes} onChange={(notes) => setDraft({ ...draft, creative: { ...draft.creative, notes } })} />
               <SaveButton loading={saving === 'creative'} onClick={() => void save('creative', () => updateCreative(operationId, draft.id, draft.creative))} />
             </TrackerSection>
@@ -138,6 +224,19 @@ const OperationItemTracker = ({
               />
               <Field label="PO number" value={draft.purchaseOrder.poNumber} onChange={(poNumber) => setDraft({ ...draft, purchaseOrder: { ...draft.purchaseOrder, poNumber } })} />
               <Field label="PO file URL" value={draft.purchaseOrder.poFileUrl} onChange={(poFileUrl) => setDraft({ ...draft, purchaseOrder: { ...draft.purchaseOrder, poFileUrl } })} />
+              <FileUploadDropzone
+                accept={['application/pdf', 'image/jpeg', 'image/png', 'image/webp']}
+                maxFiles={5}
+                maxFileSizeMb={20}
+                uploading={uploading === 'purchase_order'}
+                label="Upload PO files"
+                onUpload={(files) => uploadFiles('purchase_order', files)}
+              />
+              <UploadedFileList
+                files={filesByCategory('purchase_order')}
+                deletingId={deletingId}
+                onDelete={isAdmin ? removeUpload : undefined}
+              />
               <TextArea label="Notes" value={draft.purchaseOrder.notes} onChange={(notes) => setDraft({ ...draft, purchaseOrder: { ...draft.purchaseOrder, notes } })} />
               <SaveButton loading={saving === 'po'} onClick={() => void save('po', () => updatePO(operationId, draft.id, draft.purchaseOrder))} />
             </TrackerSection>
@@ -153,6 +252,20 @@ const OperationItemTracker = ({
             <TrackerSection title="Proof of Execution">
               <Check label="Proof uploaded" checked={draft.proof.uploaded} onChange={(uploaded) => setDraft({ ...draft, proof: { ...draft.proof, uploaded } })} />
               <Field label="Photo URLs, comma-separated" value={draft.proof.photoUrls.join(', ')} onChange={(value) => setDraft({ ...draft, proof: { ...draft.proof, photoUrls: splitUrls(value) } })} />
+              <FileUploadDropzone
+                accept={['image/jpeg', 'image/png', 'image/webp']}
+                maxFiles={20}
+                maxFileSizeMb={15}
+                uploading={uploading === 'proof'}
+                label="Upload proof photos"
+                onUpload={(files) => uploadFiles('proof', files)}
+              />
+              <ImagePreviewGrid uploads={filesByCategory('proof')} />
+              <UploadedFileList
+                files={filesByCategory('proof')}
+                deletingId={deletingId}
+                onDelete={isAdmin ? removeUpload : undefined}
+              />
               <TextArea label="Notes" value={draft.proof.notes} onChange={(notes) => setDraft({ ...draft, proof: { ...draft.proof, notes } })} />
               <SaveButton loading={saving === 'proof'} onClick={() => void save('proof', () => updateProof(operationId, draft.id, draft.proof))} />
             </TrackerSection>

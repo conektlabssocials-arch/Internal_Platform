@@ -19,6 +19,7 @@ export type InventoryItem = {
     source?: 'manual' | 'map_picker' | 'reverse_geocode';
   };
   photos: string[];
+  photoUploads: string[];
   ownerName?: string;
   ownerPhone?: string;
   supplierName?: string;

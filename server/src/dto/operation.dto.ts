@@ -52,10 +52,19 @@ export const mapOperationToDto = (operation: OperationDocument) => ({
     ownerName: item.ownerName,
     supplierEntity: item.supplierEntity?.toString(),
     ownerEntity: item.ownerEntity?.toString(),
-    creative: item.creative,
-    purchaseOrder: item.purchaseOrder,
+    creative: {
+      ...(item.creative?.toObject?.() || item.creative),
+      fileUploads: (item.creative?.fileUploads || []).map((upload: any) => upload.toString()),
+    },
+    purchaseOrder: {
+      ...(item.purchaseOrder?.toObject?.() || item.purchaseOrder),
+      fileUploads: (item.purchaseOrder?.fileUploads || []).map((upload: any) => upload.toString()),
+    },
     mounting: item.mounting,
-    proof: item.proof,
+    proof: {
+      ...(item.proof?.toObject?.() || item.proof),
+      fileUploads: (item.proof?.fileUploads || []).map((upload: any) => upload.toString()),
+    },
     takedown: item.takedown,
     itemStatus: item.itemStatus,
     notes: item.notes,

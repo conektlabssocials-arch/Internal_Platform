@@ -108,6 +108,7 @@ const mapPublicPlan = (share: any) => {
         unitSellingPrice: item.unitSellingPrice,
         totalSellingPrice: item.totalSellingPrice,
         notes: item.notes,
+        photoUrl: item.photos?.[0],
       })),
       pricing: {
         subtotal: plan.pricing?.subtotal || 0,

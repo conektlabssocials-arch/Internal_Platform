@@ -51,6 +51,7 @@ export type OperationItem = {
     received: boolean;
     receivedAt?: string;
     fileUrls: string[];
+    fileUploads: string[];
     notes?: string;
   };
   purchaseOrder: {
@@ -59,6 +60,7 @@ export type OperationItem = {
     sentAt?: string;
     poNumber?: string;
     poFileUrl?: string;
+    fileUploads: string[];
     notes?: string;
   };
   mounting: {
@@ -72,6 +74,7 @@ export type OperationItem = {
     uploaded: boolean;
     uploadedAt?: string;
     photoUrls: string[];
+    fileUploads: string[];
     notes?: string;
   };
   takedown: {

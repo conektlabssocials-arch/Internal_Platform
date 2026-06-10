@@ -172,7 +172,11 @@ MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-CLOUDINARY_UPLOAD_FOLDER=inventory
+CLOUDINARY_UPLOAD_FOLDER=conekt-ads
+CLOUDINARY_DOCUMENT_FOLDER=documents
+CLOUDINARY_DOCUMENT_DELIVERY_TYPE=authenticated
+UPLOAD_STORAGE=cloudinary
+MAX_UPLOAD_SIZE_MB=50
 JWT_SECRET=replace_this_secret
 JWT_EXPIRES_IN=8h
 COOKIE_NAME=conekt_ads_token
@@ -181,7 +185,9 @@ COOKIE_SECURE=true
 
 The backend also accepts `MONGODB_URI` for local compatibility.
 
-Inventory photos are uploaded to Cloudinary through the backend (`POST /api/uploads/image`). Set the `CLOUDINARY_*` variables to enable image uploads; `CLOUDINARY_UPLOAD_FOLDER` is optional and defaults to `inventory`.
+All new inventory, creative, purchase-order, proof, and PDF files are stored in Cloudinary. The application does not create a local upload folder. Inventory and proof images use public-safe delivery; internal creatives, purchase orders, and documents use authenticated delivery with short-lived download URLs.
+
+The tracked upload endpoints live under `/api/uploads`. The older `POST /api/uploads/image` endpoint remains available for compatibility with existing clients and MCP proof uploads.
 
 For local HTTP testing only, set `COOKIE_SECURE=false` in `server/.env.local` so the browser accepts the auth cookie.
 
