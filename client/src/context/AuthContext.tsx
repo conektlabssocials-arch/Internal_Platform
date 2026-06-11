@@ -7,7 +7,9 @@ import {
   startGoogleLogin,
 } from '../api/authApi';
 import { AUTH_UNAUTHORIZED_EVENT } from '../api/apiClient';
+import { getEffectiveAccess } from '../api/platformSettingsApi';
 import type { User } from '../types/auth';
+import type { MemberPermission } from '../types/platformSettings';
 
 type AuthContextValue = {
   user: User | null;
@@ -18,7 +20,18 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   refetchUser: () => Promise<void>;
   isAdmin: boolean;
+  permissions: Record<MemberPermission, boolean>;
+  can: (permission: MemberPermission) => boolean;
 };
+
+const permissionKeys: MemberPermission[] = [
+  'inventory.create', 'inventory.edit', 'inventory.confirm', 'crm.manage',
+  'campaigns.manage', 'plans.manage', 'operations.manage',
+  'documents.generate', 'shares.manage', 'uploads.manage',
+];
+const noPermissions = Object.fromEntries(
+  permissionKeys.map((permission) => [permission, false]),
+) as Record<MemberPermission, boolean>;
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -26,15 +39,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState('');
+  const [permissions, setPermissions] = useState(noPermissions);
+
+  const loadPermissions = async (currentUser: User) => {
+    if (currentUser.role === 'admin') {
+      setPermissions(Object.fromEntries(permissionKeys.map((permission) => [permission, true])) as Record<MemberPermission, boolean>);
+      return;
+    }
+    try {
+      setPermissions((await getEffectiveAccess()).permissions);
+    } catch {
+      setPermissions(noPermissions);
+    }
+  };
 
   const refetchUser = async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
       const currentUser = await getMeRequest();
       setUser(currentUser);
+      await loadPermissions(currentUser);
       setAuthError('');
     } catch (error) {
       setUser(null);
+      setPermissions(noPermissions);
       const message = error instanceof Error ? error.message : '';
       setAuthError(message.toLowerCase().includes('inactive') ? message : '');
     } finally {
@@ -87,6 +115,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const devLogin = async (email: string) => {
     const nextUser = await devLoginRequest(email);
     setUser(nextUser);
+    await loadPermissions(nextUser);
     setAuthError('');
   };
 
@@ -95,6 +124,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await logoutRequest();
     } finally {
       setUser(null);
+      setPermissions(noPermissions);
       setAuthError('');
       setLoading(false);
     }
@@ -110,8 +140,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       logout,
       refetchUser,
       isAdmin: user?.role === 'admin',
+      permissions,
+      can: (permission: MemberPermission) => user?.role === 'admin' || permissions[permission],
     }),
-    [user, loading, authError],
+    [user, loading, authError, permissions],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

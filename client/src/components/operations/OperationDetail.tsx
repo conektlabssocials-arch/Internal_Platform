@@ -40,7 +40,8 @@ const OperationDetail = ({
   onClose: () => void;
   onUpdated?: (operation: Operation) => void;
 }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canManageOperations = can('operations.manage');
   const [operation, setOperation] = useState<Operation | null>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('execution');
   const [priority, setPriority] = useState<OperationPriority>('Medium');
@@ -132,7 +133,7 @@ const OperationDetail = ({
     { id: 'execution', label: 'Execution Items', count: operation.items.length },
     { id: 'documents', label: 'Documents' },
     { id: 'activity', label: 'Activity' },
-    { id: 'settings', label: 'Work Order Settings' },
+    ...(canManageOperations ? [{ id: 'settings' as const, label: 'Work Order Settings' }] : []),
   ];
 
   return (
@@ -251,6 +252,7 @@ const OperationDetail = ({
                     operationId={operation.id}
                     item={item}
                     onUpdated={apply}
+                    readOnly={!canManageOperations}
                   />
                 ))}
                 {!operation.items.length ? (

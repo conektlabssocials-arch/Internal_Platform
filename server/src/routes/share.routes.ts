@@ -10,8 +10,8 @@ const controller = container.resolve(ShareController);
 const auth = container.resolve(AuthMiddleware);
 
 router.use(auth.requireAuth);
-router.post('/plans/:planId', asyncHandler(controller.create));
+router.post('/plans/:planId', auth.requirePermission('shares.manage'), asyncHandler(controller.create));
 router.get('/plans/:planId', asyncHandler(controller.listByPlan));
-router.patch('/:shareId/disable', asyncHandler(controller.disable));
+router.patch('/:shareId/disable', auth.requirePermission('shares.manage'), asyncHandler(controller.disable));
 
 export default router;

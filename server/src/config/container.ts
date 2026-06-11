@@ -84,8 +84,20 @@ import { UserService } from '../services/user.service.js';
 import type { IUserService } from '../services/user.service.js';
 import { UserRepository } from '../repositories/user.repository.js';
 import type { IUserRepository } from '../repositories/user.repository.js';
+import { PlatformSettingsRepository } from '../repositories/platformSettings.repository.js';
+import type { IPlatformSettingsRepository } from '../repositories/platformSettings.repository.js';
+import { PlatformSettingsService } from '../services/platformSettings.service.js';
+import type { IPlatformSettingsService } from '../services/platformSettings.service.js';
 
 container.registerSingleton<IUserRepository>(TOKENS.UserRepository, UserRepository);
+container.registerSingleton<IPlatformSettingsRepository>(
+  TOKENS.PlatformSettingsRepository,
+  PlatformSettingsRepository,
+);
+container.registerSingleton<IPlatformSettingsService>(
+  TOKENS.PlatformSettingsService,
+  PlatformSettingsService,
+);
 container.registerSingleton<IActivityService>(TOKENS.ActivityService, ActivityService);
 container.registerSingleton<IUserService>(TOKENS.UserService, UserService);
 container.registerSingleton<IAuthService>(TOKENS.AuthService, AuthService);

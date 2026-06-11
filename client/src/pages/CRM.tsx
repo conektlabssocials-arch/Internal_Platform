@@ -64,7 +64,8 @@ type CategorySummary = {
 };
 
 const CRM = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canManage = can('crm.manage');
   const [selectedType, setSelectedType] = useState<CrmEntityType | null>(null);
   const [summaries, setSummaries] = useState<Record<string, CategorySummary>>({});
   const [entities, setEntities] = useState<CrmEntity[]>([]);
@@ -273,7 +274,7 @@ const CRM = () => {
             : 'Manage clients, agencies, advertisers, suppliers, and contacts.'
         }
         actions={
-          selectedType ? (
+          selectedType && canManage ? (
             <button type="button" onClick={openCreate} className={primaryButtonClass}>
               Add {selectedCategory?.label}
             </button>
@@ -368,7 +369,7 @@ const CRM = () => {
                         <td className="px-4 py-4"><StatusBadge status={entity.status} /></td>
                         <td className="px-4 py-4">
                           <div className="flex gap-2">
-                            <button type="button" onClick={() => openDetail(entity)} className={smallButtonClass}>View/Edit</button>
+                            <button type="button" onClick={() => openDetail(entity)} className={smallButtonClass}>{canManage ? 'View / Edit' : 'View'}</button>
                             {isAdmin ? (
                               <button type="button" onClick={() => setStatusEntity(entity)} className={smallButtonClass}>
                                 {entity.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -401,7 +402,7 @@ const CRM = () => {
                       </div>
                     ) : null}
                     <div className="mt-4 grid grid-cols-2 gap-2">
-                      <button type="button" onClick={() => openDetail(entity)} className={smallButtonClass}>View / Edit</button>
+                      <button type="button" onClick={() => openDetail(entity)} className={smallButtonClass}>{canManage ? 'View / Edit' : 'View'}</button>
                       {isAdmin ? (
                         <button type="button" onClick={() => setStatusEntity(entity)} className={smallButtonClass}>
                           {entity.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -458,6 +459,7 @@ const CRM = () => {
           onEditContact={(contact) => { setEditingContact(contact); setContactFormOpen(true); }}
           onToggleContact={toggleContact}
           onDeleteContact={removeContact}
+          readOnly={!canManage}
         />
       ) : null}
 

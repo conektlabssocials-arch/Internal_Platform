@@ -34,7 +34,14 @@ const App = () => {
         <Route path="plans" element={<Plans />} />
         <Route path="operations" element={<Operations />} />
         <Route path="settings" element={<Navigate to="/settings/platform" replace />} />
-        <Route path="settings/platform" element={<PlatformSettings />} />
+        <Route
+          path="settings/platform"
+          element={
+            <AdminRoute>
+              <PlatformSettings />
+            </AdminRoute>
+          }
+        />
         <Route
           path="settings/users"
           element={

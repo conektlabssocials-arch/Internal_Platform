@@ -291,7 +291,11 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
 });
 
 const Inventory = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canCreate = can('inventory.create');
+  const canEdit = can('inventory.edit');
+  const canConfirm = can('inventory.confirm');
+  const canUpload = can('uploads.manage');
   const [selectedCategory, setSelectedCategory] = useState<CategoryGroup | null>(null);
   const [summary, setSummary] = useState<InventorySummaryItem[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -629,7 +633,7 @@ const Inventory = () => {
                 Bulk Data Upload
               </button>
             ) : null}
-            {!showOverview ? (
+            {!showOverview && canCreate ? (
               <button
                 type="button"
                 onClick={openCreateForm}
@@ -681,8 +685,9 @@ const Inventory = () => {
             <button
               type="button"
               onClick={() => setSelectedCategory(null)}
-              className="text-sm font-medium text-slate-700 hover:text-slate-950"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
+              <span aria-hidden="true">←</span>
               Back to Inventory Categories
             </button>
 
@@ -760,6 +765,8 @@ const Inventory = () => {
 
           <InventoryTable
             isAdmin={isAdmin}
+            canEdit={canEdit}
+            canConfirm={canConfirm}
             items={items}
             loading={loading}
             paginationTotal={pagination.total}
@@ -792,6 +799,7 @@ const Inventory = () => {
             setForm(itemToForm(refreshed));
             await refreshCurrentView();
           }}
+          canUpload={canUpload}
         />
       ) : null}
 
@@ -861,6 +869,8 @@ const Chip = ({ active, children, onClick }: ChipProps) => (
 
 type InventoryTableProps = {
   isAdmin: boolean;
+  canEdit: boolean;
+  canConfirm: boolean;
   items: InventoryItem[];
   loading: boolean;
   paginationTotal: number;
@@ -871,6 +881,8 @@ type InventoryTableProps = {
 
 const InventoryTable = ({
   isAdmin,
+  canEdit,
+  canConfirm,
   items,
   loading,
   paginationTotal,
@@ -889,7 +901,7 @@ const InventoryTable = ({
     ) : (
       <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full text-left text-sm">
+        <table className="w-full min-w-[1420px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Code</th>
@@ -903,7 +915,7 @@ const InventoryTable = ({
               <th className="px-4 py-3 font-medium">Availability</th>
               <th className="px-4 py-3 font-medium">Confirmation</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+              <th className="sticky right-0 border-l border-slate-200 bg-slate-50 px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -946,10 +958,10 @@ const InventoryTable = ({
                   </span>
                 </td>
                 <td className="px-4 py-4 capitalize text-slate-600">{item.status}</td>
-                <td className="px-4 py-4">
-                  <div className="flex gap-2">
-                    <ActionButton onClick={() => onEdit(item)}>View/Edit</ActionButton>
-                    <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton>
+                <td className="sticky right-0 border-l border-slate-100 bg-white px-4 py-4">
+                  <div className="grid min-w-28 gap-2">
+                    {canEdit ? <ActionButton onClick={() => onEdit(item)}>Edit</ActionButton> : null}
+                    {canConfirm ? <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton> : null}
                     {isAdmin ? (
                       <ActionButton onClick={() => onStatusChange(item)}>
                         {item.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -984,8 +996,8 @@ const InventoryTable = ({
               <MobileInfo label="Status" value={item.status} />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <ActionButton onClick={() => onEdit(item)}>View / Edit</ActionButton>
-              <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton>
+              {canEdit ? <ActionButton onClick={() => onEdit(item)}>Edit</ActionButton> : null}
+              {canConfirm ? <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton> : null}
               {isAdmin ? (
                 <div className="col-span-2">
                   <ActionButton onClick={() => onStatusChange(item)}>
@@ -1043,6 +1055,7 @@ type InventoryFormModalProps = {
   onCategoryGroupChange: (categoryGroup: CategoryGroup) => void;
   onLocationChange: (location: { latitude: number; longitude: number }) => void;
   onInventoryChanged: () => Promise<void>;
+  canUpload: boolean;
 };
 
 const InventoryFormModal = ({
@@ -1060,6 +1073,7 @@ const InventoryFormModal = ({
   onCategoryGroupChange,
   onLocationChange,
   onInventoryChanged,
+  canUpload,
 }: InventoryFormModalProps) => (
   <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/50 p-0 sm:px-4 sm:py-8">
     <div role="dialog" aria-modal="true" aria-label={editingItem ? 'Edit Inventory' : 'Add Inventory'} className="mx-auto min-h-full max-w-5xl overflow-hidden bg-white p-4 shadow-xl sm:min-h-0 sm:rounded-lg sm:p-6">
@@ -1275,20 +1289,20 @@ const InventoryFormModal = ({
           </FormSection>
         ) : null}
 
-        {editingItem ? (
+        {editingItem && canUpload ? (
           <InventoryPhotoUploads
             inventoryId={editingItem.id}
             legacyUrls={form.photos}
             onChanged={onInventoryChanged}
           />
-        ) : (
+        ) : !editingItem ? (
           <section className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
             <h4 className="text-sm font-semibold text-slate-900">Inventory Photos</h4>
             <p className="mt-1 text-xs text-slate-500">
               Save the inventory details first. Photo upload will become available here immediately.
             </p>
           </section>
-        )}
+        ) : null}
 
         {editingItem ? (
           <ActivityTimeline entityType="Inventory" entityId={editingItem.id} compact />

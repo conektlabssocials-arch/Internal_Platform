@@ -34,7 +34,9 @@ const categories = ['Outdoor', 'Auto', 'Bus', 'Mobile Van'];
 const priorities = ['Low', 'Medium', 'High'];
 
 const Campaigns = () => {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
+  const canManageCampaigns = can('campaigns.manage');
+  const canManagePlans = can('plans.manage');
   const [items, setItems] = useState<Campaign[]>([]);
   const [summary, setSummary] = useState<CampaignSummary>(emptySummary);
   const [users, setUsers] = useState<User[]>([]);
@@ -133,7 +135,7 @@ const Campaigns = () => {
         title="Campaigns"
         eyebrow="Sales pipeline"
         description="Capture client requirements and manage the sales pipeline."
-        actions={<button type="button" onClick={openCreate} className={primary}>Add Campaign</button>}
+        actions={canManageCampaigns ? <button type="button" onClick={openCreate} className={primary}>Add Campaign</button> : null}
       />
 
       {error ? <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
@@ -175,7 +177,7 @@ const Campaigns = () => {
                     <td className="px-4 py-4"><StatusBadge status={campaign.status} /></td>
                     <td className="px-4 py-4 text-slate-600">{campaign.ownerUser.name}</td>
                     <td className="whitespace-nowrap px-4 py-4 text-slate-600">{campaign.nextFollowUpAt ? new Date(campaign.nextFollowUpAt).toLocaleDateString('en-IN') : '-'}</td>
-                    <td className="px-4 py-4"><div className="flex gap-2"><button type="button" onClick={() => openDetail(campaign)} className={small}>View/Edit</button><button type="button" onClick={() => setStatusCampaign(campaign)} className={small}>Change Status</button></div></td>
+                    <td className="px-4 py-4"><div className="flex gap-2"><button type="button" onClick={() => openDetail(campaign)} className={small}>{canManageCampaigns ? 'View / Edit' : 'View'}</button>{canManageCampaigns ? <button type="button" onClick={() => setStatusCampaign(campaign)} className={small}>Change Status</button> : null}</div></td>
                   </tr>
                 ))}
               </tbody>
@@ -199,8 +201,8 @@ const Campaigns = () => {
                   <CampaignInfo label="Priority" value={campaign.priority} />
                 </dl>
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => openDetail(campaign)} className={small}>View / Edit</button>
-                  <button type="button" onClick={() => setStatusCampaign(campaign)} className={small}>Change Status</button>
+                  <button type="button" onClick={() => openDetail(campaign)} className={small}>{canManageCampaigns ? 'View / Edit' : 'View'}</button>
+                  {canManageCampaigns ? <button type="button" onClick={() => setStatusCampaign(campaign)} className={small}>Change Status</button> : null}
                 </div>
               </article>
             ))}
@@ -214,7 +216,7 @@ const Campaigns = () => {
       </div>
 
       {formOpen ? <CampaignForm campaign={editing} previewCode={previewCode} users={users} currentUserId={user?.id} saving={saving} onClose={() => { setFormOpen(false); setEditing(null); }} onSave={saveCampaign} /> : null}
-      {detail ? <CampaignDetail campaign={detail} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); setFormOpen(true); }} onStatus={() => setStatusCampaign(detail)} onChanged={async () => { await load(); setDetail(await getCampaignById(detail.id)); }} /> : null}
+      {detail ? <CampaignDetail campaign={detail} readOnly={!canManageCampaigns} canManagePlans={canManagePlans} onClose={() => setDetail(null)} onEdit={() => { setEditing(detail); setDetail(null); setFormOpen(true); }} onStatus={() => setStatusCampaign(detail)} onChanged={async () => { await load(); setDetail(await getCampaignById(detail.id)); }} /> : null}
       {statusCampaign ? <CampaignStatusModal campaign={statusCampaign} saving={saving} onClose={() => setStatusCampaign(null)} onSave={saveStatus} /> : null}
     </section>
   );

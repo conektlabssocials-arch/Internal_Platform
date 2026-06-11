@@ -30,7 +30,7 @@ const navSections: NavSection[] = [
   {
     label: 'Settings',
     items: [
-      { label: 'Platform Settings', to: '/settings/platform' },
+      { label: 'Platform Settings', to: '/settings/platform', roles: ['admin'] },
       { label: 'Users', to: '/settings/users', roles: ['admin'] },
       { label: 'Audit Logs', to: '/settings/audit-logs', roles: ['admin'] },
     ],

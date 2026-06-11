@@ -11,6 +11,7 @@ import {
   syncOperationFromPlan,
 } from '../../api/operationApi';
 import type { InventoryItem } from '../../types/inventory';
+import { useAuth } from '../../context/AuthContext';
 import type { Operation } from '../../types/operation';
 import type { Plan, PlanItem, PlanItemPayload, PlanStatus } from '../../types/plan';
 import { buildClientPlanMapData } from '../../utils/planMapData';
@@ -77,6 +78,8 @@ const PlanBuilder = ({
   onClose: () => void;
   onChanged?: (plan: Plan) => void;
 }) => {
+  const { can } = useAuth();
+  const canManagePlans = can('plans.manage');
   const [plan, setPlan] = useState<Plan | null>(null);
   const [items, setItems] = useState<BuilderItem[]>([]);
   const [title, setTitle] = useState('');
@@ -245,7 +248,7 @@ const PlanBuilder = ({
 
   if (loading) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 text-white">Loading plan...</div>;
   if (!plan) return null;
-  const editable = plan.status === 'Draft' && !plan.isLocked;
+  const editable = canManagePlans && plan.status === 'Draft' && !plan.isLocked;
   const saveBeforeArtifact = async () => (editable ? save() : true);
   const refreshAfterShare = async () => {
     const updated = await loadPlan(plan.id);
@@ -382,9 +385,9 @@ const PlanBuilder = ({
             <label className="mt-4 block"><span className="text-sm text-slate-600">Tax Percentage</span><input type="number" disabled={!editable} value={taxPercentage} onChange={(event) => { setTaxPercentage(Number(event.target.value)); setIsDirty(true); }} className={input} /></label>
             <dl className="mt-4 space-y-3 text-sm"><Price label="Subtotal" value={preview.subtotal} /><Price label="Tax" value={preview.taxAmount} /><Price label="Grand Total" value={preview.grandTotal} strong /><Price label="Internal Cost" value={preview.internalCostTotal} /><Price label="Margin" value={preview.marginAmount} /><div className="flex justify-between border-t border-slate-200 pt-3"><dt>Margin %</dt><dd className="font-semibold">{preview.marginPercentage.toFixed(2)}%</dd></div></dl>
             <div className="mt-5 space-y-2">
-              {editable ? <><button type="button" disabled={saving} onClick={() => void save()} className={`${primary} w-full`}>{saving ? 'Saving...' : 'Save Draft'}</button><button type="button" disabled={saving} onClick={() => setPendingStatus('Shared')} className={`${secondary} w-full`}>Mark Shared</button></> : <button type="button" disabled={saving} onClick={clone} className={`${primary} w-full`}>Clone as New Version</button>}
-              {plan.status === 'Shared' ? <><button type="button" onClick={() => void changeStatus('Negotiating')} className={`${secondary} w-full`}>Mark Negotiating</button><button type="button" onClick={() => setPendingStatus('Won')} className={`${secondary} w-full`}>Mark Won</button><button type="button" onClick={() => setPendingStatus('Lost')} className={`${secondary} w-full`}>Mark Lost</button></> : null}
-              {plan.status === 'Negotiating' ? <><button type="button" onClick={() => setPendingStatus('Won')} className={`${secondary} w-full`}>Mark Won</button><button type="button" onClick={() => setPendingStatus('Lost')} className={`${secondary} w-full`}>Mark Lost</button></> : null}
+              {editable ? <><button type="button" disabled={saving} onClick={() => void save()} className={`${primary} w-full`}>{saving ? 'Saving...' : 'Save Draft'}</button><button type="button" disabled={saving} onClick={() => setPendingStatus('Shared')} className={`${secondary} w-full`}>Mark Shared</button></> : canManagePlans ? <button type="button" disabled={saving} onClick={clone} className={`${primary} w-full`}>Clone as New Version</button> : <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">You have read-only Plan access.</p>}
+              {canManagePlans && plan.status === 'Shared' ? <><button type="button" onClick={() => void changeStatus('Negotiating')} className={`${secondary} w-full`}>Mark Negotiating</button><button type="button" onClick={() => setPendingStatus('Won')} className={`${secondary} w-full`}>Mark Won</button><button type="button" onClick={() => setPendingStatus('Lost')} className={`${secondary} w-full`}>Mark Lost</button></> : null}
+              {canManagePlans && plan.status === 'Negotiating' ? <><button type="button" onClick={() => setPendingStatus('Won')} className={`${secondary} w-full`}>Mark Won</button><button type="button" onClick={() => setPendingStatus('Lost')} className={`${secondary} w-full`}>Mark Lost</button></> : null}
             </div>
           </aside>
         </div>

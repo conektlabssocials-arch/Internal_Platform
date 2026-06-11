@@ -10,10 +10,11 @@ const controller = container.resolve(DocumentController);
 const auth = container.resolve(AuthMiddleware);
 
 router.use(auth.requireAuth);
-router.post('/plans/:planId/generate', asyncHandler(controller.generate));
+router.post('/plans/:planId/generate', auth.requirePermission('documents.generate'), asyncHandler(controller.generate));
 router.get('/plans/:planId', asyncHandler(controller.listByPlan));
 router.post(
   '/operations/:operationId/generate',
+  auth.requirePermission('documents.generate'),
   asyncHandler(controller.generateOperation),
 );
 router.get(

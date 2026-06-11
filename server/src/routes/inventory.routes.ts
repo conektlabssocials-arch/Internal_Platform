@@ -15,8 +15,16 @@ router.get('/summary', asyncHandler(inventoryController.getInventorySummary));
 router.get('/preview-code', asyncHandler(inventoryController.getPreviewCode));
 router.get('/', asyncHandler(inventoryController.getInventory));
 router.get('/:id', asyncHandler(inventoryController.getInventoryById));
-router.post('/', asyncHandler(inventoryController.postInventory));
-router.patch('/:id', asyncHandler(inventoryController.patchInventory));
+router.post(
+  '/',
+  authMiddleware.requirePermission('inventory.create'),
+  asyncHandler(inventoryController.postInventory),
+);
+router.patch(
+  '/:id',
+  authMiddleware.requirePermission('inventory.edit'),
+  asyncHandler(inventoryController.patchInventory),
+);
 router.patch(
   '/:id/deactivate',
   authMiddleware.requireAdmin,
@@ -27,6 +35,10 @@ router.patch(
   authMiddleware.requireAdmin,
   asyncHandler(inventoryController.activateInventory),
 );
-router.patch('/:id/confirm', asyncHandler(inventoryController.confirmInventory));
+router.patch(
+  '/:id/confirm',
+  authMiddleware.requirePermission('inventory.confirm'),
+  asyncHandler(inventoryController.confirmInventory),
+);
 
 export default router;
