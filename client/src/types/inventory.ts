@@ -88,14 +88,6 @@ export type ConfirmInventoryPayload = {
   sellingPrice?: number;
 };
 
-export type InventoryImportResult = {
-  total: number;
-  created: number;
-  failed: number;
-  createdCodes: string[];
-  errors: { row: number; message: string }[];
-};
-
 export type InventorySummaryItem = {
   categoryGroup: CategoryGroup;
   total: number;

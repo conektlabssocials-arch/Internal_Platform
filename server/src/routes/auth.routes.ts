@@ -27,6 +27,18 @@ const requireGoogleConfiguration: RequestHandler = (_req, _res, next) => {
   next();
 };
 
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/google/config', (_req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID || '';
+    res.status(200).json({
+      callbackUrl: process.env.GOOGLE_CALLBACK_URL,
+      clientId,
+      clientUrl: process.env.CLIENT_URL,
+      configured: isGoogleOAuthConfigured(),
+    });
+  });
+}
+
 router.get(
   '/google',
   authLimiter,

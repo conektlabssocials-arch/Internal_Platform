@@ -53,7 +53,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const revalidateSession = () => {
-      void refetchUser(true);
+      // File pickers and browser tab changes trigger focus/visibility events.
+      // Revalidate in the background so open modals and unsaved forms stay mounted.
+      void refetchUser(false);
     };
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) revalidateSession();

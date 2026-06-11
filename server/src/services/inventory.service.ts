@@ -1,5 +1,4 @@
 import { inject, injectable } from 'tsyringe';
-import { parse } from 'csv-parse/sync';
 import { Types } from 'mongoose';
 import type { FilterQuery } from 'mongoose';
 
@@ -9,11 +8,9 @@ import type {
   ConfirmInventoryDto,
   InventoryDto,
   InventoryFiltersDto,
-  InventoryImportResultDto,
   InventoryMutationDto,
   InventorySummaryDto,
 } from '../dto/inventory.dto.js';
-import { mapCsvRowToMutation } from '../utils/inventoryImport.js';
 import {
   buildCounterKey,
   formatInventoryCode,
@@ -58,7 +55,6 @@ export interface IInventoryService {
   previewInventoryCode(categoryGroup?: string, city?: string, area?: string): Promise<string>;
   getInventoryById(id: string): Promise<InventoryDto>;
   createInventory(input: InventoryMutationDto): Promise<InventoryDto>;
-  importInventory(buffer: Buffer, actorId: string): Promise<InventoryImportResultDto>;
   updateInventory(id: string, input: InventoryMutationDto): Promise<InventoryDto>;
   setInventoryStatus(id: string, status: InventoryStatus, updatedBy: string): Promise<InventoryDto>;
   confirmInventory(id: string, input: ConfirmInventoryDto): Promise<InventoryDto>;
@@ -238,55 +234,6 @@ export class InventoryService implements IInventoryService {
     });
 
     return mapToDto(item);
-  }
-
-  async importInventory(buffer: Buffer, actorId: string): Promise<InventoryImportResultDto> {
-    let records: Record<string, string>[];
-
-    try {
-      records = parse(buffer, {
-        bom: true,
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-      }) as Record<string, string>[];
-    } catch {
-      throw new HttpError(400, 'Unable to parse CSV file. Check the file format and try again.');
-    }
-
-    const result: InventoryImportResultDto = {
-      total: 0,
-      created: 0,
-      failed: 0,
-      createdCodes: [],
-      errors: [],
-    };
-
-    for (let index = 0; index < records.length; index += 1) {
-      const mutation = mapCsvRowToMutation(records[index], actorId);
-
-      if (!mutation) {
-        continue;
-      }
-
-      // Row number accounts for the header line so it matches the spreadsheet.
-      const rowNumber = index + 2;
-      result.total += 1;
-
-      try {
-        const created = await this.createInventory(mutation);
-        result.created += 1;
-        result.createdCodes.push(created.inventoryCode);
-      } catch (error) {
-        result.failed += 1;
-        result.errors.push({
-          row: rowNumber,
-          message: error instanceof Error ? error.message : 'Failed to import row',
-        });
-      }
-    }
-
-    return result;
   }
 
   async updateInventory(id: string, input: InventoryMutationDto) {

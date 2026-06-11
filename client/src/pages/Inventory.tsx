@@ -10,7 +10,6 @@ import {
   getInventoryById,
   getInventoryCodePreview,
   getInventorySummary,
-  importInventory,
   reverseGeocode,
   updateInventory,
 } from '../api/inventoryApi';
@@ -19,20 +18,12 @@ import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard
 import ActivityTimeline from '../components/activity/ActivityTimeline';
 import InventoryPhotoUploads from '../components/uploads/InventoryPhotoUploads';
 import LocationPicker from '../components/map/LocationPicker';
+import DataMigration from './DataMigration';
 import {
   INVENTORY_CATEGORIES,
   INVENTORY_CATEGORY_DESCRIPTIONS,
   INVENTORY_CATEGORY_GROUPS,
 } from '../constants/inventoryCategories';
-import {
-  downloadCategoryTemplate,
-  downloadCombinedTemplate,
-  getImportFieldRows,
-  IMPORT_CATEGORY_GROUPS,
-  IMPORT_CONDITIONAL_NOTE,
-  IMPORT_SUBCATEGORIES,
-} from '../constants/inventoryImport';
-import type { ImportFieldRequirement } from '../constants/inventoryImport';
 import { useAuth } from '../context/AuthContext';
 import type {
   AvailabilityStatus,
@@ -40,7 +31,6 @@ import type {
   ConfirmationStatus,
   ConfirmInventoryPayload,
   InventoryFilters,
-  InventoryImportResult,
   InventoryItem,
   InventoryPayload,
   InventoryStatus,
@@ -309,7 +299,6 @@ const Inventory = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [form, setForm] = useState<InventoryFormState>(createEmptyForm());
   const [previewCode, setPreviewCode] = useState('');
@@ -318,6 +307,7 @@ const Inventory = () => {
   const [geocodeError, setGeocodeError] = useState('');
   const [confirmingItem, setConfirmingItem] = useState<InventoryItem | null>(null);
   const [confirmForm, setConfirmForm] = useState<ConfirmFormState>(emptyConfirmForm);
+  const [importOpen, setImportOpen] = useState(false);
 
   const totalSqFt = useMemo(() => {
     const width = numberOrUndefined(form.width);
@@ -632,13 +622,15 @@ const Inventory = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setImportOpen(true)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Bulk Import CSV
-            </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Bulk Data Upload
+              </button>
+            ) : null}
             {!showOverview ? (
               <button
                 type="button"
@@ -817,11 +809,12 @@ const Inventory = () => {
       ) : null}
 
       {importOpen ? (
-        <ImportInventoryModal
+        <DataMigration
           onClose={() => setImportOpen(false)}
           onImported={refreshCurrentView}
         />
       ) : null}
+
     </section>
   );
 };
@@ -1523,245 +1516,5 @@ const FormSection = ({ title, children }: FormSectionProps) => (
     <div className="grid gap-4 md:grid-cols-3">{children}</div>
   </div>
 );
-
-type ImportInventoryModalProps = {
-  onClose: () => void;
-  onImported: () => Promise<void> | void;
-};
-
-const requirementBadge: Record<ImportFieldRequirement, { label: string; className: string }> = {
-  required: { label: 'Required', className: 'bg-rose-50 text-rose-700' },
-  conditional: { label: 'Conditional', className: 'bg-amber-50 text-amber-700' },
-  optional: { label: 'Optional', className: 'bg-slate-100 text-slate-600' },
-};
-
-const ImportInventoryModal = ({ onClose, onImported }: ImportInventoryModalProps) => {
-  const [guideGroup, setGuideGroup] = useState<CategoryGroup>('Outdoor');
-  const [file, setFile] = useState<File | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [error, setError] = useState('');
-  const [result, setResult] = useState<InventoryImportResult | null>(null);
-
-  const fieldRows = getImportFieldRows(guideGroup);
-  const conditionalNote = IMPORT_CONDITIONAL_NOTE[guideGroup];
-
-  const handleImport = async () => {
-    if (!file) {
-      return;
-    }
-
-    setImporting(true);
-    setError('');
-    setResult(null);
-
-    try {
-      const importResult = await importInventory(file);
-      setResult(importResult);
-
-      if (importResult.created > 0) {
-        await onImported();
-      }
-    } catch (importError) {
-      setError(importError instanceof Error ? importError.message : 'Import failed');
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/40 px-4 py-8">
-      <div className="mx-auto max-w-3xl overflow-hidden rounded-lg bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold">Bulk Import Inventory</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Pick a category to see its fields, download a ready-to-fill template, then upload it.
-              Each row becomes one inventory item with an auto-generated code.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700"
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="mt-5 space-y-5">
-          <div>
-            <p className="mb-2 text-sm font-semibold text-slate-900">
-              Step 1 — Choose a category
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {IMPORT_CATEGORY_GROUPS.map((group) => (
-                <button
-                  key={group}
-                  type="button"
-                  onClick={() => setGuideGroup(group)}
-                  className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
-                    guideGroup === group
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-300 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {group}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200">
-            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-sm text-slate-600">
-                <span className="font-semibold text-slate-900">Valid sub categories:</span>{' '}
-                {IMPORT_SUBCATEGORIES[guideGroup].join(', ')}
-              </p>
-              {conditionalNote ? (
-                <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                  {conditionalNote}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="max-h-72 overflow-y-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-500">
-                  <tr className="border-b border-slate-200">
-                    <th className="px-4 py-2 font-medium">Column</th>
-                    <th className="px-4 py-2 font-medium">Need</th>
-                    <th className="px-4 py-2 font-medium">Accepted values</th>
-                    <th className="px-4 py-2 font-medium">Example</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fieldRows.map((row) => {
-                    const badge = requirementBadge[row.requirement];
-
-                    return (
-                      <tr key={row.name} className="border-b border-slate-100 align-top">
-                        <td className="px-4 py-2">
-                          <span className="font-mono text-xs text-slate-900">{row.name}</span>
-                          <span className="block text-xs text-slate-500">{row.label}</span>
-                        </td>
-                        <td className="px-4 py-2">
-                          <span
-                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}
-                          >
-                            {badge.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-slate-600">{row.valueHint}</td>
-                        <td className="px-4 py-2 text-slate-500">{row.example || '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 px-4 py-3">
-              <button
-                type="button"
-                onClick={() => downloadCategoryTemplate(guideGroup)}
-                className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-              >
-                Download {guideGroup} template
-              </button>
-              <button
-                type="button"
-                onClick={downloadCombinedTemplate}
-                className="text-sm font-medium text-slate-700 underline"
-              >
-                Download template with all categories
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-            <p className="font-semibold text-slate-700">Format tips</p>
-            <ul className="mt-1 list-disc space-y-1 pl-4">
-              <li>Keep the header row exactly as in the template; column order can vary.</li>
-              <li>
-                Multi-value fields (<code>photos</code>, <code>tags</code>) use <code>|</code> to
-                separate values.
-              </li>
-              <li>Enum fields must match the accepted values exactly (case-sensitive).</li>
-              <li>Leave a cell empty to skip an optional field. You can mix categories in one file.</li>
-            </ul>
-          </div>
-
-          <div>
-            <p className="mb-2 text-sm font-semibold text-slate-900">Step 2 — Upload your file</p>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(event) => {
-                setFile(event.target.files?.[0] ?? null);
-                setResult(null);
-                setError('');
-              }}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-            />
-          </div>
-
-          {error ? (
-            <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
-            </div>
-          ) : null}
-
-          {result ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-4 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm">
-                <span className="text-slate-600">
-                  Processed: <span className="font-semibold text-slate-900">{result.total}</span>
-                </span>
-                <span className="text-emerald-700">
-                  Created: <span className="font-semibold">{result.created}</span>
-                </span>
-                <span className="text-rose-700">
-                  Failed: <span className="font-semibold">{result.failed}</span>
-                </span>
-              </div>
-
-              {result.errors.length > 0 ? (
-                <div className="max-h-48 overflow-y-auto rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-                  <ul className="space-y-1">
-                    {result.errors.map((rowError) => (
-                      <li key={rowError.row}>
-                        <span className="font-medium">Row {rowError.row}:</span> {rowError.message}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <p className="text-sm text-emerald-700">All rows imported successfully.</p>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
-          >
-            {result ? 'Done' : 'Cancel'}
-          </button>
-          <button
-            type="button"
-            onClick={handleImport}
-            disabled={!file || importing}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400"
-          >
-            {importing ? 'Importing...' : 'Import'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default Inventory;

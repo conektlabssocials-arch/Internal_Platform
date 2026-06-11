@@ -2,7 +2,6 @@ import { apiRequest } from './apiClient';
 import type {
   ConfirmInventoryPayload,
   InventoryFilters,
-  InventoryImportResult,
   InventoryItem,
   InventoryListResponse,
   InventoryPayload,
@@ -72,18 +71,6 @@ export const uploadInventoryImages = async (files: File[]) => {
   });
 
   return response.data.map((image) => image.url);
-};
-
-export const importInventory = async (file: File) => {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const response = await apiRequest<{ data: InventoryImportResult }>('/inventory/import', {
-    method: 'POST',
-    body: formData,
-  });
-
-  return response.data;
 };
 
 export const reverseGeocode = (latitude: number, longitude: number) => {
