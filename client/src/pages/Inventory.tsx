@@ -18,6 +18,8 @@ import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard
 import ActivityTimeline from '../components/activity/ActivityTimeline';
 import InventoryPhotoUploads from '../components/uploads/InventoryPhotoUploads';
 import LocationPicker from '../components/map/LocationPicker';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import PageHeader from '../components/ui/PageHeader';
 import DataMigration from './DataMigration';
 import {
   INVENTORY_CATEGORIES,
@@ -308,6 +310,7 @@ const Inventory = () => {
   const [confirmingItem, setConfirmingItem] = useState<InventoryItem | null>(null);
   const [confirmForm, setConfirmForm] = useState<ConfirmFormState>(emptyConfirmForm);
   const [importOpen, setImportOpen] = useState(false);
+  const [statusItem, setStatusItem] = useState<InventoryItem | null>(null);
 
   const totalSqFt = useMemo(() => {
     const width = numberOrUndefined(form.width);
@@ -611,17 +614,12 @@ const Inventory = () => {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Inventory</h1>
-            <p className="mt-2 text-slate-600">
-              {showOverview
-                ? 'Choose a category to manage inventory.'
-                : `Manage ${selectedCategory} inventory.`}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <PageHeader
+        title="Inventory"
+        eyebrow="Media library"
+        description={showOverview ? 'Choose a category to manage inventory.' : `Manage ${selectedCategory} inventory.`}
+        actions={
+          <>
             {isAdmin ? (
               <button
                 type="button"
@@ -640,9 +638,9 @@ const Inventory = () => {
                 Add Inventory
               </button>
             ) : null}
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {error ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -767,7 +765,7 @@ const Inventory = () => {
             paginationTotal={pagination.total}
             onEdit={openEditForm}
             onConfirm={openConfirmModal}
-            onStatusChange={handleStatusChange}
+            onStatusChange={setStatusItem}
           />
         </>
       )}
@@ -815,6 +813,27 @@ const Inventory = () => {
         />
       ) : null}
 
+      <ConfirmDialog
+        open={Boolean(statusItem)}
+        title={statusItem?.status === 'active' ? 'Deactivate inventory?' : 'Activate inventory?'}
+        description={
+          statusItem?.status === 'active'
+            ? `${statusItem.inventoryCode} will no longer be available for active workflows.`
+            : `${statusItem?.inventoryCode || 'This inventory'} will become active again.`
+        }
+        confirmText={statusItem?.status === 'active' ? 'Deactivate' : 'Activate'}
+        danger={statusItem?.status === 'active'}
+        busy={saving}
+        onClose={() => setStatusItem(null)}
+        onConfirm={() => {
+          if (!statusItem) return;
+          setSaving(true);
+          void handleStatusChange(statusItem).finally(() => {
+            setSaving(false);
+            setStatusItem(null);
+          });
+        }}
+      />
     </section>
   );
 };
@@ -868,7 +887,8 @@ const InventoryTable = ({
         <p className="mt-1 text-sm text-slate-500">Add your first inventory item.</p>
       </div>
     ) : (
-      <div className="overflow-x-auto">
+      <>
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
@@ -942,11 +962,54 @@ const InventoryTable = ({
           </tbody>
         </table>
       </div>
+      <div className="divide-y divide-slate-100 md:hidden">
+        {items.map((item) => (
+          <article key={item.id} className="p-4">
+            <div className="flex items-start gap-3">
+              {item.photos[0] ? (
+                <img src={item.photos[0]} alt={item.title} className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover" />
+              ) : (
+                <div className="h-14 w-14 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-50" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-emerald-700">{item.inventoryCode}</p>
+                <h3 className="mt-1 font-semibold text-slate-900">{item.title}</h3>
+                <p className="mt-1 text-xs text-slate-500">{item.subCategory} · {item.city} / {item.area}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <MobileInfo label="Selling price" value={currency(item.sellingPrice)} />
+              <MobileInfo label="Availability" value={labelize(item.availabilityStatus)} />
+              <MobileInfo label="Confirmation" value={labelize(item.confirmationStatus)} />
+              <MobileInfo label="Status" value={item.status} />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <ActionButton onClick={() => onEdit(item)}>View / Edit</ActionButton>
+              <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton>
+              {isAdmin ? (
+                <div className="col-span-2">
+                  <ActionButton onClick={() => onStatusChange(item)}>
+                    {item.status === 'active' ? 'Deactivate' : 'Activate'}
+                  </ActionButton>
+                </div>
+              ) : null}
+            </div>
+          </article>
+        ))}
+      </div>
+      </>
     )}
 
     <p className="border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
       Showing {items.length} of {paginationTotal} inventory items.
     </p>
+  </div>
+);
+
+const MobileInfo = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <p className="text-xs text-slate-500">{label}</p>
+    <p className="mt-0.5 capitalize text-slate-800">{value}</p>
   </div>
 );
 
@@ -959,7 +1022,7 @@ const ActionButton = ({ children, onClick }: ActionButtonProps) => (
   <button
     type="button"
     onClick={onClick}
-    className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+    className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
   >
     {children}
   </button>
@@ -998,8 +1061,8 @@ const InventoryFormModal = ({
   onLocationChange,
   onInventoryChanged,
 }: InventoryFormModalProps) => (
-  <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/40 px-4 py-8">
-    <div className="mx-auto max-w-5xl overflow-hidden rounded-lg bg-white p-6 shadow-xl">
+  <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/50 p-0 sm:px-4 sm:py-8">
+    <div role="dialog" aria-modal="true" aria-label={editingItem ? 'Edit Inventory' : 'Add Inventory'} className="mx-auto min-h-full max-w-5xl overflow-hidden bg-white p-4 shadow-xl sm:min-h-0 sm:rounded-lg sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold">
@@ -1231,7 +1294,7 @@ const InventoryFormModal = ({
           <ActivityTimeline entityType="Inventory" entityId={editingItem.id} compact />
         ) : null}
 
-        <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
+        <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:static sm:mx-0 sm:flex-row sm:justify-end sm:px-0 sm:pb-0 sm:pt-4">
           <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
             Cancel
           </button>

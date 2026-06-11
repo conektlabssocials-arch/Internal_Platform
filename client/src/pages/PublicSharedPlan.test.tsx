@@ -72,7 +72,7 @@ describe('PublicSharedPlan', () => {
     );
 
     expect(await screen.findByText('Bangalore Launch')).toBeInTheDocument();
-    expect(screen.getByText('Koramangala Hoarding')).toBeInTheDocument();
+    expect(screen.getAllByText('Koramangala Hoarding')).not.toHaveLength(0);
     expect(screen.getByText('This shared plan is read-only.')).toBeInTheDocument();
     expect(screen.queryByText(/internal cost/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/margin/i)).not.toBeInTheDocument();

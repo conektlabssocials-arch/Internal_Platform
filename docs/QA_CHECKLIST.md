@@ -99,3 +99,14 @@ Complete this checklist against a non-production environment before deployment.
 - [ ] Confirm Admin-only APIs return 403 for Members.
 - [ ] Confirm development login is disabled in production.
 - [ ] Confirm cookies use secure production settings.
+
+## L. UI Polish
+
+- [ ] Check mobile navigation at 390px, including backdrop and Escape close.
+- [ ] Check Dashboard, Inventory, CRM, Campaigns, Plans, and Operations on mobile.
+- [ ] Check public shared plan, media cards, pricing, and map on mobile.
+- [ ] Check Plan Builder Draft and locked states at desktop and mobile sizes.
+- [ ] Check inventory and proof upload previews.
+- [ ] Check map marker popup stays inside the mobile viewport.
+- [ ] Check important actions show confirmation before changing state.
+- [ ] Tab through Login, Inventory form, Plan Builder, and Operations controls.

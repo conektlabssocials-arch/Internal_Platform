@@ -7,7 +7,7 @@ const PlanMapMarkerPopup = ({
   item: PlanMapItem;
   onClose: () => void;
 }) => (
-  <div className="absolute inset-x-3 bottom-3 z-10 max-h-[75%] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-xl sm:left-4 sm:right-auto sm:w-[360px]">
+  <div role="dialog" aria-label={item.title || item.inventoryCode || 'Site details'} className="absolute inset-x-2 bottom-2 z-10 max-h-[78%] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-xl sm:inset-x-auto sm:bottom-4 sm:left-4 sm:w-[360px] sm:max-w-[calc(100%-2rem)]">
     {item.photoUrl ? (
       <img src={item.photoUrl} alt={item.title || 'Outdoor inventory'} className="h-36 w-full object-cover" />
     ) : null}

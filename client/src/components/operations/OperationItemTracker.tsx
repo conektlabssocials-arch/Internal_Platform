@@ -202,14 +202,14 @@ const OperationItemTracker = ({
           </p>
         </div>
 
-        <div>
-          <div className="grid grid-cols-5 gap-1">
+        <div className="overflow-x-auto pb-1">
+          <div className="grid min-w-[420px] grid-cols-5 gap-2">
             {stages.map((stage) => (
               <button
                 key={stage.id}
                 type="button"
                 onClick={() => openStage(stage.id)}
-                className="group min-w-0 text-left"
+                className="group min-w-0 rounded-md px-1 py-1 text-left hover:bg-slate-50"
                 title={`${stage.label}: ${stage.done ? 'Complete' : stage.required ? 'Pending' : 'Not required'}`}
               >
                 <span className={`block h-1.5 rounded-full ${
@@ -230,7 +230,7 @@ const OperationItemTracker = ({
           <button
             type="button"
             onClick={() => openStage(nextAction.stage)}
-            className={`mt-2 text-xs font-semibold ${
+            className={`mt-2 rounded-md px-2 py-1 text-xs font-semibold ${
               nextAction.text === 'Execution complete'
                 ? 'text-emerald-700'
                 : overdue

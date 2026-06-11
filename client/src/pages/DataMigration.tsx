@@ -18,6 +18,7 @@ import type {
   ImportTemplate,
   ImportType,
 } from '../types/import';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 const importTypeLabels: Record<ImportType, string> = {
   inventory: 'Inventory',
@@ -42,6 +43,7 @@ const DataMigration = ({ onClose, onImported }: DataMigrationProps) => {
   const [working, setWorking] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [confirmCommit, setConfirmCommit] = useState(false);
 
   const loadPage = useCallback(async () => {
     setLoading(true);
@@ -158,8 +160,8 @@ const DataMigration = ({ onClose, onImported }: DataMigrationProps) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-3 sm:p-6">
-      <section className="mx-auto max-w-[1500px] overflow-hidden rounded-md bg-slate-50 shadow-2xl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-0 sm:p-6">
+      <section role="dialog" aria-modal="true" aria-label="Bulk Data Upload" className="mx-auto min-h-full max-w-[1500px] overflow-hidden bg-slate-50 shadow-2xl sm:min-h-0 sm:rounded-md">
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
           <div>
             <p className="text-sm text-slate-500">Inventory</p>
@@ -188,6 +190,15 @@ const DataMigration = ({ onClose, onImported }: DataMigrationProps) => {
               {success}
             </div>
           ) : null}
+
+          <ol className="grid grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-3 sm:grid-cols-5">
+            {['Download template', 'Upload CSV', 'Validate', 'Commit', 'Review history'].map((step, index) => (
+              <li key={step} className="flex items-center gap-2 rounded-md bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-white">{index + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
 
           <section>
         <SectionHeading
@@ -279,7 +290,7 @@ const DataMigration = ({ onClose, onImported }: DataMigrationProps) => {
                 job={activeJob}
                 working={working}
                 onValidate={handleValidate}
-                onCommit={handleCommit}
+                onCommit={() => setConfirmCommit(true)}
                 onDownloadErrors={() =>
                   void downloadImportErrors(activeJob.id).catch((err) =>
                     setError(err instanceof Error ? err.message : 'Download failed'),
@@ -301,7 +312,7 @@ const DataMigration = ({ onClose, onImported }: DataMigrationProps) => {
           description="Review previous validations, completed imports, and skipped rows."
         />
         <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[1050px] text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
@@ -364,6 +375,30 @@ const DataMigration = ({ onClose, onImported }: DataMigrationProps) => {
               </tbody>
             </table>
           </div>
+          <div className="divide-y divide-slate-100 md:hidden">
+            {jobs.map((job) => (
+              <article key={job.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900">{job.originalName || 'CSV import'}</p>
+                    <p className="mt-1 text-xs text-slate-500">{importTypeLabels[job.importType]} · {formatDate(job.createdAt)}</p>
+                  </div>
+                  <StatusBadge status={job.status} />
+                </div>
+                <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+                  <HistoryMetric label="Total" value={job.totalRows} />
+                  <HistoryMetric label="Valid" value={job.validRows} tone="text-emerald-700" />
+                  <HistoryMetric label="Invalid" value={job.invalidRows} tone="text-red-700" />
+                  <HistoryMetric label="Duplicates" value={job.duplicateRows} tone="text-amber-700" />
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => void openJob(job.id)} className={smallButton}>View details</button>
+                  {job.invalidRows > 0 ? <button type="button" onClick={() => void downloadImportErrors(job.id)} className={smallButton}>Error CSV</button> : null}
+                  {!['imported', 'cancelled'].includes(job.status) ? <button type="button" onClick={() => void cancelJob(job)} className="rounded-md border border-red-200 px-3 py-2 text-xs font-medium text-red-700">Cancel</button> : null}
+                </div>
+              </article>
+            ))}
+          </div>
           {loading ? <p className="p-5 text-sm text-slate-500">Loading import history...</p> : null}
           {!loading && jobs.length === 0 ? (
             <p className="p-8 text-center text-sm text-slate-500">No import jobs yet.</p>
@@ -393,9 +428,28 @@ const DataMigration = ({ onClose, onImported }: DataMigrationProps) => {
           </section>
         </div>
       </section>
+      <ConfirmDialog
+        open={confirmCommit}
+        title="Commit this import?"
+        description="Only valid rows will be imported. Invalid and duplicate rows will be skipped, and this action may create multiple records."
+        confirmText="Commit Import"
+        busy={working === 'commit'}
+        onClose={() => setConfirmCommit(false)}
+        onConfirm={() => {
+          setConfirmCommit(false);
+          void handleCommit();
+        }}
+      />
     </div>
   );
 };
+
+const HistoryMetric = ({ label, value, tone = 'text-slate-900' }: { label: string; value: number; tone?: string }) => (
+  <div className="rounded-md bg-slate-50 px-2 py-2">
+    <p className="text-[10px] text-slate-500">{label}</p>
+    <p className={`mt-1 text-sm font-semibold ${tone}`}>{value}</p>
+  </div>
+);
 
 const JobPreview = ({
   job,

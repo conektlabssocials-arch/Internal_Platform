@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getOperations, getOperationSummary } from '../api/operationApi';
 import OperationDetail from '../components/operations/OperationDetail';
 import OperationStatusBadge from '../components/operations/OperationStatusBadge';
+import PageHeader from '../components/ui/PageHeader';
 import type {
   Operation,
   OperationFilters,
@@ -88,10 +89,11 @@ const Operations = () => {
 
   return (
     <div className="space-y-5">
-      <header>
-        <p className="text-sm text-slate-500">Won Plan execution</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Operations Work Orders</h1>
-      </header>
+      <PageHeader
+        title="Operations Work Orders"
+        eyebrow="Execution"
+        description="Track creative, purchase orders, mounting, proof, and takedown from one workspace."
+      />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <SummaryCard label="Total Work Orders" value={summary.total} />
@@ -118,7 +120,7 @@ const Operations = () => {
       {error ? <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[1250px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>{['Operation Code', 'Campaign', 'Client', 'Plan', 'Status', 'Progress', 'Items', 'Proof Pending', 'Next Mounting', 'Owner', 'Actions'].map((heading) => <th key={heading} className="px-4 py-3 font-medium">{heading}</th>)}</tr>
@@ -145,6 +147,41 @@ const Operations = () => {
             </tbody>
           </table>
         </div>
+        <div className="divide-y divide-slate-100 md:hidden">
+          {operations.map((operation) => {
+            const proofPending = operation.items.filter((item) => item.mounting.completed && !item.proof.uploaded).length;
+            return (
+              <article key={operation.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-emerald-700">{operation.operationCode}</p>
+                    <h3 className="mt-1 font-semibold text-slate-900">{operation.campaignTitle}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{operation.clientName} · Plan {operation.planVersionLabel}</p>
+                  </div>
+                  <OperationStatusBadge status={operation.status} />
+                </div>
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>Progress</span>
+                    <strong className="text-slate-800">{operation.overallProgress.percentage}%</strong>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full bg-emerald-600" style={{ width: `${operation.overallProgress.percentage}%` }} />
+                  </div>
+                </div>
+                <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <OperationInfo label="Items" value={String(operation.overallProgress.totalItems)} />
+                  <OperationInfo label="Proof pending" value={String(proofPending)} />
+                  <OperationInfo label="Next mounting" value={formatDate(operation.importantDates.firstMountingDate)} />
+                  <OperationInfo label="Owner" value={operation.operationOwner?.name || 'Unassigned'} />
+                </dl>
+                <button type="button" onClick={() => setSelectedId(operation.id)} className="mt-4 w-full rounded-md bg-emerald-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700">
+                  Open Work Order
+                </button>
+              </article>
+            );
+          })}
+        </div>
         {loading ? <p className="p-8 text-center text-sm text-slate-500">Loading Operations...</p> : null}
         {!loading && !operations.length ? <p className="p-8 text-center text-sm text-slate-500">No Work Orders match these filters. Work Orders are created automatically when Plans are marked Won.</p> : null}
         <footer className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm">
@@ -170,6 +207,13 @@ const Operations = () => {
     </div>
   );
 };
+
+const OperationInfo = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <dt className="text-xs text-slate-500">{label}</dt>
+    <dd className="mt-0.5 text-slate-800">{value}</dd>
+  </div>
+);
 
 const SummaryCard = ({ label, value, alert }: { label: string; value: number; alert?: boolean }) => (
   <article className="rounded-md border border-slate-200 bg-white p-4">

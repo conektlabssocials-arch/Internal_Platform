@@ -79,11 +79,11 @@ const PublicSharedPlan = () => {
   return (
     <main className="min-h-screen bg-[#f7f7f2] text-slate-900">
       <header className="border-b border-emerald-900/10 bg-emerald-800 text-white">
-        <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
+        <div className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-9">
           <p className="text-sm font-bold tracking-wide text-emerald-100">CONEKT ADS</p>
           <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold">{data.campaign.title}</h1>
+              <h1 className="max-w-4xl text-2xl font-semibold sm:text-3xl">{data.campaign.title}</h1>
               <p className="mt-2 text-emerald-100">{data.campaign.clientName}</p>
             </div>
             <div className="text-sm text-emerald-100">
@@ -106,6 +106,7 @@ const PublicSharedPlan = () => {
           <div className="mb-3">
             <p className="text-xs font-semibold uppercase text-emerald-700">Outdoor locations</p>
             <h2 className="mt-1 text-lg font-semibold">Map View</h2>
+            <p className="mt-1 text-sm text-slate-500">Click a pin to view site details.</p>
           </div>
           <SharedPlanMap mapItems={data.mapItems || []} shareToken={token} publicMode />
         </section>
@@ -122,8 +123,8 @@ const PublicSharedPlan = () => {
 
         <section>
           <h2 className="text-lg font-semibold">Selected Media</h2>
-          <div className="mt-3 overflow-x-auto border border-slate-200 bg-white">
-            <table className="w-full min-w-[850px] text-left text-sm">
+          <div className="mt-3 overflow-hidden border border-slate-200 bg-white">
+            <table className="hidden w-full min-w-[850px] text-left text-sm md:table">
               <thead className="bg-emerald-50 text-emerald-900">
                 <tr>
                   <th className="px-4 py-3 font-medium">Inventory</th>
@@ -143,7 +144,7 @@ const PublicSharedPlan = () => {
                         {item.photoUrl ? (
                           <img
                             src={item.photoUrl}
-                            alt=""
+                            alt={item.title}
                             className="h-14 w-14 shrink-0 rounded-md object-cover"
                           />
                         ) : null}
@@ -163,6 +164,29 @@ const PublicSharedPlan = () => {
                 ))}
               </tbody>
             </table>
+            <div className="divide-y divide-slate-100 md:hidden">
+              {data.plan.items.map((item, index) => (
+                <article key={`${item.title}-${index}`} className="p-4">
+                  <div className="flex items-start gap-3">
+                    {item.photoUrl ? (
+                      <img src={item.photoUrl} alt={item.title} className="h-16 w-16 shrink-0 rounded-md object-cover" />
+                    ) : null}
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-slate-900">{item.title}</h3>
+                      <p className="mt-1 text-xs text-slate-500">{item.categoryGroup} / {item.subCategory}</p>
+                      <p className="mt-1 text-xs text-slate-500">{item.city} / {item.area}</p>
+                    </div>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <PublicItemInfo label="Size" value={formatSize(item)} />
+                    <PublicItemInfo label="Quantity" value={String(item.quantity)} />
+                    <PublicItemInfo label="Dates" value={`${formatDate(item.startDate)} - ${formatDate(item.endDate)}`} />
+                    <PublicItemInfo label="Amount" value={currency(item.totalSellingPrice)} strong />
+                  </dl>
+                  {item.notes ? <p className="mt-3 text-sm leading-6 text-slate-600">{item.notes}</p> : null}
+                </article>
+              ))}
+            </div>
             {!data.plan.items.length ? <p className="p-6 text-center text-sm text-slate-500">No media items included.</p> : null}
           </div>
         </section>
@@ -199,6 +223,21 @@ const Price = ({ label, value }: { label: string; value: number }) => (
   <div className="flex justify-between gap-4">
     <dt className="text-slate-600">{label}</dt>
     <dd className="font-medium">{currency(value)}</dd>
+  </div>
+);
+
+const PublicItemInfo = ({
+  label,
+  value,
+  strong,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) => (
+  <div className={label === 'Dates' ? 'col-span-2' : ''}>
+    <dt className="text-xs text-slate-500">{label}</dt>
+    <dd className={`mt-0.5 ${strong ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>{value}</dd>
   </div>
 );
 

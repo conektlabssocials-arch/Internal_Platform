@@ -21,7 +21,7 @@ const settingsCards = [
     title: 'Infrastructure',
     description: 'Storage and deployment settings planned for production.',
     items: [
-      { label: 'File storage', value: 'S3-compatible storage' },
+      { label: 'File storage', value: 'Cloudinary' },
       { label: 'Deployment target', value: 'AWS / Docker' },
       { label: 'Database', value: 'MongoDB' },
     ],
@@ -31,12 +31,7 @@ const settingsCards = [
 const PlatformSettings = () => {
   return (
     <section>
-      <div>
-        <h1 className="text-2xl font-semibold">Platform Settings</h1>
-        <p className="mt-2 text-slate-600">
-          Manage platform-level configuration for the internal workspace.
-        </p>
-      </div>
+      <PageHeader title="Platform Settings" eyebrow="Settings" description="Review platform-level configuration for the internal workspace." />
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         {settingsCards.map((card) => (
@@ -66,3 +61,4 @@ const PlatformSettings = () => {
 };
 
 export default PlatformSettings;
+import PageHeader from '../components/ui/PageHeader';

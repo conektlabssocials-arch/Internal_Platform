@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 
 import { createUser, getUsers, setUserActiveState } from '../api/userApi';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import PageHeader from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
 import type { User, UserRole } from '../types/auth';
 
@@ -13,6 +15,7 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [statusUser, setStatusUser] = useState<User | null>(null);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -63,12 +66,7 @@ const Users = () => {
 
   return (
     <section>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Users</h1>
-          <p className="mt-2 text-slate-600">Manage internal users and roles.</p>
-        </div>
-      </div>
+      <PageHeader title="Users" eyebrow="Settings" description="Manage internal users, roles, and access status." />
 
       {error ? (
         <div className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -134,7 +132,8 @@ const Users = () => {
         {loading ? (
           <p className="p-5 text-sm text-slate-500">Loading users...</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
@@ -167,7 +166,7 @@ const Users = () => {
                       <td className="px-5 py-4">
                         <button
                           type="button"
-                          onClick={() => handleStatusChange(user)}
+                          onClick={() => setStatusUser(user)}
                           className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
                         >
                           {user.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -179,8 +178,40 @@ const Users = () => {
               </tbody>
             </table>
           </div>
+          <div className="divide-y divide-slate-100 md:hidden">
+            {users.map((user) => (
+              <article key={user.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-slate-900">{user.name}</h3>
+                    <p className="mt-1 break-all text-sm text-slate-500">{user.email}</p>
+                  </div>
+                  <span className={`rounded-full px-2 py-1 text-xs font-medium ${user.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{user.status}</span>
+                </div>
+                <p className="mt-3 text-sm capitalize text-slate-600">Role: <strong className="text-slate-900">{user.role}</strong></p>
+                {isAdmin ? <button type="button" onClick={() => setStatusUser(user)} className="mt-4 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">{user.status === 'active' ? 'Deactivate' : 'Activate'}</button> : null}
+              </article>
+            ))}
+          </div>
+          </>
         )}
       </div>
+      <ConfirmDialog
+        open={Boolean(statusUser)}
+        title={statusUser?.status === 'active' ? 'Deactivate user?' : 'Activate user?'}
+        description={
+          statusUser?.status === 'active'
+            ? `${statusUser.name} will lose access to the internal platform.`
+            : `${statusUser?.name || 'This user'} will be able to sign in again.`
+        }
+        confirmText={statusUser?.status === 'active' ? 'Deactivate User' : 'Activate User'}
+        danger={statusUser?.status === 'active'}
+        onClose={() => setStatusUser(null)}
+        onConfirm={() => {
+          if (!statusUser) return;
+          void handleStatusChange(statusUser).finally(() => setStatusUser(null));
+        }}
+      />
     </section>
   );
 };
