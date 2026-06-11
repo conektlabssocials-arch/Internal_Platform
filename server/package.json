@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "test": "tsx --test src/services/*.test.ts src/mcp/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 src/services/*.test.ts src/mcp/*.test.ts tests/*.test.ts",
+    "test:unit": "tsx --test src/services/*.test.ts src/mcp/*.test.ts",
+    "test:integration": "tsx --test --test-concurrency=1 tests/*.test.ts",
+    "test:watch": "tsx --test --watch src/services/*.test.ts tests/*.test.ts",
+    "test:coverage": "tsx --test --experimental-test-coverage --test-concurrency=1 src/services/*.test.ts src/mcp/*.test.ts tests/*.test.ts",
     "start": "node dist/server.js",
     "seed:admin": "tsx src/scripts/seedAdmin.ts"
   },
@@ -47,6 +51,9 @@
     "@types/node": "^22.19.19",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
+    "@types/supertest": "^7.2.0",
+    "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
