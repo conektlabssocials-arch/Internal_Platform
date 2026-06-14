@@ -442,7 +442,7 @@ const tableInput = 'w-36 rounded-md border border-slate-300 px-2 py-1.5 text-xs 
 const smallInput = 'w-16 rounded-md border border-slate-300 px-2 py-1.5 text-xs disabled:bg-slate-100';
 const priceInput = 'w-28 rounded-md border border-slate-300 px-2 py-1.5 text-xs disabled:bg-slate-100';
 const mobileInput = 'mt-1 w-full min-w-0 rounded-md border border-slate-300 px-2 py-2 text-sm disabled:bg-slate-100';
-const primary = 'rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400';
+const primary = 'rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400';
 const secondary = 'rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100';
 
 export default PlanBuilder;

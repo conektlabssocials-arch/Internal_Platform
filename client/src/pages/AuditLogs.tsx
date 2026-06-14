@@ -90,7 +90,7 @@ const AuditLogs = () => {
           className={inputClass}
         />
         <div className="flex gap-2">
-          <button type="submit" className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700">Apply</button>
+          <button type="submit" className="flex-1 rounded-md bg-emerald-800 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">Apply</button>
           <button
             type="button"
             onClick={() => {

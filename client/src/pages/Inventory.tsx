@@ -17,6 +17,7 @@ import { getCrmEntityById, searchSuppliers } from '../api/crmApi';
 import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard';
 import ActivityTimeline from '../components/activity/ActivityTimeline';
 import InventoryPhotoUploads from '../components/uploads/InventoryPhotoUploads';
+import ImagePreviewGrid from '../components/uploads/ImagePreviewGrid';
 import LocationPicker from '../components/map/LocationPicker';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import PageHeader from '../components/ui/PageHeader';
@@ -315,6 +316,7 @@ const Inventory = () => {
   const [confirmForm, setConfirmForm] = useState<ConfirmFormState>(emptyConfirmForm);
   const [importOpen, setImportOpen] = useState(false);
   const [statusItem, setStatusItem] = useState<InventoryItem | null>(null);
+  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
 
   const totalSqFt = useMemo(() => {
     const width = numberOrUndefined(form.width);
@@ -445,6 +447,19 @@ const Inventory = () => {
     setPreviewCode(item.inventoryCode);
     setGeocodeError('');
     setFormOpen(true);
+  };
+
+  const openView = async (item: InventoryItem) => {
+    setLoading(true);
+    setError('');
+
+    try {
+      setViewingItem(await getInventoryById(item.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load inventory details');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const closeForm = () => {
@@ -637,7 +652,7 @@ const Inventory = () => {
               <button
                 type="button"
                 onClick={openCreateForm}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
               >
                 Add Inventory
               </button>
@@ -770,6 +785,7 @@ const Inventory = () => {
             items={items}
             loading={loading}
             paginationTotal={pagination.total}
+            onView={openView}
             onEdit={openEditForm}
             onConfirm={openConfirmModal}
             onStatusChange={setStatusItem}
@@ -800,6 +816,18 @@ const Inventory = () => {
             await refreshCurrentView();
           }}
           canUpload={canUpload}
+        />
+      ) : null}
+
+      {viewingItem ? (
+        <InventoryDetailModal
+          item={viewingItem}
+          canEdit={canEdit}
+          onClose={() => setViewingItem(null)}
+          onEdit={() => {
+            setViewingItem(null);
+            openEditForm(viewingItem);
+          }}
         />
       ) : null}
 
@@ -859,7 +887,7 @@ const Chip = ({ active, children, onClick }: ChipProps) => (
     className={[
       'rounded-full border px-3 py-1.5 text-sm font-medium',
       active
-        ? 'border-slate-900 bg-slate-900 text-white'
+        ? 'border-emerald-800 bg-emerald-800 text-white'
         : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
     ].join(' ')}
   >
@@ -874,6 +902,7 @@ type InventoryTableProps = {
   items: InventoryItem[];
   loading: boolean;
   paginationTotal: number;
+  onView: (item: InventoryItem) => void;
   onEdit: (item: InventoryItem) => void;
   onConfirm: (item: InventoryItem) => void;
   onStatusChange: (item: InventoryItem) => void;
@@ -886,6 +915,7 @@ const InventoryTable = ({
   items,
   loading,
   paginationTotal,
+  onView,
   onEdit,
   onConfirm,
   onStatusChange,
@@ -933,7 +963,13 @@ const InventoryTable = ({
                     ) : (
                       <div className="h-10 w-10 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-50" />
                     )}
-                    <span>{item.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => onView(item)}
+                      className="text-left font-medium text-slate-900 hover:text-emerald-800 hover:underline"
+                    >
+                      {item.title}
+                    </button>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-slate-600">{item.categoryGroup}</td>
@@ -960,6 +996,7 @@ const InventoryTable = ({
                 <td className="px-4 py-4 capitalize text-slate-600">{item.status}</td>
                 <td className="sticky right-0 border-l border-slate-100 bg-white px-4 py-4">
                   <div className="grid min-w-28 gap-2">
+                    <ActionButton onClick={() => onView(item)}>View</ActionButton>
                     {canEdit ? <ActionButton onClick={() => onEdit(item)}>Edit</ActionButton> : null}
                     {canConfirm ? <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton> : null}
                     {isAdmin ? (
@@ -985,7 +1022,13 @@ const InventoryTable = ({
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-emerald-700">{item.inventoryCode}</p>
-                <h3 className="mt-1 font-semibold text-slate-900">{item.title}</h3>
+                <button
+                  type="button"
+                  onClick={() => onView(item)}
+                  className="mt-1 block text-left font-semibold text-slate-900 hover:text-emerald-800 hover:underline"
+                >
+                  {item.title}
+                </button>
                 <p className="mt-1 text-xs text-slate-500">{item.subCategory} · {item.city} / {item.area}</p>
               </div>
             </div>
@@ -996,6 +1039,7 @@ const InventoryTable = ({
               <MobileInfo label="Status" value={item.status} />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
+              <ActionButton onClick={() => onView(item)}>View</ActionButton>
               {canEdit ? <ActionButton onClick={() => onEdit(item)}>Edit</ActionButton> : null}
               {canConfirm ? <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton> : null}
               {isAdmin ? (
@@ -1038,6 +1082,149 @@ const ActionButton = ({ children, onClick }: ActionButtonProps) => (
   >
     {children}
   </button>
+);
+
+type InventoryDetailModalProps = {
+  item: InventoryItem;
+  canEdit: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+};
+
+const InventoryDetailModal = ({
+  item,
+  canEdit,
+  onClose,
+  onEdit,
+}: InventoryDetailModalProps) => (
+  <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/55 p-0 sm:px-4 sm:py-8">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`View ${item.title}`}
+      className="mx-auto min-h-full max-w-5xl bg-white p-4 shadow-xl sm:min-h-0 sm:rounded-lg sm:p-6"
+    >
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-emerald-700">{item.inventoryCode}</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-950">{item.title}</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {item.categoryGroup} / {item.subCategory}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+            >
+              Edit Inventory
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-3">
+        <InventoryDetailSection title="Location">
+          <InventoryDetail label="City" value={item.city} />
+          <InventoryDetail label="Area" value={item.area} />
+          <InventoryDetail label="Address" value={item.location?.address} wide />
+          <InventoryDetail
+            label="Coordinates"
+            value={
+              item.location?.latitude !== undefined && item.location?.longitude !== undefined
+                ? `${item.location.latitude}, ${item.location.longitude}`
+                : undefined
+            }
+            wide
+          />
+          <InventoryDetail label="Route" value={item.route} wide />
+          <InventoryDetail label="Depot" value={item.depot} />
+          <InventoryDetail label="Itinerary" value={item.itinerary} wide />
+        </InventoryDetailSection>
+
+        <InventoryDetailSection title="Media Details">
+          <InventoryDetail label="Size" value={item.width && item.height ? `${item.width} x ${item.height}` : undefined} />
+          <InventoryDetail label="Total Sq.Ft." value={item.totalSqFt ? `${item.totalSqFt} sq.ft.` : undefined} />
+          <InventoryDetail label="Illumination" value={item.illumination} />
+          <InventoryDetail label="Facing" value={item.facingDirection} />
+          <InventoryDetail label="Traffic Direction" value={item.trafficDirection} />
+          <InventoryDetail label="Estimated Traffic" value={item.estimatedTraffic} />
+          <InventoryDetail label="Vehicles" value={item.numberOfVehicles?.toString()} />
+          <InventoryDetail label="Branding Type" value={item.brandingType} />
+        </InventoryDetailSection>
+
+        <InventoryDetailSection title="Commercial & Status">
+          <InventoryDetail label="Selling Price" value={currency(item.sellingPrice)} />
+          <InventoryDetail label="Internal Cost" value={currency(item.internalCost)} />
+          <InventoryDetail label="Minimum Spend" value={currency(item.minSpend)} />
+          <InventoryDetail label="Minimum Duration" value={item.minDurationDays ? `${item.minDurationDays} days` : undefined} />
+          <InventoryDetail label="Availability" value={labelize(item.availabilityStatus)} />
+          <InventoryDetail label="Confirmation" value={labelize(item.confirmationStatus)} />
+          <InventoryDetail label="Status" value={item.status} />
+          <InventoryDetail label="Last Confirmed" value={item.lastConfirmedAt ? new Date(item.lastConfirmedAt).toLocaleDateString('en-IN') : undefined} />
+        </InventoryDetailSection>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <InventoryDetailSection title="Owner & Supplier">
+          <InventoryDetail label="Owner" value={item.ownerName} />
+          <InventoryDetail label="Owner Phone" value={item.ownerPhone} />
+          <InventoryDetail label="Supplier" value={item.supplierName} />
+        </InventoryDetailSection>
+        <InventoryDetailSection title="Notes">
+          <InventoryDetail label="Tags" value={item.tags?.join(', ')} wide />
+          <InventoryDetail label="Confirmation Note" value={item.confirmationNote} wide />
+          <InventoryDetail label="Internal Notes" value={item.internalNotes} wide />
+        </InventoryDetailSection>
+      </div>
+
+      <section className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
+        <h3 className="mb-3 font-semibold text-slate-900">Photos</h3>
+        <ImagePreviewGrid legacyUrls={item.photos} />
+      </section>
+
+      <div className="mt-5">
+        <ActivityTimeline entityType="Inventory" entityId={item.id} compact />
+      </div>
+    </div>
+  </div>
+);
+
+const InventoryDetailSection = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) => (
+  <section className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+    <h3 className="mb-3 font-semibold text-slate-900">{title}</h3>
+    <dl className="grid gap-3 sm:grid-cols-2">{children}</dl>
+  </section>
+);
+
+const InventoryDetail = ({
+  label,
+  value,
+  wide = false,
+}: {
+  label: string;
+  value?: string;
+  wide?: boolean;
+}) => (
+  <div className={wide ? 'sm:col-span-2' : undefined}>
+    <dt className="text-xs font-medium text-slate-500">{label}</dt>
+    <dd className="mt-1 break-words text-sm capitalize text-slate-900">{value || '-'}</dd>
+  </div>
 );
 
 type InventoryFormModalProps = {
@@ -1312,7 +1499,7 @@ const InventoryFormModal = ({
           <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
             Cancel
           </button>
-          <button type="submit" disabled={saving} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">
+          <button type="submit" disabled={saving} className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400">
             {saving ? 'Saving...' : 'Save Inventory'}
           </button>
         </div>
@@ -1354,7 +1541,7 @@ const ConfirmInventoryModal = ({
         <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
           Cancel
         </button>
-        <button type="submit" disabled={saving} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">
+        <button type="submit" disabled={saving} className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400">
           {saving ? 'Confirming...' : 'Confirm'}
         </button>
       </div>

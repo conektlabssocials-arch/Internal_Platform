@@ -497,7 +497,7 @@ const Checks = ({ firstLabel, first, secondLabel, second, onFirst, onSecond }: {
   <div className="grid gap-3 sm:grid-cols-2"><Check label={firstLabel} checked={first} onChange={onFirst} /><Check label={secondLabel} checked={second} onChange={onSecond} /></div>
 );
 const SaveButton = ({ label: text, loading, onClick }: { label: string; loading: boolean; onClick: () => void }) => (
-  <button type="button" disabled={loading} onClick={onClick} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">{loading ? 'Saving...' : text}</button>
+  <button type="button" disabled={loading} onClick={onClick} className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400">{loading ? 'Saving...' : text}</button>
 );
 const PermissionNote = () => (
   <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">

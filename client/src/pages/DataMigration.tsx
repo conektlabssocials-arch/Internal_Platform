@@ -620,7 +620,7 @@ const templateName = (value: string) =>
 const formatDate = (value: string) => new Date(value).toLocaleString('en-IN');
 const labelClass = 'mb-1.5 block text-sm font-medium text-slate-700';
 const inputClass = 'w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900';
-const primaryButton = 'inline-flex items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50';
+const primaryButton = 'inline-flex items-center justify-center rounded-md bg-emerald-800 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50';
 const secondaryButton = 'inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50';
 const smallButton = 'rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50';
 const pageButton = 'rounded-md border border-slate-300 px-3 py-2 text-sm font-medium disabled:opacity-40';

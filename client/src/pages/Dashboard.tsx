@@ -341,7 +341,7 @@ const activityRoute = (referenceType: string) => {
 };
 
 const primaryButton =
-  'mt-4 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700';
+  'mt-4 rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700';
 const secondaryButton =
   'rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50';
 const textButton = 'text-sm font-medium text-emerald-700 hover:text-emerald-900';

@@ -235,7 +235,7 @@ const statusClasses: Record<CampaignStatus, string> = { New: 'bg-sky-50 text-sky
 const StatusBadge = ({ status }: { status: CampaignStatus }) => <span className={`whitespace-nowrap rounded-full px-2 py-1 text-xs font-medium ${statusClasses[status]}`}>{status}</span>;
 const Filter = ({ value, options, labels = {}, placeholder, onChange }: { value?: string; options: readonly string[]; labels?: Record<string, string>; placeholder: string; onChange: (value: string) => void }) => <select value={value || ''} onChange={(event) => onChange(event.target.value)} className={input}><option value="">{placeholder}</option>{options.map((option) => <option key={option} value={option}>{labels[option] || option}</option>)}</select>;
 const input = 'rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900';
-const primary = 'rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700';
+const primary = 'rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700';
 const small = 'whitespace-nowrap rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100';
 const pager = 'rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40';
 

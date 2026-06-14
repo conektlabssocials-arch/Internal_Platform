@@ -105,7 +105,7 @@ const InventorySelector = ({
             <tbody className="divide-y divide-slate-100">
               {items.map((item) => {
                 const selected = selectedIds.includes(item.id);
-                return <tr key={item.id}><td className="px-3 py-3 font-medium">{item.inventoryCode}</td><td className="px-3 py-3">{item.title}</td><td className="px-3 py-3 text-slate-600">{item.categoryGroup} / {item.subCategory}</td><td className="px-3 py-3 text-slate-600">{item.city} / {item.area}</td><td className="px-3 py-3 text-slate-600">{item.width && item.height ? `${item.width} x ${item.height}` : '-'}</td><td className="px-3 py-3 text-slate-600">{formatCurrency(item.sellingPrice)}</td><td className="px-3 py-3"><button type="button" disabled={selected} onClick={() => onAdd(item)} className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:bg-slate-300">{selected ? 'Added' : 'Add'}</button></td></tr>;
+                return <tr key={item.id}><td className="px-3 py-3 font-medium">{item.inventoryCode}</td><td className="px-3 py-3">{item.title}</td><td className="px-3 py-3 text-slate-600">{item.categoryGroup} / {item.subCategory}</td><td className="px-3 py-3 text-slate-600">{item.city} / {item.area}</td><td className="px-3 py-3 text-slate-600">{item.width && item.height ? `${item.width} x ${item.height}` : '-'}</td><td className="px-3 py-3 text-slate-600">{formatCurrency(item.sellingPrice)}</td><td className="px-3 py-3"><button type="button" disabled={selected} onClick={() => onAdd(item)} className="rounded-md bg-emerald-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:bg-slate-300">{selected ? 'Added' : 'Add'}</button></td></tr>;
               })}
             </tbody>
           </table>

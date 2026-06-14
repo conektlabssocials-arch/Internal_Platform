@@ -216,7 +216,7 @@ const CampaignForm = ({
 
 const inputClass = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-900';
 const secondaryButton = 'rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100';
-const primaryButton = 'rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400';
+const primaryButton = 'rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400';
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => <section className="rounded-lg border border-slate-200 bg-slate-50/60 p-4"><h3 className="mb-3 font-semibold">{title}</h3><div className="grid gap-4 md:grid-cols-3">{children}</div></section>;
 const Field = ({ label, value, onChange, type = 'text', required, helper }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; helper?: string }) => <label className="block"><span className="text-sm font-medium text-slate-700">{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} className={inputClass} />{helper ? <span className="mt-1 block text-xs text-slate-500">{helper}</span> : null}</label>;

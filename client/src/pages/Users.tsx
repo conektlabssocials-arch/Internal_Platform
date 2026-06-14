@@ -117,7 +117,7 @@ const Users = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="self-end rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="self-end rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {submitting ? 'Adding...' : 'Add User'}
           </button>

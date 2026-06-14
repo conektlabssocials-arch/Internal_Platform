@@ -126,6 +126,6 @@ const Detail = ({ label, value, wide }: { label: string; value?: string; wide?: 
 const PlanBadge = ({ status }: { status: PlanStatus }) => <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium">{status}</span>;
 const secondary = 'rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100';
 const small = 'rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100';
-const primary = 'rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700';
+const primary = 'rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700';
 
 export default CampaignDetail;
