@@ -25,7 +25,7 @@ export const buildPlanProposalHtml = (data: TemplatePlanData) => {
     // TODO: Add a static map image later through Mapbox Static Images or Google Static Maps.
     .filter(
       (item) =>
-        item.categoryGroup === 'Outdoor' &&
+        ['Outdoor', 'A3 Screens'].includes(item.categoryGroup || '') &&
         Number.isFinite(item.location?.latitude) &&
         Number.isFinite(item.location?.longitude),
     )
@@ -67,7 +67,7 @@ export const buildPlanProposalHtml = (data: TemplatePlanData) => {
       </table>
       ${
         outdoorLocationRows
-          ? `<h2>Outdoor Site Locations</h2>
+          ? `<h2>Fixed Site Locations</h2>
             <table>
               <thead><tr><th>Code</th><th>Title</th><th>Subcategory</th><th>City</th><th>Area</th><th>Address</th><th>Latitude</th><th>Longitude</th></tr></thead>
               <tbody>${outdoorLocationRows}</tbody>

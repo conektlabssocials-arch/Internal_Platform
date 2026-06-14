@@ -14,7 +14,7 @@ import type {
 import type { User } from '../../types/auth';
 
 const sources: CampaignSource[] = ['Call', 'WhatsApp', 'Email', 'Referral', 'Walk-in', 'Website', 'Other'];
-const categories: CampaignCategory[] = ['Outdoor', 'Auto', 'Bus', 'Mobile Van'];
+const categories: CampaignCategory[] = ['Outdoor', 'Auto', 'Bus', 'Mobile Van', 'A3 Screens'];
 const priorities: CampaignPriority[] = ['Low', 'Medium', 'High'];
 
 type CampaignFormProps = {

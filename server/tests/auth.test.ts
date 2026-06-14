@@ -80,6 +80,6 @@ test('Admin-only routes reject Members and allow Admins', async () => {
     role: 'admin',
   });
   const templates = await admin.get('/api/imports/templates').expect(200);
-  assert.equal(templates.body.data.length, 6);
+  assert.equal(templates.body.data.length, 7);
   await admin.get('/api/activity/audit').expect(200);
 });

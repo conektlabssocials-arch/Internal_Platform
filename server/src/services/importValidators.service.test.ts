@@ -96,6 +96,56 @@ test('inventory validation detects database and in-file duplicates', async () =>
   assert.equal(result.validRows, 1);
 });
 
+test('A3 Screens validation maps zone and locality and preserves audience pricing fields', async () => {
+  const service = createService();
+  const baseRow = {
+      categoryGroup: 'A3 Screens',
+      subCategory: 'Residential',
+      title: 'Ansal Sushant Apartments Screen Network',
+      zone: 'Gurgaon',
+      locality: 'Sushant Lok Phase 1 Sector 43',
+      propertyName: 'Ansal Sushant Apartments',
+      profile: 'S3',
+      pinCode: '122001',
+      propertyPriceUptoCr: '17',
+      screenSize: '32 inch LED TV',
+      numberOfScreens: '4',
+      households: '202',
+      approxReach: '898',
+      monthlyImpressions: '26670',
+      latitude: '28.459046',
+      longitude: '77.080014',
+      monthlyAdBudget: '14000',
+      discountedMonthlyAdBudget: '9100',
+      mediaSiteId: 'MSQEWQ',
+      buildingAge: '23',
+      propertyType: 'RESIDENTIAL',
+      nccsClass: 'A3',
+    };
+  const result = await service.validate('inventory', [
+    baseRow,
+    {
+      ...baseRow,
+      subCategory: 'Corporate',
+      title: 'Cyber City Corporate Screen Network',
+      locality: 'DLF Cyber City',
+      propertyName: 'Corporate Tower One',
+      propertyType: 'CORPORATE',
+      mediaSiteId: 'MSC001',
+    },
+  ]);
+
+  assert.equal(result.validRows, 2);
+  assert.equal(result.rows[0].data.city, 'Gurgaon');
+  assert.equal(result.rows[0].data.area, 'Sushant Lok Phase 1 Sector 43');
+  assert.equal(result.rows[0].data.sellingPrice, 9100);
+  assert.equal(result.rows[0].data.width, undefined);
+  assert.equal(
+    (result.rows[0].data.location as { latitude: number }).latitude,
+    28.459046,
+  );
+});
+
 test('contacts resolve CRM by email and reject unknown entities', async () => {
   const entityId = new Types.ObjectId();
   const service = createService({

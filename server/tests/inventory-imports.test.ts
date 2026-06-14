@@ -85,6 +85,48 @@ test('inventory API creates Outdoor and transit inventory with generated codes',
     .expect(400);
 });
 
+test('inventory API creates A3 property screens without billboard dimensions', async () => {
+  await loginAdmin();
+  const created = await admin
+    .post('/api/inventory')
+    .send({
+      categoryGroup: 'A3 Screens',
+      subCategory: 'Corporate',
+      title: 'Ansal Sushant Apartments Screen Network',
+      city: 'Gurgaon',
+      area: 'Sushant Lok Phase 1 Sector 43',
+      propertyName: 'Ansal Sushant Apartments',
+      phase: 'Phase 1',
+      profile: 'S3',
+      pinCode: '122001',
+      propertyPriceUptoCr: 17,
+      screenSize: '32 inch LED TV',
+      propertyVisualLink: 'https://example.com/property-visual',
+      numberOfScreens: 4,
+      households: 202,
+      approxReach: 898,
+      monthlyImpressions: 26670,
+      monthlyAdBudget: 14000,
+      discountedMonthlyAdBudget: 9100,
+      mediaSiteId: 'MSQEWQ',
+      buildingAge: 23,
+      propertyType: 'RESIDENTIAL',
+      nccsClass: 'A3',
+      location: {
+        latitude: 28.459046,
+        longitude: 77.080014,
+        source: 'manual',
+      },
+    })
+    .expect(201);
+
+  assert.match(created.body.data.inventoryCode, /^A3-GUR-SLP-\d{4}$/);
+  assert.equal(created.body.data.sellingPrice, 9100);
+  assert.equal(created.body.data.screenSize, '32 inch LED TV');
+  assert.equal(created.body.data.width, undefined);
+  assert.equal(created.body.data.location.latitude, 28.459046);
+});
+
 test('confirming inventory makes it fresh', async () => {
   await loginAdmin();
   const created = await admin

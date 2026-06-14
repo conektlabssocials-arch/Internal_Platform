@@ -22,7 +22,7 @@ export const campaignStatuses = [
   'On Hold',
 ] as const;
 export const campaignPriorities = ['Low', 'Medium', 'High'] as const;
-export const campaignCategories = ['Outdoor', 'Auto', 'Bus', 'Mobile Van'] as const;
+export const campaignCategories = ['Outdoor', 'Auto', 'Bus', 'Mobile Van', 'A3 Screens'] as const;
 
 const budgetSchema = new Schema(
   {

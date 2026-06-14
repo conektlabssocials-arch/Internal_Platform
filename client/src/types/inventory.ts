@@ -1,4 +1,4 @@
-export type CategoryGroup = 'Outdoor' | 'Auto' | 'Bus' | 'Mobile Van';
+export type CategoryGroup = 'Outdoor' | 'Auto' | 'Bus' | 'Mobile Van' | 'A3 Screens';
 export type AvailabilityStatus = 'available' | 'booked' | 'hold' | 'unknown';
 export type InventoryStatus = 'active' | 'inactive';
 export type ConfirmationStatus = 'fresh' | 'stale' | 'never_confirmed';
@@ -58,6 +58,23 @@ export type InventoryItem = {
   hasAudioSystem?: boolean;
   hasCanopy?: boolean;
   ratePerDay?: number;
+  propertyName?: string;
+  phase?: string;
+  profile?: string;
+  pinCode?: string;
+  propertyPriceUptoCr?: number;
+  screenSize?: string;
+  propertyVisualLink?: string;
+  numberOfScreens?: number;
+  households?: number;
+  approxReach?: number;
+  monthlyImpressions?: number;
+  monthlyAdBudget?: number;
+  discountedMonthlyAdBudget?: number;
+  mediaSiteId?: string;
+  buildingAge?: number;
+  propertyType?: string;
+  nccsClass?: string;
 };
 
 export type InventoryFilters = {

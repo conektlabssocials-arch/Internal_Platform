@@ -63,6 +63,23 @@ export type InventoryDto = {
   hasAudioSystem?: boolean;
   hasCanopy?: boolean;
   ratePerDay?: number;
+  propertyName?: string;
+  phase?: string;
+  profile?: string;
+  pinCode?: string;
+  propertyPriceUptoCr?: number;
+  screenSize?: string;
+  propertyVisualLink?: string;
+  numberOfScreens?: number;
+  households?: number;
+  approxReach?: number;
+  monthlyImpressions?: number;
+  monthlyAdBudget?: number;
+  discountedMonthlyAdBudget?: number;
+  mediaSiteId?: string;
+  buildingAge?: number;
+  propertyType?: string;
+  nccsClass?: string;
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -119,6 +136,7 @@ const legacyCategoryGroupMap: Record<string, CategoryGroup> = {
   Auto: 'Auto',
   Bus: 'Bus',
   'Mobile Van': 'Mobile Van',
+  'A3 Screens': 'A3 Screens',
 };
 
 const legacySubCategoryMap: Record<string, InventorySubCategory> = {
@@ -127,6 +145,7 @@ const legacySubCategoryMap: Record<string, InventorySubCategory> = {
   Auto: 'Auto Hood',
   Bus: 'Bus Panel',
   'Mobile Van': 'Hoarding',
+  'A3 Screens': 'Residential',
 };
 
 export const getEffectiveCategoryGroup = (item: InventoryDocument) => {
@@ -197,6 +216,23 @@ export const mapInventoryToDto = (
   hasAudioSystem: item.hasAudioSystem ?? undefined,
   hasCanopy: item.hasCanopy ?? undefined,
   ratePerDay: item.ratePerDay ?? undefined,
+  propertyName: item.propertyName ?? undefined,
+  phase: item.phase ?? undefined,
+  profile: item.profile ?? undefined,
+  pinCode: item.pinCode ?? undefined,
+  propertyPriceUptoCr: item.propertyPriceUptoCr ?? undefined,
+  screenSize: item.screenSize ?? undefined,
+  propertyVisualLink: item.propertyVisualLink ?? undefined,
+  numberOfScreens: item.numberOfScreens ?? undefined,
+  households: item.households ?? undefined,
+  approxReach: item.approxReach ?? undefined,
+  monthlyImpressions: item.monthlyImpressions ?? undefined,
+  monthlyAdBudget: item.monthlyAdBudget ?? undefined,
+  discountedMonthlyAdBudget: item.discountedMonthlyAdBudget ?? undefined,
+  mediaSiteId: item.mediaSiteId ?? undefined,
+  buildingAge: item.buildingAge ?? undefined,
+  propertyType: item.propertyType ?? undefined,
+  nccsClass: item.nccsClass ?? undefined,
   createdAt: item.createdAt,
   updatedAt: item.updatedAt,
 });

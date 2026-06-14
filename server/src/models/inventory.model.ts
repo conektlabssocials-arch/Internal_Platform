@@ -1,7 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
 import type { HydratedDocument, InferSchemaType } from 'mongoose';
 
-export const categoryGroups = ['Outdoor', 'Auto', 'Bus', 'Mobile Van'] as const;
+export const categoryGroups = ['Outdoor', 'Auto', 'Bus', 'Mobile Van', 'A3 Screens'] as const;
 export const inventorySubCategories = [
   'Bus Shelter',
   'Hoarding',
@@ -15,12 +15,16 @@ export const inventorySubCategories = [
   'Full Bus Exterior',
   'Van LED Screen',
   '3D Digital Screen',
+  'Corporate',
+  'Residential',
+  'Residential Screen',
 ] as const;
 export const inventorySubCategoriesByGroup = {
   Outdoor: ['Bus Shelter', 'Hoarding', 'Digital OOH', 'Digital Bus Shelter'],
   Auto: ['Auto Hood', 'Auto Back Panel'],
   Bus: ['Bus Panel', 'Combo Panel', 'Full Bus Interior', 'Full Bus Exterior'],
   'Mobile Van': ['Hoarding', 'Van LED Screen', '3D Digital Screen'],
+  'A3 Screens': ['Corporate', 'Residential'],
 } as const;
 export const availabilityStatuses = ['available', 'booked', 'hold', 'unknown'] as const;
 export const inventoryStatuses = ['active', 'inactive'] as const;
@@ -203,6 +207,50 @@ const inventorySchema = new Schema(
     hasAudioSystem: Boolean,
     hasCanopy: Boolean,
     ratePerDay: Number,
+    propertyName: {
+      type: String,
+      trim: true,
+    },
+    phase: {
+      type: String,
+      trim: true,
+    },
+    profile: {
+      type: String,
+      trim: true,
+    },
+    pinCode: {
+      type: String,
+      trim: true,
+    },
+    propertyPriceUptoCr: Number,
+    screenSize: {
+      type: String,
+      trim: true,
+    },
+    propertyVisualLink: {
+      type: String,
+      trim: true,
+    },
+    numberOfScreens: Number,
+    households: Number,
+    approxReach: Number,
+    monthlyImpressions: Number,
+    monthlyAdBudget: Number,
+    discountedMonthlyAdBudget: Number,
+    mediaSiteId: {
+      type: String,
+      trim: true,
+    },
+    buildingAge: Number,
+    propertyType: {
+      type: String,
+      trim: true,
+    },
+    nccsClass: {
+      type: String,
+      trim: true,
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',

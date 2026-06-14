@@ -89,6 +89,23 @@ type InventoryFormState = {
   hasAudioSystem: boolean;
   hasCanopy: boolean;
   ratePerDay: string;
+  propertyName: string;
+  phase: string;
+  profile: string;
+  pinCode: string;
+  propertyPriceUptoCr: string;
+  screenSize: string;
+  propertyVisualLink: string;
+  numberOfScreens: string;
+  households: string;
+  approxReach: string;
+  monthlyImpressions: string;
+  monthlyAdBudget: string;
+  discountedMonthlyAdBudget: string;
+  mediaSiteId: string;
+  buildingAge: string;
+  propertyType: string;
+  nccsClass: string;
 };
 
 type ConfirmFormState = {
@@ -142,6 +159,23 @@ const createEmptyForm = (categoryGroup: CategoryGroup = 'Outdoor'): InventoryFor
   hasAudioSystem: false,
   hasCanopy: false,
   ratePerDay: '',
+  propertyName: '',
+  phase: '',
+  profile: '',
+  pinCode: '',
+  propertyPriceUptoCr: '',
+  screenSize: '',
+  propertyVisualLink: '',
+  numberOfScreens: '',
+  households: '',
+  approxReach: '',
+  monthlyImpressions: '',
+  monthlyAdBudget: '',
+  discountedMonthlyAdBudget: '',
+  mediaSiteId: '',
+  buildingAge: '',
+  propertyType: '',
+  nccsClass: '',
 });
 
 const emptyConfirmForm: ConfirmFormState = {
@@ -237,6 +271,23 @@ const itemToForm = (item: InventoryItem): InventoryFormState => ({
   hasAudioSystem: Boolean(item.hasAudioSystem),
   hasCanopy: Boolean(item.hasCanopy),
   ratePerDay: item.ratePerDay?.toString() || '',
+  propertyName: item.propertyName || '',
+  phase: item.phase || '',
+  profile: item.profile || '',
+  pinCode: item.pinCode || '',
+  propertyPriceUptoCr: item.propertyPriceUptoCr?.toString() || '',
+  screenSize: item.screenSize || '',
+  propertyVisualLink: item.propertyVisualLink || '',
+  numberOfScreens: item.numberOfScreens?.toString() || '',
+  households: item.households?.toString() || '',
+  approxReach: item.approxReach?.toString() || '',
+  monthlyImpressions: item.monthlyImpressions?.toString() || '',
+  monthlyAdBudget: item.monthlyAdBudget?.toString() || '',
+  discountedMonthlyAdBudget: item.discountedMonthlyAdBudget?.toString() || '',
+  mediaSiteId: item.mediaSiteId || '',
+  buildingAge: item.buildingAge?.toString() || '',
+  propertyType: item.propertyType || '',
+  nccsClass: item.nccsClass || '',
 });
 
 const formToPayload = (form: InventoryFormState): InventoryPayload => ({
@@ -246,7 +297,7 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
   city: form.city,
   area: form.area,
   location:
-    form.categoryGroup === 'Outdoor'
+    form.categoryGroup === 'Outdoor' || form.categoryGroup === 'A3 Screens'
       ? {
           address: form.address,
           latitude: numberOrUndefined(form.latitude),
@@ -289,6 +340,23 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
   hasAudioSystem: form.hasAudioSystem,
   hasCanopy: form.hasCanopy,
   ratePerDay: numberOrUndefined(form.ratePerDay),
+  propertyName: form.propertyName,
+  phase: form.phase,
+  profile: form.profile,
+  pinCode: form.pinCode,
+  propertyPriceUptoCr: numberOrUndefined(form.propertyPriceUptoCr),
+  screenSize: form.screenSize,
+  propertyVisualLink: form.propertyVisualLink,
+  numberOfScreens: numberOrUndefined(form.numberOfScreens),
+  households: numberOrUndefined(form.households),
+  approxReach: numberOrUndefined(form.approxReach),
+  monthlyImpressions: numberOrUndefined(form.monthlyImpressions),
+  monthlyAdBudget: numberOrUndefined(form.monthlyAdBudget),
+  discountedMonthlyAdBudget: numberOrUndefined(form.discountedMonthlyAdBudget),
+  mediaSiteId: form.mediaSiteId,
+  buildingAge: numberOrUndefined(form.buildingAge),
+  propertyType: form.propertyType,
+  nccsClass: form.nccsClass,
 });
 
 const Inventory = () => {
@@ -479,7 +547,7 @@ const Inventory = () => {
       return 'City and area are required';
     }
 
-    if (!form.width.trim() || !form.height.trim()) {
+    if (form.categoryGroup !== 'A3 Screens' && (!form.width.trim() || !form.height.trim())) {
       return 'Width and height are required';
     }
 
@@ -500,6 +568,28 @@ const Inventory = () => {
 
     if (form.categoryGroup === 'Mobile Van' && !form.itinerary.trim()) {
       return 'Mobile Van inventory requires itinerary';
+    }
+
+    if (form.categoryGroup === 'A3 Screens') {
+      const required = [
+        form.propertyName,
+        form.pinCode,
+        form.screenSize,
+        form.numberOfScreens,
+        form.households,
+        form.approxReach,
+        form.monthlyImpressions,
+        form.latitude,
+        form.longitude,
+        form.monthlyAdBudget,
+        form.mediaSiteId,
+        form.propertyType,
+        form.nccsClass,
+      ];
+
+      if (required.some((value) => !value.trim())) {
+        return 'Complete all required A3 Screens property, audience, location, and pricing fields';
+      }
     }
 
     return '';
@@ -621,13 +711,14 @@ const Inventory = () => {
   };
 
   const setFormCategoryGroup = (categoryGroup: CategoryGroup) => {
+    const hasFixedLocation = categoryGroup === 'Outdoor' || categoryGroup === 'A3 Screens';
     setForm((current) => ({
       ...current,
       categoryGroup,
       subCategory: INVENTORY_CATEGORIES[categoryGroup][0],
-      address: categoryGroup === 'Outdoor' ? current.address : '',
-      latitude: categoryGroup === 'Outdoor' ? current.latitude : '',
-      longitude: categoryGroup === 'Outdoor' ? current.longitude : '',
+      address: hasFixedLocation ? current.address : '',
+      latitude: hasFixedLocation ? current.latitude : '',
+      longitude: hasFixedLocation ? current.longitude : '',
     }));
   };
 
@@ -938,8 +1029,8 @@ const InventoryTable = ({
               <th className="px-4 py-3 font-medium">Title</th>
               <th className="px-4 py-3 font-medium">Category</th>
               <th className="px-4 py-3 font-medium">Subcategory</th>
-              <th className="px-4 py-3 font-medium">City</th>
-              <th className="px-4 py-3 font-medium">Area</th>
+              <th className="px-4 py-3 font-medium">City / Zone</th>
+              <th className="px-4 py-3 font-medium">Area / Locality</th>
               <th className="px-4 py-3 font-medium">Size</th>
               <th className="px-4 py-3 font-medium">Selling Price</th>
               <th className="px-4 py-3 font-medium">Availability</th>
@@ -977,7 +1068,9 @@ const InventoryTable = ({
                 <td className="px-4 py-4 text-slate-600">{item.city}</td>
                 <td className="px-4 py-4 text-slate-600">{item.area}</td>
                 <td className="whitespace-nowrap px-4 py-4 text-slate-600">
-                  {item.width && item.height
+                  {item.categoryGroup === 'A3 Screens'
+                    ? item.screenSize || '-'
+                    : item.width && item.height
                     ? `${item.width} x ${item.height} = ${item.totalSqFt || item.width * item.height} sq.ft.`
                     : '-'}
                 </td>
@@ -1134,8 +1227,8 @@ const InventoryDetailModal = ({
 
       <div className="mt-5 grid gap-5 lg:grid-cols-3">
         <InventoryDetailSection title="Location">
-          <InventoryDetail label="City" value={item.city} />
-          <InventoryDetail label="Area" value={item.area} />
+          <InventoryDetail label={item.categoryGroup === 'A3 Screens' ? 'Zone' : 'City'} value={item.city} />
+          <InventoryDetail label={item.categoryGroup === 'A3 Screens' ? 'Locality' : 'Area'} value={item.area} />
           <InventoryDetail label="Address" value={item.location?.address} wide />
           <InventoryDetail
             label="Coordinates"
@@ -1175,6 +1268,41 @@ const InventoryDetailModal = ({
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        {item.categoryGroup === 'A3 Screens' ? (
+          <InventoryDetailSection title="A3 Property Screen Details">
+            <InventoryDetail label="Property Name" value={item.propertyName} wide />
+            <InventoryDetail label="Phase" value={item.phase} />
+            <InventoryDetail label="Profile" value={item.profile} />
+            <InventoryDetail label="PIN Code" value={item.pinCode} />
+            <InventoryDetail label="Property Price Upto" value={item.propertyPriceUptoCr !== undefined ? `${item.propertyPriceUptoCr} Cr` : undefined} />
+            <InventoryDetail label="Screen Size" value={item.screenSize} />
+            <InventoryDetail label="No. of Screens" value={item.numberOfScreens?.toString()} />
+            <InventoryDetail label="Households" value={item.households?.toLocaleString('en-IN')} />
+            <InventoryDetail label="Approx. Reach" value={item.approxReach?.toLocaleString('en-IN')} />
+            <InventoryDetail label="Monthly Impressions" value={item.monthlyImpressions?.toLocaleString('en-IN')} />
+            <InventoryDetail label="Monthly Ad Budget" value={currency(item.monthlyAdBudget)} />
+            <InventoryDetail label="Discounted Monthly Budget" value={currency(item.discountedMonthlyAdBudget)} />
+            <InventoryDetail label="Media Site ID" value={item.mediaSiteId} />
+            <InventoryDetail label="Building Age" value={item.buildingAge !== undefined ? `${item.buildingAge} years` : undefined} />
+            <InventoryDetail label="Property Type" value={item.propertyType} />
+            <InventoryDetail label="NCCS Class" value={item.nccsClass} />
+            {item.propertyVisualLink ? (
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-medium text-slate-500">Property Visual</dt>
+                <dd className="mt-1">
+                  <a
+                    href={item.propertyVisualLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
+                  >
+                    Open property visual
+                  </a>
+                </dd>
+              </div>
+            ) : null}
+          </InventoryDetailSection>
+        ) : null}
         <InventoryDetailSection title="Owner & Supplier">
           <InventoryDetail label="Owner" value={item.ownerName} />
           <InventoryDetail label="Owner Phone" value={item.ownerPhone} />
@@ -1302,15 +1430,15 @@ const InventoryFormModal = ({
           />
         </FormSection>
 
-        <FormSection title="2. City and Area">
+        <FormSection title={form.categoryGroup === 'A3 Screens' ? '2. Zone and Locality' : '2. City and Area'}>
           <TextField
-            label="City"
+            label={form.categoryGroup === 'A3 Screens' ? 'Zone' : 'City'}
             value={form.city}
             onChange={(value) => onFormChange({ ...form, city: value })}
             required
           />
           <TextField
-            label="Area"
+            label={form.categoryGroup === 'A3 Screens' ? 'Locality' : 'Area'}
             value={form.area}
             onChange={(value) => onFormChange({ ...form, area: value })}
             required
@@ -1322,15 +1450,19 @@ const InventoryFormModal = ({
                 ? editingItem.inventoryCode
                 : previewLoading
                   ? 'Loading...'
-                  : previewCode || 'Fill category, city, and area'
+                  : previewCode || (form.categoryGroup === 'A3 Screens'
+                    ? 'Fill category, zone, and locality'
+                    : 'Fill category, city, and area')
             }
             helper="Final code will be generated automatically on save."
           />
         </FormSection>
 
-        {form.categoryGroup === 'Outdoor' ? (
+        {form.categoryGroup === 'Outdoor' || form.categoryGroup === 'A3 Screens' ? (
           <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-            <h3 className="mb-3 font-semibold text-slate-900">3. Outdoor Location</h3>
+            <h3 className="mb-3 font-semibold text-slate-900">
+              {form.categoryGroup === 'A3 Screens' ? '3. Property Location' : '3. Outdoor Location'}
+            </h3>
             <LocationPicker
               latitude={numberOrUndefined(form.latitude)}
               longitude={numberOrUndefined(form.longitude)}
@@ -1339,12 +1471,14 @@ const InventoryFormModal = ({
             {geocodeLoading ? <p className="mt-2 text-xs text-slate-500">Looking up address...</p> : null}
             {geocodeError ? <p className="mt-2 text-xs text-amber-700">{geocodeError}</p> : null}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <TextField
-                label="Address"
-                value={form.address}
-                onChange={(value) => onFormChange({ ...form, address: value })}
-                required
-              />
+              {form.categoryGroup === 'Outdoor' ? (
+                <TextField
+                  label="Address"
+                  value={form.address}
+                  onChange={(value) => onFormChange({ ...form, address: value })}
+                  required
+                />
+              ) : null}
               <TextField
                 label="Latitude"
                 value={form.latitude}
@@ -1393,22 +1527,26 @@ const InventoryFormModal = ({
         </FormSection>
 
         <FormSection title="Common Details">
-          <TextField
-            label="Width"
-            value={form.width}
-            onChange={(value) => onFormChange({ ...form, width: value })}
-            required
-          />
-          <TextField
-            label="Height"
-            value={form.height}
-            onChange={(value) => onFormChange({ ...form, height: value })}
-            required
-          />
-          <ReadOnlyField
-            label="Total Sq.Ft."
-            value={totalSqFt !== undefined ? `${totalSqFt} sq.ft.` : 'Enter width and height'}
-          />
+          {form.categoryGroup !== 'A3 Screens' ? (
+            <>
+              <TextField
+                label="Width"
+                value={form.width}
+                onChange={(value) => onFormChange({ ...form, width: value })}
+                required
+              />
+              <TextField
+                label="Height"
+                value={form.height}
+                onChange={(value) => onFormChange({ ...form, height: value })}
+                required
+              />
+              <ReadOnlyField
+                label="Total Sq.Ft."
+                value={totalSqFt !== undefined ? `${totalSqFt} sq.ft.` : 'Enter width and height'}
+              />
+            </>
+          ) : null}
           <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => onFormChange({ ...form, internalCost: value })} />
           <TextField label="Selling Price" value={form.sellingPrice} onChange={(value) => onFormChange({ ...form, sellingPrice: value })} />
           <TextField label="Min Spend" value={form.minSpend} onChange={(value) => onFormChange({ ...form, minSpend: value })} />
@@ -1473,6 +1611,39 @@ const InventoryFormModal = ({
             <CheckboxField label="Audio System" checked={form.hasAudioSystem} onChange={(value) => onFormChange({ ...form, hasAudioSystem: value })} />
             <CheckboxField label="Canopy" checked={form.hasCanopy} onChange={(value) => onFormChange({ ...form, hasCanopy: value })} />
             <TextField label="Rate Per Day" value={form.ratePerDay} onChange={(value) => onFormChange({ ...form, ratePerDay: value })} />
+          </FormSection>
+        ) : null}
+
+        {form.categoryGroup === 'A3 Screens' ? (
+          <FormSection title="A3 Property Screen Details">
+            <TextField
+              label="Property Name"
+              value={form.propertyName}
+              onChange={(value) =>
+                onFormChange({
+                  ...form,
+                  propertyName: value,
+                  title: !form.title || form.title === form.propertyName ? value : form.title,
+                })
+              }
+              required
+            />
+            <TextField label="Phase" value={form.phase} onChange={(value) => onFormChange({ ...form, phase: value })} />
+            <TextField label="Profile" value={form.profile} onChange={(value) => onFormChange({ ...form, profile: value })} />
+            <TextField label="PIN Code" value={form.pinCode} onChange={(value) => onFormChange({ ...form, pinCode: value })} required />
+            <TextField label="Property Price Upto (Cr)" value={form.propertyPriceUptoCr} onChange={(value) => onFormChange({ ...form, propertyPriceUptoCr: value })} />
+            <TextField label="Screen Size" value={form.screenSize} onChange={(value) => onFormChange({ ...form, screenSize: value })} required />
+            <TextField label="Property Visual Link" value={form.propertyVisualLink} onChange={(value) => onFormChange({ ...form, propertyVisualLink: value })} />
+            <TextField label="No. of Screens" value={form.numberOfScreens} onChange={(value) => onFormChange({ ...form, numberOfScreens: value })} required />
+            <TextField label="Households / Flats" value={form.households} onChange={(value) => onFormChange({ ...form, households: value })} required />
+            <TextField label="Approx. Reach" value={form.approxReach} onChange={(value) => onFormChange({ ...form, approxReach: value })} required />
+            <TextField label="Monthly Impressions" value={form.monthlyImpressions} onChange={(value) => onFormChange({ ...form, monthlyImpressions: value })} required />
+            <TextField label="Monthly Ad Budget" value={form.monthlyAdBudget} onChange={(value) => onFormChange({ ...form, monthlyAdBudget: value })} required />
+            <TextField label="Discounted Monthly Ad Budget" value={form.discountedMonthlyAdBudget} onChange={(value) => onFormChange({ ...form, discountedMonthlyAdBudget: value })} />
+            <TextField label="Media Site ID" value={form.mediaSiteId} onChange={(value) => onFormChange({ ...form, mediaSiteId: value })} required />
+            <TextField label="Building Age (Years)" value={form.buildingAge} onChange={(value) => onFormChange({ ...form, buildingAge: value })} />
+            <TextField label="Property Type" value={form.propertyType} onChange={(value) => onFormChange({ ...form, propertyType: value })} required />
+            <TextField label="NCCS Class" value={form.nccsClass} onChange={(value) => onFormChange({ ...form, nccsClass: value })} required />
           </FormSection>
         ) : null}
 

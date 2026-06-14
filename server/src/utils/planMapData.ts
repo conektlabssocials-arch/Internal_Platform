@@ -55,7 +55,7 @@ export const buildPlanMapData = (items: PlanMapSourceItem[] = []) => {
     .map((item, index) => ({ item, index }))
     .filter(
       ({ item }) =>
-        item.categoryGroup === 'Outdoor' &&
+        ['Outdoor', 'A3 Screens'].includes(item.categoryGroup || '') &&
         Number.isFinite(item.location?.latitude) &&
         Number.isFinite(item.location?.longitude),
     )

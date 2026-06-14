@@ -28,7 +28,7 @@ const permissionGroups: Array<{
       {
         key: 'inventory.create',
         label: 'Add inventory',
-        description: 'Create new Outdoor, Auto, Bus, and Mobile Van inventory.',
+        description: 'Create new Outdoor, Auto, Bus, Mobile Van, and A3 Screens inventory.',
       },
       {
         key: 'inventory.edit',

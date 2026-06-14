@@ -54,7 +54,7 @@ export const buildClientPlanMapData = (
   mapItems: items
     .filter(
       (item) =>
-        item.categoryGroup === 'Outdoor' &&
+        ['Outdoor', 'A3 Screens'].includes(item.categoryGroup || '') &&
         Number.isFinite(item.location?.latitude) &&
         Number.isFinite(item.location?.longitude),
     )

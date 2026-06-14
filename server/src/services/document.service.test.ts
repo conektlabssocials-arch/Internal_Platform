@@ -144,9 +144,9 @@ test('document file names are sanitized and versioned', () => {
   assert.equal(fileName.includes('/'), false);
 });
 
-test('plan proposal includes a client-safe Outdoor location fallback table', () => {
+test('plan proposal includes a client-safe fixed-site location fallback table', () => {
   const html = buildPlanProposalHtml(data);
-  assert.match(html, /Outdoor Site Locations/);
+  assert.match(html, /Fixed Site Locations/);
   assert.match(html, /80 Feet Road, Koramangala/);
   assert.match(html, /12\.9352/);
   assert.match(html, /Interactive map view is available/);

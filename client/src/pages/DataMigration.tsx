@@ -266,7 +266,7 @@ const DataMigration = ({ onClose, onImported }: DataMigrationProps) => {
             </label>
             {importType === 'inventory' ? (
               <p className="text-sm text-slate-500">
-                Use the correct Outdoor, Auto, Bus, or Mobile Van template.
+                Use the correct Outdoor, Auto, Bus, Mobile Van, or A3 Screens template.
               </p>
             ) : null}
             <button

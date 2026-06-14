@@ -61,7 +61,17 @@ export interface IInventoryService {
 }
 
 const freshnessWindowDays = 30;
-const searchFields = ['inventoryCode', 'title', 'city', 'area', 'ownerName', 'supplierName'];
+const searchFields = [
+  'inventoryCode',
+  'title',
+  'city',
+  'area',
+  'ownerName',
+  'supplierName',
+  'propertyName',
+  'mediaSiteId',
+  'pinCode',
+];
 
 const toObjectId = (value?: string) => (value ? new Types.ObjectId(value) : undefined);
 
@@ -431,10 +441,27 @@ export class InventoryService implements IInventoryService {
       hasAudioSystem: optionalBoolean(input.hasAudioSystem),
       hasCanopy: optionalBoolean(input.hasCanopy),
       ratePerDay: optionalNumber(input.ratePerDay),
+      propertyName: trimString(input.propertyName),
+      phase: trimString(input.phase),
+      profile: trimString(input.profile),
+      pinCode: trimString(input.pinCode),
+      propertyPriceUptoCr: optionalNumber(input.propertyPriceUptoCr),
+      screenSize: trimString(input.screenSize),
+      propertyVisualLink: trimString(input.propertyVisualLink),
+      numberOfScreens: optionalNumber(input.numberOfScreens),
+      households: optionalNumber(input.households),
+      approxReach: optionalNumber(input.approxReach),
+      monthlyImpressions: optionalNumber(input.monthlyImpressions),
+      monthlyAdBudget: optionalNumber(input.monthlyAdBudget),
+      discountedMonthlyAdBudget: optionalNumber(input.discountedMonthlyAdBudget),
+      mediaSiteId: trimString(input.mediaSiteId),
+      buildingAge: optionalNumber(input.buildingAge),
+      propertyType: trimString(input.propertyType),
+      nccsClass: trimString(input.nccsClass),
       updatedBy: toObjectId(input.updatedBy),
     };
 
-    if (categoryGroup === 'Outdoor') {
+    if (categoryGroup === 'Outdoor' || categoryGroup === 'A3 Screens') {
       data.location = {
         latitude: optionalNumber(input.location?.latitude),
         longitude: optionalNumber(input.location?.longitude),
@@ -445,6 +472,11 @@ export class InventoryService implements IInventoryService {
           'location.source',
         ),
       };
+    }
+
+    if (categoryGroup === 'A3 Screens' && data.sellingPrice === undefined) {
+      data.sellingPrice =
+        data.discountedMonthlyAdBudget ?? data.monthlyAdBudget;
     }
 
     if (isCreate) {
@@ -499,7 +531,11 @@ export class InventoryService implements IInventoryService {
   }
 
   private validateRequiredFields(data: Record<string, unknown>) {
-    const requiredFields = ['categoryGroup', 'subCategory', 'title', 'city', 'area', 'width', 'height'];
+    const requiredFields = ['categoryGroup', 'subCategory', 'title', 'city', 'area'];
+
+    if (data.categoryGroup !== 'A3 Screens') {
+      requiredFields.push('width', 'height');
+    }
 
     for (const field of requiredFields) {
       if (data[field] === undefined || data[field] === '') {
@@ -533,6 +569,35 @@ export class InventoryService implements IInventoryService {
 
     if (data.categoryGroup === 'Mobile Van' && !data.itinerary) {
       throw new HttpError(400, 'Mobile Van inventory requires itinerary');
+    }
+
+    if (data.categoryGroup === 'A3 Screens') {
+      const location = data.location as
+        | { latitude?: number; longitude?: number }
+        | undefined;
+      const requiredFields = [
+        'propertyName',
+        'pinCode',
+        'screenSize',
+        'numberOfScreens',
+        'households',
+        'approxReach',
+        'monthlyImpressions',
+        'monthlyAdBudget',
+        'mediaSiteId',
+        'propertyType',
+        'nccsClass',
+      ];
+
+      for (const field of requiredFields) {
+        if (data[field] === undefined || data[field] === '') {
+          throw new HttpError(400, `${field} is required for A3 Screens inventory`);
+        }
+      }
+
+      if (location?.latitude === undefined || location.longitude === undefined) {
+        throw new HttpError(400, 'A3 Screens inventory requires latitude and longitude');
+      }
     }
   }
 }

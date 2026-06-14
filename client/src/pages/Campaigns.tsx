@@ -30,7 +30,7 @@ const emptySummary: CampaignSummary = {
 };
 const statuses: CampaignStatus[] = ['New', 'In Discussion', 'Plan Shared', 'Negotiating', 'Won', 'Lost', 'On Hold'];
 const sources = ['Call', 'WhatsApp', 'Email', 'Referral', 'Walk-in', 'Website', 'Other'];
-const categories = ['Outdoor', 'Auto', 'Bus', 'Mobile Van'];
+const categories = ['Outdoor', 'Auto', 'Bus', 'Mobile Van', 'A3 Screens'];
 const priorities = ['Low', 'Medium', 'High'];
 
 const Campaigns = () => {

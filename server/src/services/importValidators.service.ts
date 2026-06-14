@@ -154,11 +154,18 @@ export class ImportValidatorsService {
       const warnings: ImportIssue[] = [];
       const categoryGroup = requiredText(raw, rowNumber, 'categoryGroup', errors);
       const subCategory = requiredText(raw, rowNumber, 'subCategory', errors);
-      const title = requiredText(raw, rowNumber, 'title', errors);
-      const city = requiredText(raw, rowNumber, 'city', errors);
-      const area = requiredText(raw, rowNumber, 'area', errors);
-      const width = parseNumber(raw.width, rowNumber, 'width', errors, true);
-      const height = parseNumber(raw.height, rowNumber, 'height', errors, true);
+      const propertyName = text(raw.propertyName);
+      const title = text(raw.title) || (categoryGroup === 'A3 Screens' ? propertyName : undefined);
+      const city = text(raw.city) || (categoryGroup === 'A3 Screens' ? text(raw.zone) : undefined);
+      const area = text(raw.area) || (categoryGroup === 'A3 Screens' ? text(raw.locality) : undefined);
+
+      if (!title) errors.push(issue(rowNumber, 'title', 'title is required', raw.title));
+      if (!city) errors.push(issue(rowNumber, 'zone', categoryGroup === 'A3 Screens' ? 'zone is required' : 'city is required', raw.city || raw.zone));
+      if (!area) errors.push(issue(rowNumber, 'locality', categoryGroup === 'A3 Screens' ? 'locality is required' : 'area is required', raw.area || raw.locality));
+
+      const sizeRequired = categoryGroup !== 'A3 Screens';
+      const width = parseNumber(raw.width, rowNumber, 'width', errors, sizeRequired);
+      const height = parseNumber(raw.height, rowNumber, 'height', errors, sizeRequired);
 
       if (categoryGroup && !Object.hasOwn(INVENTORY_SUBCATEGORIES, categoryGroup)) {
         errors.push(issue(rowNumber, 'categoryGroup', 'categoryGroup is invalid', categoryGroup));
@@ -205,14 +212,14 @@ export class ImportValidatorsService {
         rowNumber,
         'latitude',
         errors,
-        categoryGroup === 'Outdoor',
+        categoryGroup === 'Outdoor' || categoryGroup === 'A3 Screens',
       );
       const longitude = parseNumber(
         raw.longitude,
         rowNumber,
         'longitude',
         errors,
-        categoryGroup === 'Outdoor',
+        categoryGroup === 'Outdoor' || categoryGroup === 'A3 Screens',
       );
       const address =
         categoryGroup === 'Outdoor'
@@ -249,6 +256,70 @@ export class ImportValidatorsService {
         errors.push(issue(rowNumber, 'itinerary', 'Mobile Van inventory requires itinerary'));
       }
 
+      const a3RequiredTextFields = [
+        'propertyName',
+        'pinCode',
+        'screenSize',
+        'mediaSiteId',
+        'propertyType',
+        'nccsClass',
+      ];
+      if (categoryGroup === 'A3 Screens') {
+        for (const field of a3RequiredTextFields) {
+          if (!text(raw[field])) {
+            errors.push(issue(rowNumber, field, `${field} is required`, raw[field]));
+          }
+        }
+      }
+
+      const numberOfScreens = parseNumber(
+        raw.numberOfScreens,
+        rowNumber,
+        'numberOfScreens',
+        errors,
+        categoryGroup === 'A3 Screens',
+      );
+      const households = parseNumber(
+        raw.households,
+        rowNumber,
+        'households',
+        errors,
+        categoryGroup === 'A3 Screens',
+      );
+      const approxReach = parseNumber(
+        raw.approxReach,
+        rowNumber,
+        'approxReach',
+        errors,
+        categoryGroup === 'A3 Screens',
+      );
+      const monthlyImpressions = parseNumber(
+        raw.monthlyImpressions,
+        rowNumber,
+        'monthlyImpressions',
+        errors,
+        categoryGroup === 'A3 Screens',
+      );
+      const monthlyAdBudget = parseNumber(
+        raw.monthlyAdBudget,
+        rowNumber,
+        'monthlyAdBudget',
+        errors,
+        categoryGroup === 'A3 Screens',
+      );
+      const discountedMonthlyAdBudget = parseNumber(
+        raw.discountedMonthlyAdBudget,
+        rowNumber,
+        'discountedMonthlyAdBudget',
+        errors,
+      );
+      const explicitSellingPrice = parseNumber(
+        raw.sellingPrice,
+        rowNumber,
+        'sellingPrice',
+        errors,
+      );
+
       const data = cleanObject({
         categoryGroup,
         subCategory,
@@ -256,7 +327,7 @@ export class ImportValidatorsService {
         city,
         area,
         location:
-          categoryGroup === 'Outdoor'
+          categoryGroup === 'Outdoor' || categoryGroup === 'A3 Screens'
             ? cleanObject({ address, latitude, longitude, source: 'manual' })
             : undefined,
         width,
@@ -266,7 +337,8 @@ export class ImportValidatorsService {
         ownerPhone: text(raw.ownerPhone),
         supplierName: text(raw.supplierName),
         internalCost: parseNumber(raw.internalCost, rowNumber, 'internalCost', errors),
-        sellingPrice: parseNumber(raw.sellingPrice, rowNumber, 'sellingPrice', errors),
+        sellingPrice:
+          explicitSellingPrice ?? discountedMonthlyAdBudget ?? monthlyAdBudget,
         minSpend: parseNumber(raw.minSpend, rowNumber, 'minSpend', errors),
         minDurationDays: parseNumber(
           raw.minDurationDays,
@@ -310,6 +382,28 @@ export class ImportValidatorsService {
         hasAudioSystem: parseBoolean(raw.hasAudioSystem, rowNumber, 'hasAudioSystem', errors),
         hasCanopy: parseBoolean(raw.hasCanopy, rowNumber, 'hasCanopy', errors),
         ratePerDay: parseNumber(raw.ratePerDay, rowNumber, 'ratePerDay', errors),
+        propertyName,
+        phase: text(raw.phase),
+        profile: text(raw.profile),
+        pinCode: text(raw.pinCode),
+        propertyPriceUptoCr: parseNumber(
+          raw.propertyPriceUptoCr,
+          rowNumber,
+          'propertyPriceUptoCr',
+          errors,
+        ),
+        screenSize: text(raw.screenSize),
+        propertyVisualLink: text(raw.propertyVisualLink),
+        numberOfScreens,
+        households,
+        approxReach,
+        monthlyImpressions,
+        monthlyAdBudget,
+        discountedMonthlyAdBudget,
+        mediaSiteId: text(raw.mediaSiteId),
+        buildingAge: parseNumber(raw.buildingAge, rowNumber, 'buildingAge', errors),
+        propertyType: text(raw.propertyType),
+        nccsClass: text(raw.nccsClass),
       });
 
       if (errors.length > 0) {
@@ -551,7 +645,7 @@ export class ImportValidatorsService {
     ]
       .map(keyPart)
       .join('|');
-    return values.categoryGroup === 'Outdoor'
+    return values.categoryGroup === 'Outdoor' || values.categoryGroup === 'A3 Screens'
       ? `${base}|${values.latitude ?? ''}|${values.longitude ?? ''}`
       : base;
   }
