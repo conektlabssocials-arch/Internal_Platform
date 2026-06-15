@@ -617,7 +617,6 @@ export class InventoryService implements IInventoryService {
       const requiredFields = [
         'location.address',
         'propertyName',
-        'pinCode',
         'screenSize',
         'numberOfScreens',
         'households',

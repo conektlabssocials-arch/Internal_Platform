@@ -151,6 +151,20 @@ export class ImportValidatorsService {
       ),
     );
     const fileKeys = new Set<string>();
+    const a3RowsNeedingGeocoding = rawRows.filter(
+      (row) =>
+        text(row.categoryGroup) === 'A3 Screens' &&
+        (!text(row.address) || !text(row.pinCode)),
+    ).length;
+    const geocodingProvider = (process.env.GEOCODING_PROVIDER || 'nominatim').toLowerCase();
+    const canUseMapbox =
+      geocodingProvider === 'mapbox' &&
+      Boolean(
+        process.env.MAPBOX_ACCESS_TOKEN &&
+          !process.env.MAPBOX_ACCESS_TOKEN.startsWith('your_'),
+      );
+    const shouldAttemptBulkGeocoding =
+      a3RowsNeedingGeocoding <= 5 || canUseMapbox;
 
     const rows = await Promise.all(rawRows.map(async (raw, index): Promise<ImportStoredRow> => {
       const rowNumber = index + 2;
@@ -271,7 +285,8 @@ export class ImportValidatorsService {
         categoryGroup === 'A3 Screens' &&
         latitude !== undefined &&
         longitude !== undefined &&
-        (!address || !pinCode)
+        (!address || !pinCode) &&
+        shouldAttemptBulkGeocoding
       ) {
         const geocoded = await this.geocodingService.reverseGeocode(
           latitude,
@@ -293,20 +308,22 @@ export class ImportValidatorsService {
       }
 
       if (categoryGroup === 'A3 Screens' && !address) {
-        errors.push(
+        address = [propertyName, area, city].filter(Boolean).join(', ');
+        warnings.push(
           issue(
             rowNumber,
             'address',
-            'address could not be resolved from latitude and longitude',
+            'address was built from property name, locality, and city because reverse geocoding was unavailable',
+            address,
           ),
         );
       }
       if (categoryGroup === 'A3 Screens' && !pinCode) {
-        errors.push(
+        warnings.push(
           issue(
             rowNumber,
             'pinCode',
-            'pinCode could not be resolved from latitude and longitude',
+            'pinCode could not be resolved automatically; add it later if required',
           ),
         );
       }
