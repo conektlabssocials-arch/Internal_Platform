@@ -203,6 +203,60 @@ test('A3 Screens bulk validation fills address and PIN code from coordinates', a
   assert.equal(result.warnings.length, 2);
 });
 
+test('large A3 imports use address fallback when bulk geocoding is unavailable', async () => {
+  const service = createService({
+    geocode: async () => {
+      throw new Error('Geocoder should not be called for a large Nominatim batch');
+    },
+  });
+  const baseRow = {
+    categoryGroup: 'A3 Screens',
+    subCategory: 'Residential',
+    title: 'Residency Screen Network',
+    city: 'Gurgaon',
+    locality: 'Sector 43',
+    propertyName: 'Residency One',
+    screenSize: '32 inch LED TV',
+    numberOfScreens: '4',
+    households: '200',
+    approxReach: '800',
+    monthlyImpressions: '24000',
+    latitude: '28.459046',
+    longitude: '77.080014',
+    monthlyAdBudget: '14000',
+    internalCost: '9100',
+    sellingPrice: '12500',
+    mediaSiteId: 'A3-GGN',
+    propertyType: 'RESIDENTIAL',
+    nccsClass: 'A3',
+  };
+  const result = await service.validate(
+    'inventory',
+    Array.from({ length: 6 }, (_, index) => ({
+      ...baseRow,
+      title: `${baseRow.title} ${index + 1}`,
+      propertyName: `${baseRow.propertyName} ${index + 1}`,
+      mediaSiteId: `${baseRow.mediaSiteId}-${index + 1}`,
+      latitude: String(Number(baseRow.latitude) + index * 0.001),
+    })),
+  );
+
+  assert.equal(result.validRows, 6);
+  assert.equal(
+    (result.rows[0].data.location as { address?: string }).address,
+    'Residency One 1, Sector 43, Gurgaon',
+  );
+  assert.equal(result.rows[0].data.pinCode, undefined);
+  assert.equal(
+    result.warnings.some(
+      (warning) =>
+        warning.field === 'pinCode' &&
+        warning.message.includes('could not be resolved automatically'),
+    ),
+    true,
+  );
+});
+
 test('A3 Screens calculates width and height from screen size', async () => {
   const service = createService();
   const result = await service.validate('inventory', [{
