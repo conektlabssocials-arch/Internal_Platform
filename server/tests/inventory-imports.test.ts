@@ -85,7 +85,7 @@ test('inventory API creates Outdoor and transit inventory with generated codes',
     .expect(400);
 });
 
-test('inventory API creates A3 property screens without billboard dimensions', async () => {
+test('inventory API creates A3 property screens with physical and device screen sizes', async () => {
   await loginAdmin();
   const created = await admin
     .post('/api/inventory')
@@ -125,7 +125,9 @@ test('inventory API creates A3 property screens without billboard dimensions', a
   assert.equal(created.body.data.internalCost, 9100);
   assert.equal(created.body.data.sellingPrice, undefined);
   assert.equal(created.body.data.screenSize, '32 inch LED TV');
-  assert.equal(created.body.data.width, undefined);
+  assert.equal(created.body.data.width, 2.32);
+  assert.equal(created.body.data.height, 1.31);
+  assert.equal(created.body.data.totalSqFt, 3.0392);
   assert.equal(created.body.data.location.latitude, 28.459046);
 
   await admin
@@ -219,6 +221,8 @@ test('A3 CSV import stores city, internal cost, and selling price for confirmati
       'propertyName',
       'pinCode',
       'screenSize',
+      'width',
+      'height',
       'numberOfScreens',
       'households',
       'approxReach',
@@ -243,6 +247,8 @@ test('A3 CSV import stores city, internal cost, and selling price for confirmati
       'Sushant Apartments',
       '122001',
       '32 inch LED TV',
+      '3',
+      '2',
       '4',
       '202',
       '898',

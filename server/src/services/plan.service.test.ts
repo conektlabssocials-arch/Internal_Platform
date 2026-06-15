@@ -218,6 +218,9 @@ test('draft updates preserve A3 property audience data in the plan snapshot', as
           subCategory: 'Residential',
           city: 'Gurgaon',
           area: 'Sushant Lok',
+          width: 3,
+          height: 2,
+          totalSqFt: 6,
           location: {
             address: 'Sushant Lok Phase 1, Gurgaon',
             latitude: 28.459046,

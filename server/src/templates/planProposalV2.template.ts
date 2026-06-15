@@ -90,6 +90,7 @@ const sitePage = (item: PlanItem, index: number) => {
           ['Approx. Reach', number(item.approxReach)],
           ['Monthly Impressions', number(item.monthlyImpressions)],
           ['Building Age', item.buildingAge !== undefined ? `${number(item.buildingAge)} years` : '-'],
+          ['Physical Size', item.width && item.height ? `${number(item.height)} H x ${number(item.width)} W` : '-'],
           ['Screen Size', item.screenSize || '-'],
           ['No. of Screens', number(item.numberOfScreens)],
         ]

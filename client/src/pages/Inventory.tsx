@@ -41,6 +41,7 @@ import type {
   InventorySummaryItem,
 } from '../types/inventory';
 import type { SupplierSearchItem } from '../types/crm';
+import { updateA3ScreenDimensions } from '../utils/a3ScreenDimensions';
 
 const availabilityStatuses: AvailabilityStatus[] = ['available', 'booked', 'hold', 'unknown'];
 const inventoryStatuses: InventoryStatus[] = ['active', 'inactive'];
@@ -548,16 +549,8 @@ const Inventory = () => {
       return 'City and area are required';
     }
 
-    if (form.categoryGroup !== 'A3 Screens' && (!form.width.trim() || !form.height.trim())) {
+    if (!form.width.trim() || !form.height.trim()) {
       return 'Width and height are required';
-    }
-
-    if (
-      form.categoryGroup === 'A3 Screens' &&
-      !form.screenSize.trim() &&
-      (!form.width.trim() || !form.height.trim())
-    ) {
-      return 'A3 Screens requires a Screen Size or both Width and Height';
     }
 
     if (
@@ -584,6 +577,7 @@ const Inventory = () => {
         form.address,
         form.propertyName,
         form.pinCode,
+        form.screenSize,
         form.numberOfScreens,
         form.households,
         form.approxReach,
@@ -1074,10 +1068,12 @@ const InventoryTable = ({
                 <td className="px-4 py-4 text-slate-600">{item.area}</td>
                 <td className="whitespace-nowrap px-4 py-4 text-slate-600">
                   {item.categoryGroup === 'A3 Screens'
-                    ? item.screenSize ||
-                      (item.width && item.height
-                        ? `${item.width} x ${item.height} = ${item.totalSqFt || item.width * item.height} sq.ft.`
-                        : '-')
+                    ? [
+                        item.width && item.height
+                          ? `${item.height} H x ${item.width} W = ${item.totalSqFt || item.width * item.height} sq.ft.`
+                          : null,
+                        item.screenSize,
+                      ].filter(Boolean).join(' · ') || '-'
                     : item.width && item.height
                     ? `${item.width} x ${item.height} = ${item.totalSqFt || item.width * item.height} sq.ft.`
                     : '-'}
@@ -1253,7 +1249,16 @@ const InventoryDetailModal = ({
         </InventoryDetailSection>
 
         <InventoryDetailSection title="Media Details">
-          <InventoryDetail label="Size" value={item.width && item.height ? `${item.width} x ${item.height}` : undefined} />
+          <InventoryDetail
+            label="Size"
+            value={
+              item.width && item.height
+                ? item.categoryGroup === 'A3 Screens'
+                  ? `${item.height} H x ${item.width} W`
+                  : `${item.width} W x ${item.height} H`
+                : undefined
+            }
+          />
           <InventoryDetail label="Total Sq.Ft." value={item.totalSqFt ? `${item.totalSqFt} sq.ft.` : undefined} />
           <InventoryDetail label="Illumination" value={item.illumination} />
           <InventoryDetail label="Facing" value={item.facingDirection} />
@@ -1533,26 +1538,34 @@ const InventoryFormModal = ({
         </FormSection>
 
         <FormSection title="Common Details">
-          {form.categoryGroup !== 'A3 Screens' || !form.screenSize.trim() ? (
-            <>
-              <TextField
-                label="Width"
-                value={form.width}
-                onChange={(value) => onFormChange({ ...form, width: value })}
-                required
-              />
-              <TextField
-                label="Height"
-                value={form.height}
-                onChange={(value) => onFormChange({ ...form, height: value })}
-                required
-              />
-              <ReadOnlyField
-                label="Total Sq.Ft."
-                value={totalSqFt !== undefined ? `${totalSqFt} sq.ft.` : 'Enter width and height'}
-              />
-            </>
-          ) : null}
+          <TextField
+            label={form.categoryGroup === 'A3 Screens' ? 'Width (ft)' : 'Width'}
+            value={form.width}
+            onChange={(value) =>
+              onFormChange(
+                form.categoryGroup === 'A3 Screens'
+                  ? { ...form, ...updateA3ScreenDimensions(form, 'width', value) }
+                  : { ...form, width: value },
+              )
+            }
+            required
+          />
+          <TextField
+            label={form.categoryGroup === 'A3 Screens' ? 'Height (ft)' : 'Height'}
+            value={form.height}
+            onChange={(value) =>
+              onFormChange(
+                form.categoryGroup === 'A3 Screens'
+                  ? { ...form, ...updateA3ScreenDimensions(form, 'height', value) }
+                  : { ...form, height: value },
+              )
+            }
+            required
+          />
+          <ReadOnlyField
+            label="Total Sq.Ft."
+            value={totalSqFt !== undefined ? `${totalSqFt} sq.ft.` : 'Enter width and height'}
+          />
           {form.categoryGroup !== 'A3 Screens' ? (
             <>
               <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => onFormChange({ ...form, internalCost: value })} />
@@ -1642,7 +1655,17 @@ const InventoryFormModal = ({
             <TextField label="Profile" value={form.profile} onChange={(value) => onFormChange({ ...form, profile: value })} />
             <TextField label="PIN Code" value={form.pinCode} onChange={(value) => onFormChange({ ...form, pinCode: value })} required />
             <TextField label="Property Price Upto (Cr)" value={form.propertyPriceUptoCr} onChange={(value) => onFormChange({ ...form, propertyPriceUptoCr: value })} />
-            <TextField label="Screen Size" value={form.screenSize} onChange={(value) => onFormChange({ ...form, screenSize: value })} />
+            <TextField
+              label="Screen Size"
+              value={form.screenSize}
+              onChange={(value) =>
+                onFormChange({
+                  ...form,
+                  ...updateA3ScreenDimensions(form, 'screenSize', value),
+                })
+              }
+              required
+            />
             <TextField label="Property Visual Link" value={form.propertyVisualLink} onChange={(value) => onFormChange({ ...form, propertyVisualLink: value })} />
             <TextField label="No. of Screens" value={form.numberOfScreens} onChange={(value) => onFormChange({ ...form, numberOfScreens: value })} required />
             <TextField label="Households / Flats" value={form.households} onChange={(value) => onFormChange({ ...form, households: value })} required />
