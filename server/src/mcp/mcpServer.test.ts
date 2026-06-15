@@ -258,7 +258,7 @@ test('Phase 4 scopes expose document generation and proof upload tools', async (
 
   const tools = await client.listTools();
   const names = new Set(tools.tools.map((tool) => tool.name));
-  assert.equal(tools.tools.length, 46);
+  assert.equal(tools.tools.length, 47);
   assert.equal(names.has('list_plan_documents'), true);
   assert.equal(names.has('list_operation_documents'), true);
   assert.equal(names.has('generate_plan_document'), true);
@@ -277,6 +277,7 @@ test('Phase 4 scopes expose document generation and proof upload tools', async (
   assert.equal(names.has('create_crm_contact'), true);
   assert.equal(names.has('update_crm_contact'), true);
   assert.equal(names.has('confirm_inventory'), true);
+  assert.equal(names.has('create_inventory'), true);
   assert.equal(names.has('change_inventory_status'), true);
   assert.equal(names.has('get_campaign_pipeline_report'), true);
   assert.equal(names.has('get_inventory_health_report'), true);
@@ -516,6 +517,78 @@ test('inventory confirmation requires confirmation and status tool is admin-only
   assert.equal(accepted.isError, undefined);
   assert.equal(received?.inventoryId, argumentsWithoutConfirmation.inventoryId);
   assert.deepEqual(received?.actor, member);
+
+  await client.close();
+  await server.close();
+});
+
+test('create inventory requires confirmation and forwards category fields', async () => {
+  let received: Record<string, unknown> | undefined;
+  const commands = {
+    create: async (
+      input: Record<string, unknown>,
+      actor: Record<string, unknown>,
+    ) => {
+      received = { input, actor };
+      return {
+        id: '000000000000000000000010',
+        inventoryCode: 'OUT-BLR-CBD-0001',
+        ...input,
+        status: 'active',
+        confirmationStatus: 'never_confirmed',
+      };
+    },
+  } as unknown as IInventoryCommandService;
+  container.registerInstance(TOKENS.InventoryCommandService, commands);
+  const actor = {
+    userId: '000000000000000000000001',
+    email: 'admin@conektads.com',
+    name: 'Admin',
+    role: 'admin' as const,
+  };
+  const server = createPhase1McpServer(actor, [
+    MCP_SCOPES.PlatformRead,
+    MCP_SCOPES.InventoryWrite,
+  ]);
+  const client = new Client({
+    name: 'mcp-create-inventory-regression',
+    version: '1.0.0',
+  });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+
+  const inventoryInput = {
+    categoryGroup: 'Outdoor',
+    subCategory: 'Hoarding',
+    title: 'MG Road Hoarding',
+    city: 'Bengaluru',
+    area: 'CBD',
+    width: 40,
+    height: 20,
+    location: {
+      latitude: 12.975,
+      longitude: 77.606,
+      address: 'MG Road, Bengaluru',
+      source: 'manual',
+    },
+    availabilityStatus: 'unknown',
+  };
+  const rejected = await client.callTool({
+    name: 'create_inventory',
+    arguments: { ...inventoryInput, confirm: false },
+  });
+  assert.equal(rejected.isError, true);
+  assert.equal(received, undefined);
+
+  const accepted = await client.callTool({
+    name: 'create_inventory',
+    arguments: { ...inventoryInput, confirm: true },
+  });
+  assert.equal(accepted.isError, undefined);
+  assert.deepEqual(received?.input, inventoryInput);
+  assert.deepEqual(received?.actor, actor);
 
   await client.close();
   await server.close();

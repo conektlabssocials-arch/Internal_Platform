@@ -291,7 +291,8 @@ status updates. Phase 3 adds scoped, confirmed plan status and operation
 execution workflow updates. Phase 4 adds PDF listing and generation plus
 authenticated proof-image upload and attachment.
 Phase 5 adds confirmed draft-plan authoring and client share-link management.
-Phase 6 adds confirmed CRM, contact, campaign, and inventory-maintenance tools.
+Phase 6 adds confirmed CRM, contact, campaign, and inventory creation and
+maintenance tools.
 Phase 7 adds read-only pipeline, inventory, profitability, operations, and
 supplier-performance reporting.
 

@@ -6,6 +6,8 @@ import test from 'node:test';
 import type { IActivityService } from './activity.service.js';
 import { InventoryCommandService } from './inventoryCommand.service.js';
 import type { IInventoryService } from './inventory.service.js';
+import type { IPlatformSettingsService } from './platformSettings.service.js';
+import { HttpError } from '../utils/httpError.js';
 
 const inventory = {
   id: '000000000000000000000010',
@@ -30,6 +32,93 @@ const admin = {
   role: 'admin',
 } as const;
 
+test('inventory creation attributes the actor and audits the generated code', async () => {
+  let mutation: Record<string, unknown> | undefined;
+  let audit: Record<string, unknown> | undefined;
+  const commands = new InventoryCommandService(
+    {
+      createInventory: async (input) => {
+        mutation = input as Record<string, unknown>;
+        return {
+          ...inventory,
+          confirmationStatus: 'never_confirmed',
+        };
+      },
+    } as unknown as IInventoryService,
+    {
+      logEntityActivity: async (input) => {
+        audit = input as unknown as Record<string, unknown>;
+      },
+    } as IActivityService,
+    {
+      hasPermission: async () => true,
+    } as unknown as IPlatformSettingsService,
+  );
+
+  const result = await commands.create(
+    {
+      categoryGroup: 'Outdoor',
+      subCategory: 'Hoarding',
+      title: 'MG Road',
+      city: 'Bengaluru',
+      area: 'CBD',
+      width: 40,
+      height: 20,
+      location: {
+        latitude: 12.975,
+        longitude: 77.606,
+        address: 'MG Road, Bengaluru',
+        source: 'manual',
+      },
+      availabilityStatus: 'unknown',
+    },
+    admin,
+  );
+
+  assert.equal(result.inventoryCode, inventory.inventoryCode);
+  assert.equal(mutation?.createdBy, admin.userId);
+  assert.equal(mutation?.updatedBy, admin.userId);
+  assert.equal(mutation?.status, undefined);
+  assert.equal(audit?.action, 'INVENTORY_CREATED');
+  assert.equal(audit?.entityCode, inventory.inventoryCode);
+  assert.deepEqual(audit?.actor, admin);
+});
+
+test('inventory creation respects the member platform permission', async () => {
+  let created = false;
+  const commands = new InventoryCommandService(
+    {
+      createInventory: async () => {
+        created = true;
+        return inventory;
+      },
+    } as unknown as IInventoryService,
+    {
+      logEntityActivity: async () => undefined,
+    } as IActivityService,
+    {
+      hasPermission: async () => false,
+    } as unknown as IPlatformSettingsService,
+  );
+
+  await assert.rejects(
+    commands.create(
+      {
+        categoryGroup: 'Outdoor',
+        subCategory: 'Hoarding',
+        title: 'MG Road',
+        city: 'Bengaluru',
+        area: 'CBD',
+      },
+      { ...admin, role: 'member' },
+    ),
+    (error: unknown) =>
+      error instanceof HttpError
+      && error.statusCode === 403,
+  );
+  assert.equal(created, false);
+});
+
 test('inventory confirmation rejects a stale item before changing prices', async () => {
   let confirmed = false;
   const commands = new InventoryCommandService(
@@ -41,6 +130,7 @@ test('inventory confirmation rejects a stale item before changing prices', async
       },
     } as unknown as IInventoryService,
     {} as IActivityService,
+    {} as IPlatformSettingsService,
   );
 
   await assert.rejects(
@@ -63,6 +153,7 @@ test('member cannot activate or deactivate inventory through the command', async
   const commands = new InventoryCommandService(
     {} as IInventoryService,
     {} as IActivityService,
+    {} as IPlatformSettingsService,
   );
   await assert.rejects(
     () =>

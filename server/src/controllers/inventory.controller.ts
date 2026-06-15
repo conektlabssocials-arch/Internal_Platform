@@ -57,16 +57,7 @@ export class InventoryController {
 
   postInventory = async (req: Request, res: Response) => {
     const authUser = getAuthUser(res.locals);
-    const item = await this.inventoryService.createInventory({
-      ...req.body,
-      createdBy: authUser.userId,
-      updatedBy: authUser.userId,
-    });
-    await this.activity.logEntityActivity({
-      actor: authUser, action: ACTIVITY_ACTIONS.INVENTORY_CREATED, entityType: 'Inventory',
-      entityId: item.id, entityCode: item.inventoryCode, entityTitle: item.title,
-      message: `${item.inventoryCode} inventory was created.`, req,
-    });
+    const item = await this.commands.create(req.body, authUser, req);
 
     res.status(201).json({ data: item });
   };
