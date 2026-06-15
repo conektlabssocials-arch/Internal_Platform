@@ -184,6 +184,85 @@ test('draft updates denormalize fresh inventory and recalculate pricing', async 
   assert.equal(result.pricing.grandTotal, 1180000);
 });
 
+test('draft updates preserve A3 property audience data in the plan snapshot', async () => {
+  const planId = new Types.ObjectId();
+  const campaignId = new Types.ObjectId();
+  const inventoryId = new Types.ObjectId();
+  const now = new Date();
+  const plan = {
+    _id: planId,
+    campaign: campaignId,
+    versionNumber: 1,
+    versionLabel: 'v1',
+    title: 'A3 plan',
+    status: 'Draft',
+    isLocked: false,
+    items: [],
+    pricing: { taxPercentage: 0 },
+    createdAt: now,
+    updatedAt: now,
+  };
+  const planService = service({
+    plans: {
+      findById: async () => plan as never,
+      findByIdPopulated: async () => plan as never,
+      save: async (document) => document,
+    },
+    inventory: {
+      findById: async () =>
+        ({
+          _id: inventoryId,
+          inventoryCode: 'A3-GUR-SLP-0001',
+          title: 'Apartment Screen Network',
+          categoryGroup: 'A3 Screens',
+          subCategory: 'Residential',
+          city: 'Gurgaon',
+          area: 'Sushant Lok',
+          location: {
+            address: 'Sushant Lok Phase 1, Gurgaon',
+            latitude: 28.459046,
+            longitude: 77.080014,
+          },
+          screenSize: '32 inch LED TV',
+          numberOfScreens: 4,
+          households: 202,
+          approxReach: 898,
+          monthlyImpressions: 26670,
+          buildingAge: 23,
+          status: 'active',
+          availabilityStatus: 'available',
+          lastConfirmedAt: now,
+        }) as never,
+    },
+  });
+
+  const result = (await planService.update(planId.toString(), {
+    items: [{
+      inventory: inventoryId.toString(),
+      unitSellingPrice: 12500,
+      unitInternalCost: 9100,
+    }],
+  })) as {
+    items: Array<{
+      location?: { address?: string };
+      households?: number;
+      approxReach?: number;
+      monthlyImpressions?: number;
+      buildingAge?: number;
+      screenSize?: string;
+      numberOfScreens?: number;
+    }>;
+  };
+
+  assert.equal(result.items[0].location?.address, 'Sushant Lok Phase 1, Gurgaon');
+  assert.equal(result.items[0].households, 202);
+  assert.equal(result.items[0].approxReach, 898);
+  assert.equal(result.items[0].monthlyImpressions, 26670);
+  assert.equal(result.items[0].buildingAge, 23);
+  assert.equal(result.items[0].screenSize, '32 inch LED TV');
+  assert.equal(result.items[0].numberOfScreens, 4);
+});
+
 test('plan statuses cannot skip the documented workflow', async () => {
   const planId = new Types.ObjectId();
   const planService = service({

@@ -27,6 +27,12 @@ export type TemplatePlanData = {
     route?: string;
     depot?: string;
     itinerary?: string;
+    screenSize?: string;
+    numberOfScreens?: number;
+    households?: number;
+    approxReach?: number;
+    monthlyImpressions?: number;
+    buildingAge?: number;
     startDate?: Date;
     endDate?: Date;
     quantity: number;
@@ -186,9 +192,17 @@ export const documentShell = ({
 <head>
   <meta charset="utf-8" />
   <style>
-    @page { size: A4; margin: 18mm 14mm; }
+    @page { size: A4; margin: 18mm 14mm; background: #fbfaf6; }
     * { box-sizing: border-box; }
-    body { margin: 0; color: #17211d; background: #fbfaf6; font: 12px Arial, sans-serif; }
+    html { background: #fbfaf6; }
+    body {
+      margin: 0;
+      color: #17211d;
+      background: #fbfaf6;
+      font: 12px Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     h1, h2, h3, p { margin-top: 0; }
     h1 { margin-bottom: 6px; font-size: 26px; }
     h2 { margin: 24px 0 10px; color: #176b4d; font-size: 16px; }

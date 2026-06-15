@@ -10,6 +10,7 @@ import type {
 import type { IContactRepository } from '../repositories/contact.repository.js';
 import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
+import type { IGeocodingService } from './geocoding.service.js';
 
 export type ImportValidationResult = {
   rows: ImportStoredRow[];
@@ -109,6 +110,8 @@ export class ImportValidatorsService {
     private readonly crmEntityRepository: ICrmEntityRepository,
     @inject(TOKENS.ContactRepository)
     private readonly contactRepository: IContactRepository,
+    @inject(TOKENS.GeocodingService)
+    private readonly geocodingService: IGeocodingService,
   ) {}
 
   async validate(importType: ImportType, rawRows: Record<string, unknown>[]) {
@@ -148,7 +151,7 @@ export class ImportValidatorsService {
     );
     const fileKeys = new Set<string>();
 
-    const rows = rawRows.map((raw, index): ImportStoredRow => {
+    const rows = await Promise.all(rawRows.map(async (raw, index): Promise<ImportStoredRow> => {
       const rowNumber = index + 2;
       const errors: ImportIssue[] = [];
       const warnings: ImportIssue[] = [];
@@ -160,7 +163,7 @@ export class ImportValidatorsService {
       const area = text(raw.area) || (categoryGroup === 'A3 Screens' ? text(raw.locality) : undefined);
 
       if (!title) errors.push(issue(rowNumber, 'title', 'title is required', raw.title));
-      if (!city) errors.push(issue(rowNumber, 'zone', categoryGroup === 'A3 Screens' ? 'zone is required' : 'city is required', raw.city || raw.zone));
+      if (!city) errors.push(issue(rowNumber, 'city', 'city is required', raw.city || raw.zone));
       if (!area) errors.push(issue(rowNumber, 'locality', categoryGroup === 'A3 Screens' ? 'locality is required' : 'area is required', raw.area || raw.locality));
 
       const sizeRequired = categoryGroup !== 'A3 Screens';
@@ -221,10 +224,56 @@ export class ImportValidatorsService {
         errors,
         categoryGroup === 'Outdoor' || categoryGroup === 'A3 Screens',
       );
-      const address =
+      const suppliedAddress =
         categoryGroup === 'Outdoor'
           ? requiredText(raw, rowNumber, 'address', errors)
           : text(raw.address);
+      let address = suppliedAddress;
+      let pinCode = text(raw.pinCode);
+
+      if (
+        categoryGroup === 'A3 Screens' &&
+        latitude !== undefined &&
+        longitude !== undefined &&
+        (!address || !pinCode)
+      ) {
+        const geocoded = await this.geocodingService.reverseGeocode(
+          latitude,
+          longitude,
+        );
+        address = address || geocoded.address;
+        pinCode = pinCode || geocoded.pinCode;
+
+        if (!suppliedAddress && address) {
+          warnings.push(
+            issue(rowNumber, 'address', 'address was filled from latitude and longitude', address),
+          );
+        }
+        if (!text(raw.pinCode) && pinCode) {
+          warnings.push(
+            issue(rowNumber, 'pinCode', 'pinCode was filled from latitude and longitude', pinCode),
+          );
+        }
+      }
+
+      if (categoryGroup === 'A3 Screens' && !address) {
+        errors.push(
+          issue(
+            rowNumber,
+            'address',
+            'address could not be resolved from latitude and longitude',
+          ),
+        );
+      }
+      if (categoryGroup === 'A3 Screens' && !pinCode) {
+        errors.push(
+          issue(
+            rowNumber,
+            'pinCode',
+            'pinCode could not be resolved from latitude and longitude',
+          ),
+        );
+      }
 
       if (latitude !== undefined && (latitude < -90 || latitude > 90)) {
         errors.push(issue(rowNumber, 'latitude', 'latitude must be between -90 and 90', latitude));
@@ -258,7 +307,6 @@ export class ImportValidatorsService {
 
       const a3RequiredTextFields = [
         'propertyName',
-        'pinCode',
         'screenSize',
         'mediaSiteId',
         'propertyType',
@@ -318,6 +366,14 @@ export class ImportValidatorsService {
         rowNumber,
         'sellingPrice',
         errors,
+        categoryGroup === 'A3 Screens',
+      );
+      const explicitInternalCost = parseNumber(
+        raw.internalCost,
+        rowNumber,
+        'internalCost',
+        errors,
+        categoryGroup === 'A3 Screens',
       );
 
       const data = cleanObject({
@@ -336,9 +392,12 @@ export class ImportValidatorsService {
         ownerName: text(raw.ownerName),
         ownerPhone: text(raw.ownerPhone),
         supplierName: text(raw.supplierName),
-        internalCost: parseNumber(raw.internalCost, rowNumber, 'internalCost', errors),
+        internalCost:
+          categoryGroup === 'A3 Screens'
+            ? explicitInternalCost ?? discountedMonthlyAdBudget ?? monthlyAdBudget
+            : explicitInternalCost,
         sellingPrice:
-          explicitSellingPrice ?? discountedMonthlyAdBudget ?? monthlyAdBudget,
+          explicitSellingPrice,
         minSpend: parseNumber(raw.minSpend, rowNumber, 'minSpend', errors),
         minDurationDays: parseNumber(
           raw.minDurationDays,
@@ -385,7 +444,7 @@ export class ImportValidatorsService {
         propertyName,
         phase: text(raw.phase),
         profile: text(raw.profile),
-        pinCode: text(raw.pinCode),
+        pinCode,
         propertyPriceUptoCr: parseNumber(
           raw.propertyPriceUptoCr,
           rowNumber,
@@ -433,7 +492,7 @@ export class ImportValidatorsService {
 
       fileKeys.add(duplicateKey);
       return { rowNumber, status: 'valid', data, errors, warnings };
-    });
+    }));
 
     return this.summarize(rows);
   }

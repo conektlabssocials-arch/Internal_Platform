@@ -20,6 +20,12 @@ export type PlanItem = {
   route?: string;
   depot?: string;
   itinerary?: string;
+  screenSize?: string;
+  numberOfScreens?: number;
+  households?: number;
+  approxReach?: number;
+  monthlyImpressions?: number;
+  buildingAge?: number;
   startDate?: string;
   endDate?: string;
   durationDays: number;

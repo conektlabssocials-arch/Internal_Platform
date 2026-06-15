@@ -150,7 +150,19 @@ export const getConfirmationStatus = (item: InventoryDocument): ConfirmationStat
   return item.lastConfirmedAt < getStaleBefore() ? 'stale' : 'fresh';
 };
 
-const mapToDto = (item: InventoryDocument) => mapInventoryToDto(item, getConfirmationStatus(item));
+const mapToDto = (item: InventoryDocument) => {
+  const dto = mapInventoryToDto(item, getConfirmationStatus(item));
+
+  if (getEffectiveCategoryGroup(item) === 'A3 Screens' && !item.lastConfirmedAt) {
+    dto.internalCost =
+      item.internalCost ??
+      item.discountedMonthlyAdBudget ??
+      item.monthlyAdBudget ??
+      undefined;
+  }
+
+  return dto;
+};
 
 @injectable()
 export class InventoryService implements IInventoryService {
@@ -268,6 +280,17 @@ export class InventoryService implements IInventoryService {
   async confirmInventory(id: string, input: ConfirmInventoryDto) {
     const item = await this.getInventoryDocument(id);
 
+    if (
+      getEffectiveCategoryGroup(item) === 'A3 Screens' &&
+      !item.lastConfirmedAt &&
+      input.sellingPrice === undefined
+    ) {
+      throw new HttpError(
+        400,
+        'Selling price is required when confirming A3 Screens inventory',
+      );
+    }
+
     item.lastConfirmedAt = new Date();
     item.confirmedBy = toObjectId(input.confirmedBy);
     item.updatedBy = toObjectId(input.confirmedBy);
@@ -283,6 +306,12 @@ export class InventoryService implements IInventoryService {
 
     if (input.internalCost !== undefined) {
       item.internalCost = optionalNumber(input.internalCost);
+    } else if (
+      getEffectiveCategoryGroup(item) === 'A3 Screens' &&
+      item.internalCost === undefined
+    ) {
+      item.internalCost =
+        item.discountedMonthlyAdBudget ?? item.monthlyAdBudget;
     }
 
     if (input.sellingPrice !== undefined) {
@@ -474,9 +503,11 @@ export class InventoryService implements IInventoryService {
       };
     }
 
-    if (categoryGroup === 'A3 Screens' && data.sellingPrice === undefined) {
-      data.sellingPrice =
-        data.discountedMonthlyAdBudget ?? data.monthlyAdBudget;
+    if (categoryGroup === 'A3 Screens') {
+      if (data.internalCost === undefined) {
+        data.internalCost =
+          data.discountedMonthlyAdBudget ?? data.monthlyAdBudget;
+      }
     }
 
     if (isCreate) {
@@ -576,6 +607,7 @@ export class InventoryService implements IInventoryService {
         | { latitude?: number; longitude?: number }
         | undefined;
       const requiredFields = [
+        'location.address',
         'propertyName',
         'pinCode',
         'screenSize',
@@ -590,7 +622,11 @@ export class InventoryService implements IInventoryService {
       ];
 
       for (const field of requiredFields) {
-        if (data[field] === undefined || data[field] === '') {
+        const value =
+          field === 'location.address'
+            ? (data.location as { address?: string } | undefined)?.address
+            : data[field];
+        if (value === undefined || value === '') {
           throw new HttpError(400, `${field} is required for A3 Screens inventory`);
         }
       }

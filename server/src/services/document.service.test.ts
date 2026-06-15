@@ -146,6 +146,29 @@ test('plan proposal V2 follows the landscape inventory presentation', () => {
   assert.match(html, /A4 landscape/);
 });
 
+test('plan proposal V2 shows A3 property audience metrics', () => {
+  const html = buildPlanProposalV2Html({
+    ...data,
+    items: [{
+      ...data.items[0],
+      categoryGroup: 'A3 Screens',
+      subCategory: 'Residential',
+      screenSize: '32 inch LED TV',
+      numberOfScreens: 4,
+      households: 202,
+      approxReach: 898,
+      monthlyImpressions: 26670,
+      buildingAge: 23,
+    }],
+  });
+
+  assert.match(html, /Property Audience/);
+  assert.match(html, /Households \/ Flats/);
+  assert.match(html, /26,670/);
+  assert.match(html, /32 inch LED TV/);
+  assert.match(html, /No\. of Screens/);
+});
+
 test('internal cost sheet renders internal cost and margin information', () => {
   const html = buildInternalCostSheetHtml(data);
   assert.match(html, /SECRET_INTERNAL_NOTE/);
@@ -167,6 +190,8 @@ test('document file names are sanitized and versioned', () => {
 
 test('plan proposal includes a client-safe fixed-site location fallback table', () => {
   const html = buildPlanProposalHtml(data);
+  assert.match(html, /@page \{ size: A4; margin: 18mm 14mm; background: #fbfaf6; \}/);
+  assert.match(html, /body \{[\s\S]*background: #fbfaf6/);
   assert.match(html, /Fixed Site Locations/);
   assert.match(html, /80 Feet Road, Koramangala/);
   assert.match(html, /12\.9352/);

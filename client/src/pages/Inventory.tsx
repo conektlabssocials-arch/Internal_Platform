@@ -572,6 +572,7 @@ const Inventory = () => {
 
     if (form.categoryGroup === 'A3 Screens') {
       const required = [
+        form.address,
         form.propertyName,
         form.pinCode,
         form.screenSize,
@@ -1471,14 +1472,12 @@ const InventoryFormModal = ({
             {geocodeLoading ? <p className="mt-2 text-xs text-slate-500">Looking up address...</p> : null}
             {geocodeError ? <p className="mt-2 text-xs text-amber-700">{geocodeError}</p> : null}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              {form.categoryGroup === 'Outdoor' ? (
-                <TextField
-                  label="Address"
-                  value={form.address}
-                  onChange={(value) => onFormChange({ ...form, address: value })}
-                  required
-                />
-              ) : null}
+              <TextField
+                label="Address"
+                value={form.address}
+                onChange={(value) => onFormChange({ ...form, address: value })}
+                required
+              />
               <TextField
                 label="Latitude"
                 value={form.latitude}
@@ -1547,8 +1546,12 @@ const InventoryFormModal = ({
               />
             </>
           ) : null}
-          <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => onFormChange({ ...form, internalCost: value })} />
-          <TextField label="Selling Price" value={form.sellingPrice} onChange={(value) => onFormChange({ ...form, sellingPrice: value })} />
+          {form.categoryGroup !== 'A3 Screens' ? (
+            <>
+              <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => onFormChange({ ...form, internalCost: value })} />
+              <TextField label="Selling Price" value={form.sellingPrice} onChange={(value) => onFormChange({ ...form, sellingPrice: value })} />
+            </>
+          ) : null}
           <TextField label="Min Spend" value={form.minSpend} onChange={(value) => onFormChange({ ...form, minSpend: value })} />
           <TextField label="Min Duration Days" value={form.minDurationDays} onChange={(value) => onFormChange({ ...form, minDurationDays: value })} />
           <SelectField label="Availability" value={form.availabilityStatus} options={availabilityStatuses} onChange={(value) => onFormChange({ ...form, availabilityStatus: value as AvailabilityStatus })} />
@@ -1705,7 +1708,12 @@ const ConfirmInventoryModal = ({
         <TextField label="Confirmation Note" value={form.confirmationNote} onChange={(value) => onChange({ ...form, confirmationNote: value })} />
         <SelectField label="Availability" value={form.availabilityStatus} options={availabilityStatuses} onChange={(value) => onChange({ ...form, availabilityStatus: value as AvailabilityStatus })} />
         <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => onChange({ ...form, internalCost: value })} />
-        <TextField label="Selling Price" value={form.sellingPrice} onChange={(value) => onChange({ ...form, sellingPrice: value })} />
+        <TextField
+          label="Selling Price"
+          value={form.sellingPrice}
+          onChange={(value) => onChange({ ...form, sellingPrice: value })}
+          required={item.categoryGroup === 'A3 Screens'}
+        />
       </div>
 
       <div className="mt-6 flex justify-end gap-3">

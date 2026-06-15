@@ -113,6 +113,7 @@ test('inventory API creates A3 property screens without billboard dimensions', a
       propertyType: 'RESIDENTIAL',
       nccsClass: 'A3',
       location: {
+        address: 'Ansal Sushant Apartments, Gurgaon',
         latitude: 28.459046,
         longitude: 77.080014,
         source: 'manual',
@@ -121,10 +122,25 @@ test('inventory API creates A3 property screens without billboard dimensions', a
     .expect(201);
 
   assert.match(created.body.data.inventoryCode, /^A3-GUR-SLP-\d{4}$/);
-  assert.equal(created.body.data.sellingPrice, 9100);
+  assert.equal(created.body.data.internalCost, 9100);
+  assert.equal(created.body.data.sellingPrice, undefined);
   assert.equal(created.body.data.screenSize, '32 inch LED TV');
   assert.equal(created.body.data.width, undefined);
   assert.equal(created.body.data.location.latitude, 28.459046);
+
+  await admin
+    .patch(`/api/inventory/${created.body.data.id}/confirm`)
+    .send({ availabilityStatus: 'available' })
+    .expect(400);
+
+  const confirmed = await admin
+    .patch(`/api/inventory/${created.body.data.id}/confirm`)
+    .send({ availabilityStatus: 'available', sellingPrice: 12500 })
+    .expect(200);
+
+  assert.equal(confirmed.body.data.internalCost, 9100);
+  assert.equal(confirmed.body.data.sellingPrice, 12500);
+  assert.equal(confirmed.body.data.confirmationStatus, 'fresh');
 });
 
 test('confirming inventory makes it fresh', async () => {
@@ -189,4 +205,84 @@ test('CSV import validates before commit and keeps imported inventory unconfirme
   assert.equal(imported?.confirmationStatus, 'never_confirmed');
   assert.equal(imported?.lastConfirmedAt, undefined);
   assert.equal(await InventoryModel.countDocuments(), 1);
+});
+
+test('A3 CSV import stores city, internal cost, and selling price for confirmation', async () => {
+  await loginAdmin();
+  const csv = [
+    [
+      'categoryGroup',
+      'subCategory',
+      'title',
+      'city',
+      'locality',
+      'propertyName',
+      'pinCode',
+      'screenSize',
+      'numberOfScreens',
+      'households',
+      'approxReach',
+      'monthlyImpressions',
+      'address',
+      'latitude',
+      'longitude',
+      'monthlyAdBudget',
+      'discountedMonthlyAdBudget',
+      'internalCost',
+      'sellingPrice',
+      'mediaSiteId',
+      'propertyType',
+      'nccsClass',
+    ].join(','),
+    [
+      'A3 Screens',
+      'Residential',
+      'Sushant Lok Screen Network',
+      'Gurgaon',
+      'Sushant Lok',
+      'Sushant Apartments',
+      '122001',
+      '32 inch LED TV',
+      '4',
+      '202',
+      '898',
+      '26670',
+      'Sushant Apartments Gurgaon',
+      '28.459046',
+      '77.080014',
+      '14000',
+      '9100',
+      '9100',
+      '12500',
+      'MS-A3-001',
+      'RESIDENTIAL',
+      'A3',
+    ].join(','),
+  ].join('\n');
+
+  const upload = await admin
+    .post('/api/imports/inventory/upload')
+    .attach('file', Buffer.from(csv), {
+      filename: 'a3-screens.csv',
+      contentType: 'text/csv',
+    })
+    .expect(201);
+
+  const validation = await admin
+    .post(`/api/imports/jobs/${upload.body.data.id}/validate`)
+    .expect(200);
+  assert.equal(validation.body.data.summary.validRows, 1);
+
+  await admin
+    .post(`/api/imports/jobs/${upload.body.data.id}/commit`)
+    .expect(200);
+
+  const imported = await InventoryModel.findOne({
+    title: 'Sushant Lok Screen Network',
+  }).lean();
+  assert.equal(imported?.city, 'Gurgaon');
+  assert.equal(imported?.internalCost, 9100);
+  assert.equal(imported?.sellingPrice, 12500);
+  assert.equal(imported?.confirmationStatus, 'never_confirmed');
+  assert.equal(imported?.lastConfirmedAt, undefined);
 });

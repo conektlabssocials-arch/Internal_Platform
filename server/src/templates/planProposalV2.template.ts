@@ -74,6 +74,17 @@ const getCampaignDates = (items: PlanItem[]) => {
 
 const sitePage = (item: PlanItem, index: number) => {
   const photo = item.photos?.find(Boolean);
+  const propertyMetrics =
+    item.categoryGroup === 'A3 Screens'
+      ? [
+          ['Households / Flats', number(item.households)],
+          ['Approx. Reach', number(item.approxReach)],
+          ['Monthly Impressions', number(item.monthlyImpressions)],
+          ['Building Age', item.buildingAge !== undefined ? `${number(item.buildingAge)} years` : '-'],
+          ['Screen Size', item.screenSize || '-'],
+          ['No. of Screens', number(item.numberOfScreens)],
+        ]
+      : [];
   const routeDetails = [
     item.route && `Route: ${item.route}`,
     item.depot && `Depot: ${item.depot}`,
@@ -109,6 +120,21 @@ const sitePage = (item: PlanItem, index: number) => {
           ${
             routeDetails.length
               ? `<div class="route-details">${routeDetails.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}</div>`
+              : ''
+          }
+          ${
+            propertyMetrics.length
+              ? `<div class="property-metrics">
+                  <h3>Property Audience</h3>
+                  <div class="property-grid">
+                    ${propertyMetrics
+                      .map(
+                        ([label, value]) =>
+                          `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`,
+                      )
+                      .join('')}
+                  </div>
+                </div>`
               : ''
           }
           ${item.notes ? `<div class="site-note">${escapeHtml(item.notes)}</div>` : ''}
@@ -210,6 +236,12 @@ export const buildPlanProposalV2Html = (data: TemplatePlanData) => {
     .route-details, .site-note { margin-top: 4mm; padding: 3mm; color: #51665d; background: #edf5f0; font-size: 9px; line-height: 1.4; }
     .route-details p { margin-bottom: 1mm; }
     .site-note { white-space: pre-wrap; }
+    .property-metrics { margin-top: 4mm; padding-top: 3mm; border-top: 1px solid #dce6e0; }
+    .property-metrics h3 { margin-bottom: 2.5mm; font-size: 11px; }
+    .property-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; }
+    .property-grid div { padding: 2mm; background: #edf5f0; }
+    .property-grid span { display: block; color: #708078; font-size: 7.5px; text-transform: uppercase; }
+    .property-grid strong { display: block; margin-top: 1mm; color: #145c43; font-size: 10px; overflow-wrap: anywhere; }
     .client-note { margin-top: 7mm; padding: 5mm; border-left: 3px solid #39a272; background: #edf5f0; white-space: pre-wrap; }
     .terms { margin-top: 5mm; color: #708078; font-size: 9px; line-height: 1.5; }
     .page-footer { position: absolute; right: 18mm; bottom: 7mm; left: 18mm; display: flex; justify-content: space-between; padding-top: 2mm; border-top: 1px solid #d7e4dc; color: #73827b; font-size: 8px; letter-spacing: .5px; }

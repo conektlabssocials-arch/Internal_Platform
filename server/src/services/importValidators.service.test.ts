@@ -7,21 +7,25 @@ import { Types } from 'mongoose';
 import type { IContactRepository } from '../repositories/contact.repository.js';
 import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
+import type { IGeocodingService } from './geocoding.service.js';
 import { ImportValidatorsService } from './importValidators.service.js';
 
 const createService = ({
   inventory = [],
   entities = [],
   contacts = [],
+  geocode = async () => ({}),
 }: {
   inventory?: unknown[];
   entities?: unknown[];
   contacts?: unknown[];
+  geocode?: IGeocodingService['reverseGeocode'];
 } = {}) =>
   new ImportValidatorsService(
     { find: async () => inventory } as unknown as IInventoryRepository,
     { find: async () => entities } as unknown as ICrmEntityRepository,
     { find: async () => contacts } as unknown as IContactRepository,
+    { reverseGeocode: geocode } as IGeocodingService,
   );
 
 test('Outdoor validation requires map fields and keeps imported inventory unconfirmed', async () => {
@@ -102,7 +106,7 @@ test('A3 Screens validation maps zone and locality and preserves audience pricin
       categoryGroup: 'A3 Screens',
       subCategory: 'Residential',
       title: 'Ansal Sushant Apartments Screen Network',
-      zone: 'Gurgaon',
+      city: 'Gurgaon',
       locality: 'Sushant Lok Phase 1 Sector 43',
       propertyName: 'Ansal Sushant Apartments',
       profile: 'S3',
@@ -113,10 +117,13 @@ test('A3 Screens validation maps zone and locality and preserves audience pricin
       households: '202',
       approxReach: '898',
       monthlyImpressions: '26670',
+      address: 'Ansal Sushant Apartments, Gurgaon',
       latitude: '28.459046',
       longitude: '77.080014',
       monthlyAdBudget: '14000',
       discountedMonthlyAdBudget: '9100',
+      internalCost: '9100',
+      sellingPrice: '12500',
       mediaSiteId: 'MSQEWQ',
       buildingAge: '23',
       propertyType: 'RESIDENTIAL',
@@ -138,12 +145,57 @@ test('A3 Screens validation maps zone and locality and preserves audience pricin
   assert.equal(result.validRows, 2);
   assert.equal(result.rows[0].data.city, 'Gurgaon');
   assert.equal(result.rows[0].data.area, 'Sushant Lok Phase 1 Sector 43');
-  assert.equal(result.rows[0].data.sellingPrice, 9100);
+  assert.equal(
+    (result.rows[0].data.location as { address: string }).address,
+    'Ansal Sushant Apartments, Gurgaon',
+  );
+  assert.equal(result.rows[0].data.internalCost, 9100);
+  assert.equal(result.rows[0].data.sellingPrice, 12500);
   assert.equal(result.rows[0].data.width, undefined);
   assert.equal(
     (result.rows[0].data.location as { latitude: number }).latitude,
     28.459046,
   );
+});
+
+test('A3 Screens bulk validation fills address and PIN code from coordinates', async () => {
+  const service = createService({
+    geocode: async () => ({
+      address: 'Sushant Apartments, Gurgaon, Haryana 122001',
+      city: 'Gurgaon',
+      area: 'Sushant Lok',
+      pinCode: '122001',
+    }),
+  });
+  const result = await service.validate('inventory', [{
+    categoryGroup: 'A3 Screens',
+    subCategory: 'Residential',
+    title: 'Sushant Lok Screen Network',
+    city: 'Gurgaon',
+    locality: 'Sushant Lok',
+    propertyName: 'Sushant Apartments',
+    screenSize: '32 inch LED TV',
+    numberOfScreens: '4',
+    households: '202',
+    approxReach: '898',
+    monthlyImpressions: '26670',
+    latitude: '28.459046',
+    longitude: '77.080014',
+    monthlyAdBudget: '14000',
+    internalCost: '9100',
+    sellingPrice: '12500',
+    mediaSiteId: 'MS-A3-001',
+    propertyType: 'RESIDENTIAL',
+    nccsClass: 'A3',
+  }]);
+
+  assert.equal(result.validRows, 1);
+  assert.equal(
+    (result.rows[0].data.location as { address: string }).address,
+    'Sushant Apartments, Gurgaon, Haryana 122001',
+  );
+  assert.equal(result.rows[0].data.pinCode, '122001');
+  assert.equal(result.warnings.length, 2);
 });
 
 test('contacts resolve CRM by email and reject unknown entities', async () => {
