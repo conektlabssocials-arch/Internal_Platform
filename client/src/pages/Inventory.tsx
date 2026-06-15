@@ -876,6 +876,7 @@ const Inventory = () => {
             isAdmin={isAdmin}
             canEdit={canEdit}
             canConfirm={canConfirm}
+            categoryGroup={selectedCategory}
             items={items}
             loading={loading}
             paginationTotal={pagination.total}
@@ -993,6 +994,7 @@ type InventoryTableProps = {
   isAdmin: boolean;
   canEdit: boolean;
   canConfirm: boolean;
+  categoryGroup: CategoryGroup | null;
   items: InventoryItem[];
   loading: boolean;
   paginationTotal: number;
@@ -1006,6 +1008,7 @@ const InventoryTable = ({
   isAdmin,
   canEdit,
   canConfirm,
+  categoryGroup,
   items,
   loading,
   paginationTotal,
@@ -1025,7 +1028,12 @@ const InventoryTable = ({
     ) : (
       <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[1420px] text-left text-sm">
+        <table
+          className={[
+            'w-full text-left text-sm',
+            categoryGroup === 'A3 Screens' ? 'min-w-[1300px]' : 'min-w-[1420px]',
+          ].join(' ')}
+        >
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Code</th>
@@ -1034,7 +1042,9 @@ const InventoryTable = ({
               <th className="px-4 py-3 font-medium">Subcategory</th>
               <th className="px-4 py-3 font-medium">City / Zone</th>
               <th className="px-4 py-3 font-medium">Area / Locality</th>
-              <th className="px-4 py-3 font-medium">Size</th>
+              {categoryGroup !== 'A3 Screens' ? (
+                <th className="px-4 py-3 font-medium">Size</th>
+              ) : null}
               <th className="px-4 py-3 font-medium">Selling Price</th>
               <th className="px-4 py-3 font-medium">Availability</th>
               <th className="px-4 py-3 font-medium">Confirmation</th>
@@ -1066,18 +1076,13 @@ const InventoryTable = ({
                 <td className="px-4 py-4 text-slate-600">{item.subCategory}</td>
                 <td className="px-4 py-4 text-slate-600">{item.city}</td>
                 <td className="px-4 py-4 text-slate-600">{item.area}</td>
-                <td className="whitespace-nowrap px-4 py-4 text-slate-600">
-                  {item.categoryGroup === 'A3 Screens'
-                    ? [
-                        item.width && item.height
-                          ? `${item.height} H x ${item.width} W = ${item.totalSqFt || item.width * item.height} sq.ft.`
-                          : null,
-                        item.screenSize,
-                      ].filter(Boolean).join(' · ') || '-'
-                    : item.width && item.height
-                    ? `${item.width} x ${item.height} = ${item.totalSqFt || item.width * item.height} sq.ft.`
-                    : '-'}
-                </td>
+                {categoryGroup !== 'A3 Screens' ? (
+                  <td className="whitespace-nowrap px-4 py-4 text-slate-600">
+                    {item.width && item.height
+                      ? `${item.width} x ${item.height} = ${item.totalSqFt || item.width * item.height} sq.ft.`
+                      : '-'}
+                  </td>
+                ) : null}
                 <td className="px-4 py-4 text-slate-600">{currency(item.sellingPrice)}</td>
                 <td className="px-4 py-4 capitalize text-slate-600">{item.availabilityStatus}</td>
                 <td className="px-4 py-4">
