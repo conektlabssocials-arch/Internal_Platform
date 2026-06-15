@@ -686,7 +686,13 @@ const Inventory = () => {
         sellingPrice: numberOrUndefined(confirmForm.sellingPrice),
       };
 
-      await confirmInventory(confirmingItem.id, payload);
+      const confirmedItem = await confirmInventory(confirmingItem.id, payload);
+      setItems((current) =>
+        current.map((item) => (item.id === confirmedItem.id ? confirmedItem : item)),
+      );
+      setViewingItem((current) =>
+        current?.id === confirmedItem.id ? confirmedItem : current,
+      );
       setConfirmingItem(null);
       setConfirmForm(emptyConfirmForm);
       await refreshCurrentView();

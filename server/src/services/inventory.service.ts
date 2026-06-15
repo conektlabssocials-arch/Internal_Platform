@@ -295,7 +295,8 @@ export class InventoryService implements IInventoryService {
     item.lastConfirmedAt = new Date();
     item.confirmedBy = toObjectId(input.confirmedBy);
     item.updatedBy = toObjectId(input.confirmedBy);
-    item.confirmationNote = trimString(input.confirmationNote);
+    item.confirmationNote = trimString(input.confirmationNote) ?? '';
+    item.confirmationStatus = 'fresh';
 
     if (input.availabilityStatus !== undefined) {
       item.availabilityStatus = validateEnum(

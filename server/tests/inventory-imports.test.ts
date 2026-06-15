@@ -163,10 +163,17 @@ test('confirming inventory makes it fresh', async () => {
 
   const confirmed = await admin
     .patch(`/api/inventory/${created.body.data.id}/confirm`)
-    .send({ availabilityStatus: 'available' })
+    .send({ availabilityStatus: 'available', confirmationNote: '' })
     .expect(200);
   assert.equal(confirmed.body.data.confirmationStatus, 'fresh');
   assert.ok(confirmed.body.data.lastConfirmedAt);
+
+  const stored = await InventoryModel.findById(created.body.data.id).lean();
+  assert.equal(stored?.confirmationStatus, 'fresh');
+  assert.equal(stored?.confirmationNote, '');
+  assert.ok(stored?.confirmedBy);
+  assert.ok(stored?.lastConfirmedAt);
+  assert.ok(stored?.updatedAt);
 });
 
 test('CSV import validates before commit and keeps imported inventory unconfirmed', async () => {
