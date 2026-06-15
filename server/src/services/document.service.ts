@@ -89,7 +89,11 @@ const toTemplateData = (plan: any, generatedAt: Date): TemplatePlanData => {
     planVersionLabel: plan.versionLabel,
     clientNotes: plan.clientNotes,
     internalNotes: plan.internalNotes,
-    items: (plan.items || []).map((item: any) => ({
+    items: (plan.items || []).map((item: any) => {
+      const inventory = item.inventory && typeof item.inventory === 'object'
+        ? item.inventory
+        : undefined;
+      return {
       inventoryCode: item.inventoryCode,
       title: item.title,
       categoryGroup: item.categoryGroup,
@@ -99,17 +103,23 @@ const toTemplateData = (plan: any, generatedAt: Date): TemplatePlanData => {
       width: item.width,
       height: item.height,
       totalSqFt: item.totalSqFt,
-      location: item.location
+      location: item.location || inventory?.location
         ? {
-            address: item.location.address,
-            latitude: item.location.latitude,
-            longitude: item.location.longitude,
+            address: item.location?.address ?? inventory?.location?.address,
+            latitude: item.location?.latitude ?? inventory?.location?.latitude,
+            longitude: item.location?.longitude ?? inventory?.location?.longitude,
           }
         : undefined,
       photos: item.photos || [],
       route: item.route,
       depot: item.depot,
       itinerary: item.itinerary,
+      screenSize: item.screenSize ?? inventory?.screenSize,
+      numberOfScreens: item.numberOfScreens ?? inventory?.numberOfScreens,
+      households: item.households ?? inventory?.households,
+      approxReach: item.approxReach ?? inventory?.approxReach,
+      monthlyImpressions: item.monthlyImpressions ?? inventory?.monthlyImpressions,
+      buildingAge: item.buildingAge ?? inventory?.buildingAge,
       startDate: item.startDate,
       endDate: item.endDate,
       quantity: item.quantity || 1,
@@ -120,7 +130,8 @@ const toTemplateData = (plan: any, generatedAt: Date): TemplatePlanData => {
       marginAmount: item.marginAmount || 0,
       marginPercentage: item.marginPercentage || 0,
       notes: item.notes,
-    })),
+      };
+    }),
     pricing: {
       subtotal: plan.pricing?.subtotal || 0,
       taxPercentage: plan.pricing?.taxPercentage || 0,

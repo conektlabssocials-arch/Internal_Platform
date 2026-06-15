@@ -4,6 +4,7 @@ export type ReverseGeocodeResult = {
   address?: string;
   city?: string;
   area?: string;
+  pinCode?: string;
   raw?: unknown;
 };
 
@@ -67,6 +68,7 @@ export class GeocodingService implements IGeocodingService {
       address: raw.display_name,
       city: getAddressPart(address, ['city', 'town', 'village', 'county', 'state_district']),
       area: getAddressPart(address, ['suburb', 'neighbourhood', 'quarter', 'road']),
+      pinCode: address.postcode,
       raw,
     };
   }
@@ -100,6 +102,7 @@ export class GeocodingService implements IGeocodingService {
     const feature = raw.features?.[0];
     const context = feature?.context || [];
     const city = context.find((item) => item.id?.startsWith('place'))?.text;
+    const pinCode = context.find((item) => item.id?.startsWith('postcode'))?.text;
     const area =
       feature?.place_type?.includes('neighborhood') || feature?.place_type?.includes('locality')
         ? feature.text
@@ -109,6 +112,7 @@ export class GeocodingService implements IGeocodingService {
       address: feature?.place_name,
       city,
       area,
+      pinCode,
       raw,
     };
   }
