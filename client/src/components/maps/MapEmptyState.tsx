@@ -1,5 +1,5 @@
 const MapEmptyState = ({
-  message = 'This plan does not include fixed outdoor sites with map locations.',
+  message = 'This plan does not include fixed Outdoor or A3 screen sites with map locations.',
 }: {
   message?: string;
 }) => (

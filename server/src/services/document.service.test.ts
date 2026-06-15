@@ -4,6 +4,7 @@ import test from 'node:test';
 import { buildInternalCostSheetHtml } from '../templates/internalCostSheet.template.js';
 import { buildExecutionReportHtml } from '../templates/executionReport.template.js';
 import { buildPlanProposalHtml } from '../templates/planProposal.template.js';
+import { buildPlanProposalV2Html } from '../templates/planProposalV2.template.js';
 import { buildPurchaseOrderHtml } from '../templates/purchaseOrder.template.js';
 import { buildQuotationHtml } from '../templates/quotation.template.js';
 import type {
@@ -35,6 +36,12 @@ const data: TemplatePlanData = {
         latitude: 12.9352,
         longitude: 77.6245,
       },
+      photos: ['https://example.com/site.jpg'],
+      width: 20,
+      height: 10,
+      totalSqFt: 200,
+      startDate: new Date('2026-07-01T00:00:00.000Z'),
+      endDate: new Date('2026-07-31T00:00:00.000Z'),
       quantity: 1,
       unitSellingPrice: 500000,
       totalSellingPrice: 500000,
@@ -117,12 +124,26 @@ const operationData: TemplateOperationData = {
 };
 
 test('client PDF templates do not render internal cost, margin, or internal notes', () => {
-  for (const html of [buildPlanProposalHtml(data), buildQuotationHtml(data)]) {
+  for (const html of [
+    buildPlanProposalHtml(data),
+    buildPlanProposalV2Html(data),
+    buildQuotationHtml(data),
+  ]) {
     assert.equal(html.includes('SECRET_INTERNAL_NOTE'), false);
     assert.equal(html.includes('Internal Cost'), false);
     assert.equal(html.includes('Margin %'), false);
     assert.equal(html.includes('₹3,50,000'), false);
   }
+});
+
+test('plan proposal V2 follows the landscape inventory presentation', () => {
+  const html = buildPlanProposalV2Html(data);
+  assert.match(html, /Media Plan Proposal V2/);
+  assert.match(html, /Plan Overview/);
+  assert.match(html, /Site Inventory Summary/);
+  assert.match(html, /LOCATION 01/);
+  assert.match(html, /https:\/\/example.com\/site.jpg/);
+  assert.match(html, /A4 landscape/);
 });
 
 test('internal cost sheet renders internal cost and margin information', () => {
@@ -144,9 +165,9 @@ test('document file names are sanitized and versioned', () => {
   assert.equal(fileName.includes('/'), false);
 });
 
-test('plan proposal includes a client-safe Outdoor location fallback table', () => {
+test('plan proposal includes a client-safe fixed-site location fallback table', () => {
   const html = buildPlanProposalHtml(data);
-  assert.match(html, /Outdoor Site Locations/);
+  assert.match(html, /Fixed Site Locations/);
   assert.match(html, /80 Feet Road, Koramangala/);
   assert.match(html, /12\.9352/);
   assert.match(html, /Interactive map view is available/);

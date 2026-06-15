@@ -71,18 +71,6 @@ export class InventoryController {
     res.status(201).json({ data: item });
   };
 
-  importInventory = async (req: Request, res: Response) => {
-    const authUser = getAuthUser(res.locals);
-    const file = req.file;
-
-    if (!file) {
-      throw new HttpError(400, 'A CSV file is required');
-    }
-
-    const result = await this.inventoryService.importInventory(file.buffer, authUser.userId);
-    res.status(200).json({ data: result });
-  };
-
   patchInventory = async (req: Request, res: Response) => {
     const authUser = getAuthUser(res.locals);
     const before = await this.inventoryService.getInventoryById(req.params.id);
@@ -95,7 +83,31 @@ export class InventoryController {
       actor: authUser, action: ACTIVITY_ACTIONS.INVENTORY_UPDATED, entityType: 'Inventory',
       entityId: item.id, entityCode: item.inventoryCode, entityTitle: item.title,
       message: `${item.inventoryCode} inventory was updated.`,
-      changes: this.activity.buildChangeSet(before, item, ['categoryGroup','subCategory','title','city','area','width','height','internalCost','sellingPrice','availabilityStatus','status','confirmationStatus']),
+      changes: this.activity.buildChangeSet(before, item, [
+        'categoryGroup',
+        'subCategory',
+        'title',
+        'city',
+        'area',
+        'width',
+        'height',
+        'internalCost',
+        'sellingPrice',
+        'availabilityStatus',
+        'status',
+        'confirmationStatus',
+        'propertyName',
+        'screenSize',
+        'numberOfScreens',
+        'households',
+        'approxReach',
+        'monthlyImpressions',
+        'monthlyAdBudget',
+        'discountedMonthlyAdBudget',
+        'mediaSiteId',
+        'propertyType',
+        'nccsClass',
+      ]),
       req,
     });
 

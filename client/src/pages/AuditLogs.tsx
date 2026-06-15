@@ -1,6 +1,7 @@
 import { Fragment, FormEvent, useCallback, useEffect, useState } from 'react';
 
 import { getAuditLogs } from '../api/activityApi';
+import PageHeader from '../components/ui/PageHeader';
 import type { ActivityFilters, ActivityLog } from '../types/activity';
 
 const entityTypes = [
@@ -42,11 +43,7 @@ const AuditLogs = () => {
 
   return (
     <div className="space-y-5">
-      <header>
-        <p className="text-sm text-slate-500">Settings</p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">Audit Logs</h1>
-        <p className="mt-1 text-sm text-slate-500">Admin traceability for saved actions and system events.</p>
-      </header>
+      <PageHeader title="Audit Logs" eyebrow="Settings" description="Admin traceability for saved actions and system events." />
 
       <form onSubmit={applyFilters} className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-3 xl:grid-cols-7">
         <input
@@ -93,7 +90,7 @@ const AuditLogs = () => {
           className={inputClass}
         />
         <div className="flex gap-2">
-          <button type="submit" className="flex-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700">Apply</button>
+          <button type="submit" className="flex-1 rounded-md bg-emerald-800 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">Apply</button>
           <button
             type="button"
             onClick={() => {
@@ -110,7 +107,7 @@ const AuditLogs = () => {
       {error ? <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[1050px] text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
@@ -150,6 +147,29 @@ const AuditLogs = () => {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="divide-y divide-slate-100 md:hidden">
+          {items.map((item) => (
+            <article key={item.id} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-500">{formatDate(item.createdAt)}</p>
+                  <h3 className="mt-1 font-medium text-slate-900">{item.message}</h3>
+                </div>
+                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">{item.entityType}</span>
+              </div>
+              <p className="mt-3 text-sm text-slate-600">{item.actorName} · {item.actionLabel}</p>
+              <button type="button" onClick={() => setExpanded(expanded === item.id ? null : item.id)} className="mt-3 text-sm font-medium text-emerald-700">
+                {expanded === item.id ? 'Hide details' : 'Show details'}
+              </button>
+              {expanded === item.id ? (
+                <div className="mt-3 space-y-3">
+                  <Detail title="Changes" value={item.changes} />
+                  <Detail title="Metadata" value={item.metadata} />
+                </div>
+              ) : null}
+            </article>
+          ))}
         </div>
         {loading ? <p className="p-5 text-sm text-slate-500">Loading audit logs...</p> : null}
         {!loading && items.length === 0 ? <p className="p-6 text-center text-sm text-slate-500">No audit logs match these filters.</p> : null}

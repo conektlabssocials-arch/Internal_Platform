@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env*
 !.env.example
+!.env.test.example
 .DS_Store
 npm-debug.log*
 /server/uploads/

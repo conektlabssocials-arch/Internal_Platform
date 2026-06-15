@@ -163,8 +163,8 @@ const campaignMutationInput = {
   categoriesOfInterest: z.preprocess(
     (value) => (value === null ? undefined : value),
     z
-      .array(z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van']))
-      .max(4)
+      .array(z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van', 'A3 Screens']))
+      .max(5)
       .optional(),
   ),
   expectedRevenue: optionalMoney,
@@ -186,7 +186,7 @@ const reportLocationFilters = {
   city: optionalText,
   categoryGroup: z.preprocess(
     emptyToUndefined,
-    z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van']).optional(),
+    z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van', 'A3 Screens']).optional(),
   ),
 };
 
@@ -1317,8 +1317,8 @@ export const createPhase1McpServer = (
     );
     const planDocumentTypes =
       actor.role === 'admin'
-        ? (['PlanProposal', 'Quotation', 'InternalCostSheet'] as const)
-        : (['PlanProposal', 'Quotation'] as const);
+        ? (['PlanProposal', 'PlanProposalV2', 'Quotation', 'InternalCostSheet'] as const)
+        : (['PlanProposal', 'PlanProposalV2', 'Quotation'] as const);
 
     server.registerTool(
       'generate_plan_document',
@@ -1524,12 +1524,12 @@ export const createPhase1McpServer = (
     {
       title: 'Search inventory',
       description:
-        'Searches advertising inventory. For available inventory, set availabilityStatus to available and status to active. Use city for the requested city and categoryGroup for Outdoor, Auto, Bus, or Mobile Van.',
+        'Searches advertising inventory. For available inventory, set availabilityStatus to available and status to active. Use city for the requested city and categoryGroup for Outdoor, Auto, Bus, Mobile Van, or A3 Screens.',
       inputSchema: {
         search: optionalText,
         categoryGroup: z.preprocess(
           emptyToUndefined,
-          z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van']).optional(),
+          z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van', 'A3 Screens']).optional(),
         ),
         subCategory: optionalText,
         city: optionalText.describe(

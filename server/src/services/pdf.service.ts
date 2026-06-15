@@ -106,6 +106,23 @@ export class PdfService {
     try {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'domcontentloaded' });
+      await page.evaluate(async () => {
+        const images = Array.from(document.images);
+        await Promise.all(
+          images.map(
+            (image) =>
+              new Promise<void>((resolve) => {
+                if (image.complete) {
+                  resolve();
+                  return;
+                }
+                image.addEventListener('load', () => resolve(), { once: true });
+                image.addEventListener('error', () => resolve(), { once: true });
+                window.setTimeout(resolve, 10_000);
+              }),
+          ),
+        );
+      });
       const pdf = await page.pdf({
         format: 'A4',
         printBackground: true,

@@ -4,6 +4,8 @@ import type { RequestHandler } from 'express';
 import { TOKENS } from '../config/tokens.js';
 import type { IAuthService } from '../services/auth.service.js';
 import type { IUserService } from '../services/user.service.js';
+import type { IPlatformSettingsService } from '../services/platformSettings.service.js';
+import type { MemberPermission } from '../models/platformSettings.model.js';
 import { HttpError } from '../utils/httpError.js';
 
 @injectable()
@@ -13,6 +15,8 @@ export class AuthMiddleware {
     private readonly authService: IAuthService,
     @inject(TOKENS.UserService)
     private readonly userService: IUserService,
+    @inject(TOKENS.PlatformSettingsService)
+    private readonly platformSettings: IPlatformSettingsService,
   ) {}
 
   requireAuth: RequestHandler = (req, res, next) => {
@@ -60,4 +64,23 @@ export class AuthMiddleware {
     }
     next();
   };
+
+  requirePermission = (permission: MemberPermission): RequestHandler =>
+    (_req, res, next) => {
+      const authUser = res.locals.authUser;
+      if (!authUser) {
+        next(new HttpError(401, 'Authentication required'));
+        return;
+      }
+      this.platformSettings
+        .hasPermission(authUser.role, permission)
+        .then((allowed) => {
+          if (!allowed) {
+            next(new HttpError(403, `You do not have permission to ${permission.replace('.', ' ')}`));
+            return;
+          }
+          next();
+        })
+        .catch(next);
+    };
 }

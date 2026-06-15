@@ -3,7 +3,7 @@ export type CampaignSource = 'Call' | 'WhatsApp' | 'Email' | 'Referral' | 'Walk-
 export type CampaignBudgetType = 'fixed' | 'range' | 'unknown';
 export type CampaignStatus = 'New' | 'In Discussion' | 'Plan Shared' | 'Negotiating' | 'Won' | 'Lost' | 'On Hold';
 export type CampaignPriority = 'Low' | 'Medium' | 'High';
-export type CampaignCategory = 'Outdoor' | 'Auto' | 'Bus' | 'Mobile Van';
+export type CampaignCategory = 'Outdoor' | 'Auto' | 'Bus' | 'Mobile Van' | 'A3 Screens';
 
 export type CampaignClient = {
   id: string;

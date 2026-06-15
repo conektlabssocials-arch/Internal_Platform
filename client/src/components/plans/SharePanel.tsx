@@ -10,6 +10,7 @@ import type {
   PlanShare,
   ShareChannel,
 } from '../../types/share';
+import { useAuth } from '../../context/AuthContext';
 
 const initialForm: CreateSharePayload = {
   sharedWithName: '',
@@ -28,6 +29,8 @@ const SharePanel = ({
   beforeCreate: () => Promise<boolean>;
   onPlanShared: () => Promise<void>;
 }) => {
+  const { can } = useAuth();
+  const canManageShares = can('shares.manage');
   const [shares, setShares] = useState<PlanShare[]>([]);
   const [form, setForm] = useState<CreateSharePayload>(initialForm);
   const [latestUrl, setLatestUrl] = useState('');
@@ -103,7 +106,7 @@ const SharePanel = ({
         </button>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {canManageShares ? <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Field label="Shared with name" value={form.sharedWithName} onChange={(value) => update('sharedWithName', value)} />
         <Field label="Email" type="email" value={form.sharedWithEmail} onChange={(value) => update('sharedWithEmail', value)} />
         <Field label="Phone" value={form.sharedWithPhone} onChange={(value) => update('sharedWithPhone', value)} />
@@ -114,10 +117,10 @@ const SharePanel = ({
           </select>
         </label>
         <Field label="Expiry date" type="date" value={form.expiresAt} onChange={(value) => update('expiresAt', value)} />
-      </div>
-      <button type="button" disabled={creating} onClick={() => void create()} className={`${primaryButton} mt-3`}>
+      </div> : <p className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">You can review share history, but share-link management is disabled for Members.</p>}
+      {canManageShares ? <button type="button" disabled={creating} onClick={() => void create()} className={`${primaryButton} mt-3`}>
         {creating ? 'Creating...' : 'Create Share Link'}
-      </button>
+      </button> : null}
 
       {latestUrl ? (
         <div className="mt-4 flex flex-col gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 sm:flex-row sm:items-center">
@@ -162,7 +165,7 @@ const SharePanel = ({
                 <td className="px-3 py-3"><Status status={share.status} /></td>
                 <td className="px-3 py-3 text-right">
                   <button type="button" onClick={() => void copy(share.shareUrl)} className={linkButton}>Copy</button>
-                  {share.status === 'active' ? (
+                  {canManageShares && share.status === 'active' ? (
                     <button type="button" onClick={() => void disable(share.id)} className="ml-3 text-sm font-medium text-red-600 hover:text-red-800">Disable</button>
                   ) : null}
                 </td>
@@ -213,7 +216,7 @@ const formatDateTime = (value: string) =>
 
 const labelClass = 'text-xs font-medium text-slate-600';
 const inputClass = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900';
-const primaryButton = 'rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400';
+const primaryButton = 'rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400';
 const secondaryButton = 'rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50';
 const linkButton = 'text-sm font-medium text-emerald-700 hover:text-emerald-900';
 

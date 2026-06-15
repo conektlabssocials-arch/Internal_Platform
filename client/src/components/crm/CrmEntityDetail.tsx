@@ -9,6 +9,7 @@ type CrmEntityDetailProps = {
   onEditContact: (contact: Contact) => void;
   onToggleContact: (contact: Contact) => void;
   onDeleteContact: (contact: Contact) => void;
+  readOnly?: boolean;
 };
 
 const CrmEntityDetail = ({
@@ -19,6 +20,7 @@ const CrmEntityDetail = ({
   onEditContact,
   onToggleContact,
   onDeleteContact,
+  readOnly = false,
 }: CrmEntityDetailProps) => (
   <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/40 px-4 py-8">
     <div className="mx-auto max-w-5xl rounded-lg bg-white p-6 shadow-xl">
@@ -31,7 +33,7 @@ const CrmEntityDetail = ({
           <p className="mt-1 text-sm text-slate-500">{entity.entityType}</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onEditEntity} className={secondaryButtonClass}>Edit</button>
+          {!readOnly ? <button type="button" onClick={onEditEntity} className={secondaryButtonClass}>Edit</button> : null}
           <button type="button" onClick={onClose} className={secondaryButtonClass}>Close</button>
         </div>
       </div>
@@ -120,7 +122,7 @@ const CrmEntityDetail = ({
             <h3 className="font-semibold text-slate-900">Contacts</h3>
             <p className="mt-1 text-xs text-slate-500">People associated with this CRM record.</p>
           </div>
-          <button type="button" onClick={onAddContact} className={primaryButtonClass}>Add Contact</button>
+          {!readOnly ? <button type="button" onClick={onAddContact} className={primaryButtonClass}>Add Contact</button> : null}
         </div>
 
         {entity.contacts?.length ? (
@@ -133,7 +135,7 @@ const CrmEntityDetail = ({
                   <th className="px-4 py-3 font-medium">Phone</th>
                   <th className="px-4 py-3 font-medium">Email</th>
                   <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
+                  {!readOnly ? <th className="px-4 py-3 font-medium">Actions</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -151,7 +153,7 @@ const CrmEntityDetail = ({
                     <td className="px-4 py-3 text-slate-600">{contact.phone || '-'}</td>
                     <td className="px-4 py-3 text-slate-600">{contact.email || '-'}</td>
                     <td className="px-4 py-3"><StatusBadge status={contact.status} /></td>
-                    <td className="px-4 py-3">
+                    {!readOnly ? <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button type="button" onClick={() => onEditContact(contact)} className={smallButtonClass}>Edit</button>
                         <button type="button" onClick={() => onToggleContact(contact)} className={smallButtonClass}>
@@ -159,7 +161,7 @@ const CrmEntityDetail = ({
                         </button>
                         <button type="button" onClick={() => onDeleteContact(contact)} className={smallButtonClass}>Delete</button>
                       </div>
-                    </td>
+                    </td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -198,7 +200,7 @@ const StatusBadge = ({ status }: { status: 'active' | 'inactive' }) => (
 );
 
 const secondaryButtonClass = 'rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100';
-const primaryButtonClass = 'rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700';
+const primaryButtonClass = 'rounded-md bg-emerald-800 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700';
 const smallButtonClass = 'rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100';
 
 export default CrmEntityDetail;

@@ -14,26 +14,31 @@ router.use(auth.requireAuth);
 router.get('/', asyncHandler(controller.list));
 router.post(
   '/image',
+  auth.requirePermission('uploads.manage'),
   uploadFiles('inventory_photo'),
   asyncHandler(controller.uploadImages),
 );
 router.post(
   '/inventory/:inventoryId/photos',
+  auth.requirePermission('uploads.manage'),
   uploadFiles('inventory_photo'),
   asyncHandler(controller.inventoryPhotos),
 );
 router.post(
   '/operations/:operationId/items/:itemId/creative',
+  auth.requirePermission('uploads.manage'),
   uploadFiles('creative'),
   asyncHandler(controller.creative),
 );
 router.post(
   '/operations/:operationId/items/:itemId/po',
+  auth.requirePermission('uploads.manage'),
   uploadFiles('purchase_order'),
   asyncHandler(controller.purchaseOrder),
 );
 router.post(
   '/operations/:operationId/items/:itemId/proof',
+  auth.requirePermission('uploads.manage'),
   uploadFiles('proof'),
   asyncHandler(controller.proof),
 );

@@ -117,7 +117,7 @@ export class OperationService implements IOperationService {
       const mounting = { completed: false };
       const proof = { uploaded: false, photoUrls: [] };
       const takedown = {
-        required: item.categoryGroup === 'Outdoor',
+        required: ['Outdoor', 'A3 Screens'].includes(item.categoryGroup || ''),
         scheduledDate: item.endDate,
         completed: false,
       };

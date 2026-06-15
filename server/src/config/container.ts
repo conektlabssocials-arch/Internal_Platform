@@ -39,6 +39,13 @@ import { InventoryService } from '../services/inventory.service.js';
 import type { IInventoryService } from '../services/inventory.service.js';
 import { InventoryCommandService } from '../services/inventoryCommand.service.js';
 import type { IInventoryCommandService } from '../services/inventoryCommand.service.js';
+import { ImportJobRepository } from '../repositories/importJob.repository.js';
+import type { IImportJobRepository } from '../repositories/importJob.repository.js';
+import { ImportService } from '../services/import.service.js';
+import type { IImportService } from '../services/import.service.js';
+import { ImportProcessorService } from '../services/importProcessor.service.js';
+import { ImportTemplatesService } from '../services/importTemplates.service.js';
+import { ImportValidatorsService } from '../services/importValidators.service.js';
 import { OperationCounterRepository } from '../repositories/operationCounter.repository.js';
 import type { IOperationCounterRepository } from '../repositories/operationCounter.repository.js';
 import { OperationRepository } from '../repositories/operation.repository.js';
@@ -77,8 +84,20 @@ import { UserService } from '../services/user.service.js';
 import type { IUserService } from '../services/user.service.js';
 import { UserRepository } from '../repositories/user.repository.js';
 import type { IUserRepository } from '../repositories/user.repository.js';
+import { PlatformSettingsRepository } from '../repositories/platformSettings.repository.js';
+import type { IPlatformSettingsRepository } from '../repositories/platformSettings.repository.js';
+import { PlatformSettingsService } from '../services/platformSettings.service.js';
+import type { IPlatformSettingsService } from '../services/platformSettings.service.js';
 
 container.registerSingleton<IUserRepository>(TOKENS.UserRepository, UserRepository);
+container.registerSingleton<IPlatformSettingsRepository>(
+  TOKENS.PlatformSettingsRepository,
+  PlatformSettingsRepository,
+);
+container.registerSingleton<IPlatformSettingsService>(
+  TOKENS.PlatformSettingsService,
+  PlatformSettingsService,
+);
 container.registerSingleton<IActivityService>(TOKENS.ActivityService, ActivityService);
 container.registerSingleton<IUserService>(TOKENS.UserService, UserService);
 container.registerSingleton<IAuthService>(TOKENS.AuthService, AuthService);
@@ -126,6 +145,23 @@ container.registerSingleton<IInventoryCommandService>(
   TOKENS.InventoryCommandService,
   InventoryCommandService,
 );
+container.registerSingleton<IImportJobRepository>(
+  TOKENS.ImportJobRepository,
+  ImportJobRepository,
+);
+container.registerSingleton<ImportProcessorService>(
+  TOKENS.ImportProcessorService,
+  ImportProcessorService,
+);
+container.registerSingleton<ImportTemplatesService>(
+  TOKENS.ImportTemplatesService,
+  ImportTemplatesService,
+);
+container.registerSingleton<ImportValidatorsService>(
+  TOKENS.ImportValidatorsService,
+  ImportValidatorsService,
+);
+container.registerSingleton<IImportService>(TOKENS.ImportService, ImportService);
 container.registerSingleton<IOperationCounterRepository>(
   TOKENS.OperationCounterRepository,
   OperationCounterRepository,

@@ -16,8 +16,8 @@ router.get('/clients/search', asyncHandler(crmController.searchCampaignClients))
 router.get('/summary', asyncHandler(crmController.getSummary));
 router.get('/entities', asyncHandler(crmController.getEntities));
 router.get('/entities/:id', asyncHandler(crmController.getEntity));
-router.post('/entities', asyncHandler(crmController.postEntity));
-router.patch('/entities/:id', asyncHandler(crmController.patchEntity));
+router.post('/entities', authMiddleware.requirePermission('crm.manage'), asyncHandler(crmController.postEntity));
+router.patch('/entities/:id', authMiddleware.requirePermission('crm.manage'), asyncHandler(crmController.patchEntity));
 router.patch(
   '/entities/:id/deactivate',
   authMiddleware.requireAdmin,
@@ -29,13 +29,14 @@ router.patch(
   asyncHandler(crmController.activateEntity),
 );
 router.get('/entities/:entityId/contacts', asyncHandler(crmController.getContacts));
-router.post('/entities/:entityId/contacts', asyncHandler(crmController.postContact));
-router.patch('/contacts/:contactId', asyncHandler(crmController.patchContact));
+router.post('/entities/:entityId/contacts', authMiddleware.requirePermission('crm.manage'), asyncHandler(crmController.postContact));
+router.patch('/contacts/:contactId', authMiddleware.requirePermission('crm.manage'), asyncHandler(crmController.patchContact));
 router.patch(
   '/contacts/:contactId/deactivate',
+  authMiddleware.requirePermission('crm.manage'),
   asyncHandler(crmController.deactivateContact),
 );
-router.patch('/contacts/:contactId/activate', asyncHandler(crmController.activateContact));
-router.delete('/contacts/:contactId', asyncHandler(crmController.deleteContact));
+router.patch('/contacts/:contactId/activate', authMiddleware.requirePermission('crm.manage'), asyncHandler(crmController.activateContact));
+router.delete('/contacts/:contactId', authMiddleware.requirePermission('crm.manage'), asyncHandler(crmController.deleteContact));
 
 export default router;

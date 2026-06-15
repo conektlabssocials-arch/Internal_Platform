@@ -10,7 +10,6 @@ import {
   getInventoryById,
   getInventoryCodePreview,
   getInventorySummary,
-  importInventory,
   reverseGeocode,
   updateInventory,
 } from '../api/inventoryApi';
@@ -18,21 +17,16 @@ import { getCrmEntityById, searchSuppliers } from '../api/crmApi';
 import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard';
 import ActivityTimeline from '../components/activity/ActivityTimeline';
 import InventoryPhotoUploads from '../components/uploads/InventoryPhotoUploads';
+import ImagePreviewGrid from '../components/uploads/ImagePreviewGrid';
 import LocationPicker from '../components/map/LocationPicker';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import PageHeader from '../components/ui/PageHeader';
+import DataMigration from './DataMigration';
 import {
   INVENTORY_CATEGORIES,
   INVENTORY_CATEGORY_DESCRIPTIONS,
   INVENTORY_CATEGORY_GROUPS,
 } from '../constants/inventoryCategories';
-import {
-  downloadCategoryTemplate,
-  downloadCombinedTemplate,
-  getImportFieldRows,
-  IMPORT_CATEGORY_GROUPS,
-  IMPORT_CONDITIONAL_NOTE,
-  IMPORT_SUBCATEGORIES,
-} from '../constants/inventoryImport';
-import type { ImportFieldRequirement } from '../constants/inventoryImport';
 import { useAuth } from '../context/AuthContext';
 import type {
   AvailabilityStatus,
@@ -40,7 +34,6 @@ import type {
   ConfirmationStatus,
   ConfirmInventoryPayload,
   InventoryFilters,
-  InventoryImportResult,
   InventoryItem,
   InventoryPayload,
   InventoryStatus,
@@ -96,6 +89,23 @@ type InventoryFormState = {
   hasAudioSystem: boolean;
   hasCanopy: boolean;
   ratePerDay: string;
+  propertyName: string;
+  phase: string;
+  profile: string;
+  pinCode: string;
+  propertyPriceUptoCr: string;
+  screenSize: string;
+  propertyVisualLink: string;
+  numberOfScreens: string;
+  households: string;
+  approxReach: string;
+  monthlyImpressions: string;
+  monthlyAdBudget: string;
+  discountedMonthlyAdBudget: string;
+  mediaSiteId: string;
+  buildingAge: string;
+  propertyType: string;
+  nccsClass: string;
 };
 
 type ConfirmFormState = {
@@ -149,6 +159,23 @@ const createEmptyForm = (categoryGroup: CategoryGroup = 'Outdoor'): InventoryFor
   hasAudioSystem: false,
   hasCanopy: false,
   ratePerDay: '',
+  propertyName: '',
+  phase: '',
+  profile: '',
+  pinCode: '',
+  propertyPriceUptoCr: '',
+  screenSize: '',
+  propertyVisualLink: '',
+  numberOfScreens: '',
+  households: '',
+  approxReach: '',
+  monthlyImpressions: '',
+  monthlyAdBudget: '',
+  discountedMonthlyAdBudget: '',
+  mediaSiteId: '',
+  buildingAge: '',
+  propertyType: '',
+  nccsClass: '',
 });
 
 const emptyConfirmForm: ConfirmFormState = {
@@ -244,6 +271,23 @@ const itemToForm = (item: InventoryItem): InventoryFormState => ({
   hasAudioSystem: Boolean(item.hasAudioSystem),
   hasCanopy: Boolean(item.hasCanopy),
   ratePerDay: item.ratePerDay?.toString() || '',
+  propertyName: item.propertyName || '',
+  phase: item.phase || '',
+  profile: item.profile || '',
+  pinCode: item.pinCode || '',
+  propertyPriceUptoCr: item.propertyPriceUptoCr?.toString() || '',
+  screenSize: item.screenSize || '',
+  propertyVisualLink: item.propertyVisualLink || '',
+  numberOfScreens: item.numberOfScreens?.toString() || '',
+  households: item.households?.toString() || '',
+  approxReach: item.approxReach?.toString() || '',
+  monthlyImpressions: item.monthlyImpressions?.toString() || '',
+  monthlyAdBudget: item.monthlyAdBudget?.toString() || '',
+  discountedMonthlyAdBudget: item.discountedMonthlyAdBudget?.toString() || '',
+  mediaSiteId: item.mediaSiteId || '',
+  buildingAge: item.buildingAge?.toString() || '',
+  propertyType: item.propertyType || '',
+  nccsClass: item.nccsClass || '',
 });
 
 const formToPayload = (form: InventoryFormState): InventoryPayload => ({
@@ -253,7 +297,7 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
   city: form.city,
   area: form.area,
   location:
-    form.categoryGroup === 'Outdoor'
+    form.categoryGroup === 'Outdoor' || form.categoryGroup === 'A3 Screens'
       ? {
           address: form.address,
           latitude: numberOrUndefined(form.latitude),
@@ -296,10 +340,31 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
   hasAudioSystem: form.hasAudioSystem,
   hasCanopy: form.hasCanopy,
   ratePerDay: numberOrUndefined(form.ratePerDay),
+  propertyName: form.propertyName,
+  phase: form.phase,
+  profile: form.profile,
+  pinCode: form.pinCode,
+  propertyPriceUptoCr: numberOrUndefined(form.propertyPriceUptoCr),
+  screenSize: form.screenSize,
+  propertyVisualLink: form.propertyVisualLink,
+  numberOfScreens: numberOrUndefined(form.numberOfScreens),
+  households: numberOrUndefined(form.households),
+  approxReach: numberOrUndefined(form.approxReach),
+  monthlyImpressions: numberOrUndefined(form.monthlyImpressions),
+  monthlyAdBudget: numberOrUndefined(form.monthlyAdBudget),
+  discountedMonthlyAdBudget: numberOrUndefined(form.discountedMonthlyAdBudget),
+  mediaSiteId: form.mediaSiteId,
+  buildingAge: numberOrUndefined(form.buildingAge),
+  propertyType: form.propertyType,
+  nccsClass: form.nccsClass,
 });
 
 const Inventory = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canCreate = can('inventory.create');
+  const canEdit = can('inventory.edit');
+  const canConfirm = can('inventory.confirm');
+  const canUpload = can('uploads.manage');
   const [selectedCategory, setSelectedCategory] = useState<CategoryGroup | null>(null);
   const [summary, setSummary] = useState<InventorySummaryItem[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -309,7 +374,6 @@ const Inventory = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [form, setForm] = useState<InventoryFormState>(createEmptyForm());
   const [previewCode, setPreviewCode] = useState('');
@@ -318,6 +382,9 @@ const Inventory = () => {
   const [geocodeError, setGeocodeError] = useState('');
   const [confirmingItem, setConfirmingItem] = useState<InventoryItem | null>(null);
   const [confirmForm, setConfirmForm] = useState<ConfirmFormState>(emptyConfirmForm);
+  const [importOpen, setImportOpen] = useState(false);
+  const [statusItem, setStatusItem] = useState<InventoryItem | null>(null);
+  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
 
   const totalSqFt = useMemo(() => {
     const width = numberOrUndefined(form.width);
@@ -450,6 +517,19 @@ const Inventory = () => {
     setFormOpen(true);
   };
 
+  const openView = async (item: InventoryItem) => {
+    setLoading(true);
+    setError('');
+
+    try {
+      setViewingItem(await getInventoryById(item.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load inventory details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const closeForm = () => {
     setFormOpen(false);
     setEditingItem(null);
@@ -467,7 +547,7 @@ const Inventory = () => {
       return 'City and area are required';
     }
 
-    if (!form.width.trim() || !form.height.trim()) {
+    if (form.categoryGroup !== 'A3 Screens' && (!form.width.trim() || !form.height.trim())) {
       return 'Width and height are required';
     }
 
@@ -488,6 +568,28 @@ const Inventory = () => {
 
     if (form.categoryGroup === 'Mobile Van' && !form.itinerary.trim()) {
       return 'Mobile Van inventory requires itinerary';
+    }
+
+    if (form.categoryGroup === 'A3 Screens') {
+      const required = [
+        form.propertyName,
+        form.pinCode,
+        form.screenSize,
+        form.numberOfScreens,
+        form.households,
+        form.approxReach,
+        form.monthlyImpressions,
+        form.latitude,
+        form.longitude,
+        form.monthlyAdBudget,
+        form.mediaSiteId,
+        form.propertyType,
+        form.nccsClass,
+      ];
+
+      if (required.some((value) => !value.trim())) {
+        return 'Complete all required A3 Screens property, audience, location, and pricing fields';
+      }
     }
 
     return '';
@@ -609,48 +711,46 @@ const Inventory = () => {
   };
 
   const setFormCategoryGroup = (categoryGroup: CategoryGroup) => {
+    const hasFixedLocation = categoryGroup === 'Outdoor' || categoryGroup === 'A3 Screens';
     setForm((current) => ({
       ...current,
       categoryGroup,
       subCategory: INVENTORY_CATEGORIES[categoryGroup][0],
-      address: categoryGroup === 'Outdoor' ? current.address : '',
-      latitude: categoryGroup === 'Outdoor' ? current.latitude : '',
-      longitude: categoryGroup === 'Outdoor' ? current.longitude : '',
+      address: hasFixedLocation ? current.address : '',
+      latitude: hasFixedLocation ? current.latitude : '',
+      longitude: hasFixedLocation ? current.longitude : '',
     }));
   };
 
   return (
     <section className="space-y-6">
-      <div className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Inventory</h1>
-            <p className="mt-2 text-slate-600">
-              {showOverview
-                ? 'Choose a category to manage inventory.'
-                : `Manage ${selectedCategory} inventory.`}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setImportOpen(true)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Bulk Import CSV
-            </button>
-            {!showOverview ? (
+      <PageHeader
+        title="Inventory"
+        eyebrow="Media library"
+        description={showOverview ? 'Choose a category to manage inventory.' : `Manage ${selectedCategory} inventory.`}
+        actions={
+          <>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Bulk Data Upload
+              </button>
+            ) : null}
+            {!showOverview && canCreate ? (
               <button
                 type="button"
                 onClick={openCreateForm}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
               >
                 Add Inventory
               </button>
             ) : null}
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {error ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -691,8 +791,9 @@ const Inventory = () => {
             <button
               type="button"
               onClick={() => setSelectedCategory(null)}
-              className="text-sm font-medium text-slate-700 hover:text-slate-950"
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
+              <span aria-hidden="true">←</span>
               Back to Inventory Categories
             </button>
 
@@ -770,12 +871,15 @@ const Inventory = () => {
 
           <InventoryTable
             isAdmin={isAdmin}
+            canEdit={canEdit}
+            canConfirm={canConfirm}
             items={items}
             loading={loading}
             paginationTotal={pagination.total}
+            onView={openView}
             onEdit={openEditForm}
             onConfirm={openConfirmModal}
-            onStatusChange={handleStatusChange}
+            onStatusChange={setStatusItem}
           />
         </>
       )}
@@ -802,6 +906,19 @@ const Inventory = () => {
             setForm(itemToForm(refreshed));
             await refreshCurrentView();
           }}
+          canUpload={canUpload}
+        />
+      ) : null}
+
+      {viewingItem ? (
+        <InventoryDetailModal
+          item={viewingItem}
+          canEdit={canEdit}
+          onClose={() => setViewingItem(null)}
+          onEdit={() => {
+            setViewingItem(null);
+            openEditForm(viewingItem);
+          }}
         />
       ) : null}
 
@@ -817,11 +934,33 @@ const Inventory = () => {
       ) : null}
 
       {importOpen ? (
-        <ImportInventoryModal
+        <DataMigration
           onClose={() => setImportOpen(false)}
           onImported={refreshCurrentView}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(statusItem)}
+        title={statusItem?.status === 'active' ? 'Deactivate inventory?' : 'Activate inventory?'}
+        description={
+          statusItem?.status === 'active'
+            ? `${statusItem.inventoryCode} will no longer be available for active workflows.`
+            : `${statusItem?.inventoryCode || 'This inventory'} will become active again.`
+        }
+        confirmText={statusItem?.status === 'active' ? 'Deactivate' : 'Activate'}
+        danger={statusItem?.status === 'active'}
+        busy={saving}
+        onClose={() => setStatusItem(null)}
+        onConfirm={() => {
+          if (!statusItem) return;
+          setSaving(true);
+          void handleStatusChange(statusItem).finally(() => {
+            setSaving(false);
+            setStatusItem(null);
+          });
+        }}
+      />
     </section>
   );
 };
@@ -839,7 +978,7 @@ const Chip = ({ active, children, onClick }: ChipProps) => (
     className={[
       'rounded-full border px-3 py-1.5 text-sm font-medium',
       active
-        ? 'border-slate-900 bg-slate-900 text-white'
+        ? 'border-emerald-800 bg-emerald-800 text-white'
         : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
     ].join(' ')}
   >
@@ -849,9 +988,12 @@ const Chip = ({ active, children, onClick }: ChipProps) => (
 
 type InventoryTableProps = {
   isAdmin: boolean;
+  canEdit: boolean;
+  canConfirm: boolean;
   items: InventoryItem[];
   loading: boolean;
   paginationTotal: number;
+  onView: (item: InventoryItem) => void;
   onEdit: (item: InventoryItem) => void;
   onConfirm: (item: InventoryItem) => void;
   onStatusChange: (item: InventoryItem) => void;
@@ -859,9 +1001,12 @@ type InventoryTableProps = {
 
 const InventoryTable = ({
   isAdmin,
+  canEdit,
+  canConfirm,
   items,
   loading,
   paginationTotal,
+  onView,
   onEdit,
   onConfirm,
   onStatusChange,
@@ -875,22 +1020,23 @@ const InventoryTable = ({
         <p className="mt-1 text-sm text-slate-500">Add your first inventory item.</p>
       </div>
     ) : (
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+      <>
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[1420px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Code</th>
               <th className="px-4 py-3 font-medium">Title</th>
               <th className="px-4 py-3 font-medium">Category</th>
               <th className="px-4 py-3 font-medium">Subcategory</th>
-              <th className="px-4 py-3 font-medium">City</th>
-              <th className="px-4 py-3 font-medium">Area</th>
+              <th className="px-4 py-3 font-medium">City / Zone</th>
+              <th className="px-4 py-3 font-medium">Area / Locality</th>
               <th className="px-4 py-3 font-medium">Size</th>
               <th className="px-4 py-3 font-medium">Selling Price</th>
               <th className="px-4 py-3 font-medium">Availability</th>
               <th className="px-4 py-3 font-medium">Confirmation</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+              <th className="sticky right-0 border-l border-slate-200 bg-slate-50 px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -908,7 +1054,13 @@ const InventoryTable = ({
                     ) : (
                       <div className="h-10 w-10 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-50" />
                     )}
-                    <span>{item.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => onView(item)}
+                      className="text-left font-medium text-slate-900 hover:text-emerald-800 hover:underline"
+                    >
+                      {item.title}
+                    </button>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-slate-600">{item.categoryGroup}</td>
@@ -916,7 +1068,9 @@ const InventoryTable = ({
                 <td className="px-4 py-4 text-slate-600">{item.city}</td>
                 <td className="px-4 py-4 text-slate-600">{item.area}</td>
                 <td className="whitespace-nowrap px-4 py-4 text-slate-600">
-                  {item.width && item.height
+                  {item.categoryGroup === 'A3 Screens'
+                    ? item.screenSize || '-'
+                    : item.width && item.height
                     ? `${item.width} x ${item.height} = ${item.totalSqFt || item.width * item.height} sq.ft.`
                     : '-'}
                 </td>
@@ -933,10 +1087,11 @@ const InventoryTable = ({
                   </span>
                 </td>
                 <td className="px-4 py-4 capitalize text-slate-600">{item.status}</td>
-                <td className="px-4 py-4">
-                  <div className="flex gap-2">
-                    <ActionButton onClick={() => onEdit(item)}>View/Edit</ActionButton>
-                    <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton>
+                <td className="sticky right-0 border-l border-slate-100 bg-white px-4 py-4">
+                  <div className="grid min-w-28 gap-2">
+                    <ActionButton onClick={() => onView(item)}>View</ActionButton>
+                    {canEdit ? <ActionButton onClick={() => onEdit(item)}>Edit</ActionButton> : null}
+                    {canConfirm ? <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton> : null}
                     {isAdmin ? (
                       <ActionButton onClick={() => onStatusChange(item)}>
                         {item.status === 'active' ? 'Deactivate' : 'Activate'}
@@ -949,11 +1104,61 @@ const InventoryTable = ({
           </tbody>
         </table>
       </div>
+      <div className="divide-y divide-slate-100 md:hidden">
+        {items.map((item) => (
+          <article key={item.id} className="p-4">
+            <div className="flex items-start gap-3">
+              {item.photos[0] ? (
+                <img src={item.photos[0]} alt={item.title} className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover" />
+              ) : (
+                <div className="h-14 w-14 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-50" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-emerald-700">{item.inventoryCode}</p>
+                <button
+                  type="button"
+                  onClick={() => onView(item)}
+                  className="mt-1 block text-left font-semibold text-slate-900 hover:text-emerald-800 hover:underline"
+                >
+                  {item.title}
+                </button>
+                <p className="mt-1 text-xs text-slate-500">{item.subCategory} · {item.city} / {item.area}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <MobileInfo label="Selling price" value={currency(item.sellingPrice)} />
+              <MobileInfo label="Availability" value={labelize(item.availabilityStatus)} />
+              <MobileInfo label="Confirmation" value={labelize(item.confirmationStatus)} />
+              <MobileInfo label="Status" value={item.status} />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <ActionButton onClick={() => onView(item)}>View</ActionButton>
+              {canEdit ? <ActionButton onClick={() => onEdit(item)}>Edit</ActionButton> : null}
+              {canConfirm ? <ActionButton onClick={() => onConfirm(item)}>Confirm</ActionButton> : null}
+              {isAdmin ? (
+                <div className="col-span-2">
+                  <ActionButton onClick={() => onStatusChange(item)}>
+                    {item.status === 'active' ? 'Deactivate' : 'Activate'}
+                  </ActionButton>
+                </div>
+              ) : null}
+            </div>
+          </article>
+        ))}
+      </div>
+      </>
     )}
 
     <p className="border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
       Showing {items.length} of {paginationTotal} inventory items.
     </p>
+  </div>
+);
+
+const MobileInfo = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <p className="text-xs text-slate-500">{label}</p>
+    <p className="mt-0.5 capitalize text-slate-800">{value}</p>
   </div>
 );
 
@@ -966,10 +1171,188 @@ const ActionButton = ({ children, onClick }: ActionButtonProps) => (
   <button
     type="button"
     onClick={onClick}
-    className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+    className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
   >
     {children}
   </button>
+);
+
+type InventoryDetailModalProps = {
+  item: InventoryItem;
+  canEdit: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+};
+
+const InventoryDetailModal = ({
+  item,
+  canEdit,
+  onClose,
+  onEdit,
+}: InventoryDetailModalProps) => (
+  <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/55 p-0 sm:px-4 sm:py-8">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`View ${item.title}`}
+      className="mx-auto min-h-full max-w-5xl bg-white p-4 shadow-xl sm:min-h-0 sm:rounded-lg sm:p-6"
+    >
+      <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-emerald-700">{item.inventoryCode}</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-950">{item.title}</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {item.categoryGroup} / {item.subCategory}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+            >
+              Edit Inventory
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-3">
+        <InventoryDetailSection title="Location">
+          <InventoryDetail label={item.categoryGroup === 'A3 Screens' ? 'Zone' : 'City'} value={item.city} />
+          <InventoryDetail label={item.categoryGroup === 'A3 Screens' ? 'Locality' : 'Area'} value={item.area} />
+          <InventoryDetail label="Address" value={item.location?.address} wide />
+          <InventoryDetail
+            label="Coordinates"
+            value={
+              item.location?.latitude !== undefined && item.location?.longitude !== undefined
+                ? `${item.location.latitude}, ${item.location.longitude}`
+                : undefined
+            }
+            wide
+          />
+          <InventoryDetail label="Route" value={item.route} wide />
+          <InventoryDetail label="Depot" value={item.depot} />
+          <InventoryDetail label="Itinerary" value={item.itinerary} wide />
+        </InventoryDetailSection>
+
+        <InventoryDetailSection title="Media Details">
+          <InventoryDetail label="Size" value={item.width && item.height ? `${item.width} x ${item.height}` : undefined} />
+          <InventoryDetail label="Total Sq.Ft." value={item.totalSqFt ? `${item.totalSqFt} sq.ft.` : undefined} />
+          <InventoryDetail label="Illumination" value={item.illumination} />
+          <InventoryDetail label="Facing" value={item.facingDirection} />
+          <InventoryDetail label="Traffic Direction" value={item.trafficDirection} />
+          <InventoryDetail label="Estimated Traffic" value={item.estimatedTraffic} />
+          <InventoryDetail label="Vehicles" value={item.numberOfVehicles?.toString()} />
+          <InventoryDetail label="Branding Type" value={item.brandingType} />
+        </InventoryDetailSection>
+
+        <InventoryDetailSection title="Commercial & Status">
+          <InventoryDetail label="Selling Price" value={currency(item.sellingPrice)} />
+          <InventoryDetail label="Internal Cost" value={currency(item.internalCost)} />
+          <InventoryDetail label="Minimum Spend" value={currency(item.minSpend)} />
+          <InventoryDetail label="Minimum Duration" value={item.minDurationDays ? `${item.minDurationDays} days` : undefined} />
+          <InventoryDetail label="Availability" value={labelize(item.availabilityStatus)} />
+          <InventoryDetail label="Confirmation" value={labelize(item.confirmationStatus)} />
+          <InventoryDetail label="Status" value={item.status} />
+          <InventoryDetail label="Last Confirmed" value={item.lastConfirmedAt ? new Date(item.lastConfirmedAt).toLocaleDateString('en-IN') : undefined} />
+        </InventoryDetailSection>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        {item.categoryGroup === 'A3 Screens' ? (
+          <InventoryDetailSection title="A3 Property Screen Details">
+            <InventoryDetail label="Property Name" value={item.propertyName} wide />
+            <InventoryDetail label="Phase" value={item.phase} />
+            <InventoryDetail label="Profile" value={item.profile} />
+            <InventoryDetail label="PIN Code" value={item.pinCode} />
+            <InventoryDetail label="Property Price Upto" value={item.propertyPriceUptoCr !== undefined ? `${item.propertyPriceUptoCr} Cr` : undefined} />
+            <InventoryDetail label="Screen Size" value={item.screenSize} />
+            <InventoryDetail label="No. of Screens" value={item.numberOfScreens?.toString()} />
+            <InventoryDetail label="Households" value={item.households?.toLocaleString('en-IN')} />
+            <InventoryDetail label="Approx. Reach" value={item.approxReach?.toLocaleString('en-IN')} />
+            <InventoryDetail label="Monthly Impressions" value={item.monthlyImpressions?.toLocaleString('en-IN')} />
+            <InventoryDetail label="Monthly Ad Budget" value={currency(item.monthlyAdBudget)} />
+            <InventoryDetail label="Discounted Monthly Budget" value={currency(item.discountedMonthlyAdBudget)} />
+            <InventoryDetail label="Media Site ID" value={item.mediaSiteId} />
+            <InventoryDetail label="Building Age" value={item.buildingAge !== undefined ? `${item.buildingAge} years` : undefined} />
+            <InventoryDetail label="Property Type" value={item.propertyType} />
+            <InventoryDetail label="NCCS Class" value={item.nccsClass} />
+            {item.propertyVisualLink ? (
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-medium text-slate-500">Property Visual</dt>
+                <dd className="mt-1">
+                  <a
+                    href={item.propertyVisualLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
+                  >
+                    Open property visual
+                  </a>
+                </dd>
+              </div>
+            ) : null}
+          </InventoryDetailSection>
+        ) : null}
+        <InventoryDetailSection title="Owner & Supplier">
+          <InventoryDetail label="Owner" value={item.ownerName} />
+          <InventoryDetail label="Owner Phone" value={item.ownerPhone} />
+          <InventoryDetail label="Supplier" value={item.supplierName} />
+        </InventoryDetailSection>
+        <InventoryDetailSection title="Notes">
+          <InventoryDetail label="Tags" value={item.tags?.join(', ')} wide />
+          <InventoryDetail label="Confirmation Note" value={item.confirmationNote} wide />
+          <InventoryDetail label="Internal Notes" value={item.internalNotes} wide />
+        </InventoryDetailSection>
+      </div>
+
+      <section className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
+        <h3 className="mb-3 font-semibold text-slate-900">Photos</h3>
+        <ImagePreviewGrid legacyUrls={item.photos} />
+      </section>
+
+      <div className="mt-5">
+        <ActivityTimeline entityType="Inventory" entityId={item.id} compact />
+      </div>
+    </div>
+  </div>
+);
+
+const InventoryDetailSection = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) => (
+  <section className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+    <h3 className="mb-3 font-semibold text-slate-900">{title}</h3>
+    <dl className="grid gap-3 sm:grid-cols-2">{children}</dl>
+  </section>
+);
+
+const InventoryDetail = ({
+  label,
+  value,
+  wide = false,
+}: {
+  label: string;
+  value?: string;
+  wide?: boolean;
+}) => (
+  <div className={wide ? 'sm:col-span-2' : undefined}>
+    <dt className="text-xs font-medium text-slate-500">{label}</dt>
+    <dd className="mt-1 break-words text-sm capitalize text-slate-900">{value || '-'}</dd>
+  </div>
 );
 
 type InventoryFormModalProps = {
@@ -987,6 +1370,7 @@ type InventoryFormModalProps = {
   onCategoryGroupChange: (categoryGroup: CategoryGroup) => void;
   onLocationChange: (location: { latitude: number; longitude: number }) => void;
   onInventoryChanged: () => Promise<void>;
+  canUpload: boolean;
 };
 
 const InventoryFormModal = ({
@@ -1004,9 +1388,10 @@ const InventoryFormModal = ({
   onCategoryGroupChange,
   onLocationChange,
   onInventoryChanged,
+  canUpload,
 }: InventoryFormModalProps) => (
-  <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/40 px-4 py-8">
-    <div className="mx-auto max-w-5xl overflow-hidden rounded-lg bg-white p-6 shadow-xl">
+  <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/50 p-0 sm:px-4 sm:py-8">
+    <div role="dialog" aria-modal="true" aria-label={editingItem ? 'Edit Inventory' : 'Add Inventory'} className="mx-auto min-h-full max-w-5xl overflow-hidden bg-white p-4 shadow-xl sm:min-h-0 sm:rounded-lg sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold">
@@ -1045,15 +1430,15 @@ const InventoryFormModal = ({
           />
         </FormSection>
 
-        <FormSection title="2. City and Area">
+        <FormSection title={form.categoryGroup === 'A3 Screens' ? '2. Zone and Locality' : '2. City and Area'}>
           <TextField
-            label="City"
+            label={form.categoryGroup === 'A3 Screens' ? 'Zone' : 'City'}
             value={form.city}
             onChange={(value) => onFormChange({ ...form, city: value })}
             required
           />
           <TextField
-            label="Area"
+            label={form.categoryGroup === 'A3 Screens' ? 'Locality' : 'Area'}
             value={form.area}
             onChange={(value) => onFormChange({ ...form, area: value })}
             required
@@ -1065,15 +1450,19 @@ const InventoryFormModal = ({
                 ? editingItem.inventoryCode
                 : previewLoading
                   ? 'Loading...'
-                  : previewCode || 'Fill category, city, and area'
+                  : previewCode || (form.categoryGroup === 'A3 Screens'
+                    ? 'Fill category, zone, and locality'
+                    : 'Fill category, city, and area')
             }
             helper="Final code will be generated automatically on save."
           />
         </FormSection>
 
-        {form.categoryGroup === 'Outdoor' ? (
+        {form.categoryGroup === 'Outdoor' || form.categoryGroup === 'A3 Screens' ? (
           <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-            <h3 className="mb-3 font-semibold text-slate-900">3. Outdoor Location</h3>
+            <h3 className="mb-3 font-semibold text-slate-900">
+              {form.categoryGroup === 'A3 Screens' ? '3. Property Location' : '3. Outdoor Location'}
+            </h3>
             <LocationPicker
               latitude={numberOrUndefined(form.latitude)}
               longitude={numberOrUndefined(form.longitude)}
@@ -1082,12 +1471,14 @@ const InventoryFormModal = ({
             {geocodeLoading ? <p className="mt-2 text-xs text-slate-500">Looking up address...</p> : null}
             {geocodeError ? <p className="mt-2 text-xs text-amber-700">{geocodeError}</p> : null}
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <TextField
-                label="Address"
-                value={form.address}
-                onChange={(value) => onFormChange({ ...form, address: value })}
-                required
-              />
+              {form.categoryGroup === 'Outdoor' ? (
+                <TextField
+                  label="Address"
+                  value={form.address}
+                  onChange={(value) => onFormChange({ ...form, address: value })}
+                  required
+                />
+              ) : null}
               <TextField
                 label="Latitude"
                 value={form.latitude}
@@ -1136,22 +1527,26 @@ const InventoryFormModal = ({
         </FormSection>
 
         <FormSection title="Common Details">
-          <TextField
-            label="Width"
-            value={form.width}
-            onChange={(value) => onFormChange({ ...form, width: value })}
-            required
-          />
-          <TextField
-            label="Height"
-            value={form.height}
-            onChange={(value) => onFormChange({ ...form, height: value })}
-            required
-          />
-          <ReadOnlyField
-            label="Total Sq.Ft."
-            value={totalSqFt !== undefined ? `${totalSqFt} sq.ft.` : 'Enter width and height'}
-          />
+          {form.categoryGroup !== 'A3 Screens' ? (
+            <>
+              <TextField
+                label="Width"
+                value={form.width}
+                onChange={(value) => onFormChange({ ...form, width: value })}
+                required
+              />
+              <TextField
+                label="Height"
+                value={form.height}
+                onChange={(value) => onFormChange({ ...form, height: value })}
+                required
+              />
+              <ReadOnlyField
+                label="Total Sq.Ft."
+                value={totalSqFt !== undefined ? `${totalSqFt} sq.ft.` : 'Enter width and height'}
+              />
+            </>
+          ) : null}
           <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => onFormChange({ ...form, internalCost: value })} />
           <TextField label="Selling Price" value={form.sellingPrice} onChange={(value) => onFormChange({ ...form, sellingPrice: value })} />
           <TextField label="Min Spend" value={form.minSpend} onChange={(value) => onFormChange({ ...form, minSpend: value })} />
@@ -1219,30 +1614,63 @@ const InventoryFormModal = ({
           </FormSection>
         ) : null}
 
-        {editingItem ? (
+        {form.categoryGroup === 'A3 Screens' ? (
+          <FormSection title="A3 Property Screen Details">
+            <TextField
+              label="Property Name"
+              value={form.propertyName}
+              onChange={(value) =>
+                onFormChange({
+                  ...form,
+                  propertyName: value,
+                  title: !form.title || form.title === form.propertyName ? value : form.title,
+                })
+              }
+              required
+            />
+            <TextField label="Phase" value={form.phase} onChange={(value) => onFormChange({ ...form, phase: value })} />
+            <TextField label="Profile" value={form.profile} onChange={(value) => onFormChange({ ...form, profile: value })} />
+            <TextField label="PIN Code" value={form.pinCode} onChange={(value) => onFormChange({ ...form, pinCode: value })} required />
+            <TextField label="Property Price Upto (Cr)" value={form.propertyPriceUptoCr} onChange={(value) => onFormChange({ ...form, propertyPriceUptoCr: value })} />
+            <TextField label="Screen Size" value={form.screenSize} onChange={(value) => onFormChange({ ...form, screenSize: value })} required />
+            <TextField label="Property Visual Link" value={form.propertyVisualLink} onChange={(value) => onFormChange({ ...form, propertyVisualLink: value })} />
+            <TextField label="No. of Screens" value={form.numberOfScreens} onChange={(value) => onFormChange({ ...form, numberOfScreens: value })} required />
+            <TextField label="Households / Flats" value={form.households} onChange={(value) => onFormChange({ ...form, households: value })} required />
+            <TextField label="Approx. Reach" value={form.approxReach} onChange={(value) => onFormChange({ ...form, approxReach: value })} required />
+            <TextField label="Monthly Impressions" value={form.monthlyImpressions} onChange={(value) => onFormChange({ ...form, monthlyImpressions: value })} required />
+            <TextField label="Monthly Ad Budget" value={form.monthlyAdBudget} onChange={(value) => onFormChange({ ...form, monthlyAdBudget: value })} required />
+            <TextField label="Discounted Monthly Ad Budget" value={form.discountedMonthlyAdBudget} onChange={(value) => onFormChange({ ...form, discountedMonthlyAdBudget: value })} />
+            <TextField label="Media Site ID" value={form.mediaSiteId} onChange={(value) => onFormChange({ ...form, mediaSiteId: value })} required />
+            <TextField label="Building Age (Years)" value={form.buildingAge} onChange={(value) => onFormChange({ ...form, buildingAge: value })} />
+            <TextField label="Property Type" value={form.propertyType} onChange={(value) => onFormChange({ ...form, propertyType: value })} required />
+            <TextField label="NCCS Class" value={form.nccsClass} onChange={(value) => onFormChange({ ...form, nccsClass: value })} required />
+          </FormSection>
+        ) : null}
+
+        {editingItem && canUpload ? (
           <InventoryPhotoUploads
             inventoryId={editingItem.id}
             legacyUrls={form.photos}
             onChanged={onInventoryChanged}
           />
-        ) : (
+        ) : !editingItem ? (
           <section className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
             <h4 className="text-sm font-semibold text-slate-900">Inventory Photos</h4>
             <p className="mt-1 text-xs text-slate-500">
               Save the inventory details first. Photo upload will become available here immediately.
             </p>
           </section>
-        )}
+        ) : null}
 
         {editingItem ? (
           <ActivityTimeline entityType="Inventory" entityId={editingItem.id} compact />
         ) : null}
 
-        <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
+        <div className="sticky bottom-0 -mx-4 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:static sm:mx-0 sm:flex-row sm:justify-end sm:px-0 sm:pb-0 sm:pt-4">
           <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
             Cancel
           </button>
-          <button type="submit" disabled={saving} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">
+          <button type="submit" disabled={saving} className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400">
             {saving ? 'Saving...' : 'Save Inventory'}
           </button>
         </div>
@@ -1284,7 +1712,7 @@ const ConfirmInventoryModal = ({
         <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
           Cancel
         </button>
-        <button type="submit" disabled={saving} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">
+        <button type="submit" disabled={saving} className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400">
           {saving ? 'Confirming...' : 'Confirm'}
         </button>
       </div>
@@ -1523,245 +1951,5 @@ const FormSection = ({ title, children }: FormSectionProps) => (
     <div className="grid gap-4 md:grid-cols-3">{children}</div>
   </div>
 );
-
-type ImportInventoryModalProps = {
-  onClose: () => void;
-  onImported: () => Promise<void> | void;
-};
-
-const requirementBadge: Record<ImportFieldRequirement, { label: string; className: string }> = {
-  required: { label: 'Required', className: 'bg-rose-50 text-rose-700' },
-  conditional: { label: 'Conditional', className: 'bg-amber-50 text-amber-700' },
-  optional: { label: 'Optional', className: 'bg-slate-100 text-slate-600' },
-};
-
-const ImportInventoryModal = ({ onClose, onImported }: ImportInventoryModalProps) => {
-  const [guideGroup, setGuideGroup] = useState<CategoryGroup>('Outdoor');
-  const [file, setFile] = useState<File | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [error, setError] = useState('');
-  const [result, setResult] = useState<InventoryImportResult | null>(null);
-
-  const fieldRows = getImportFieldRows(guideGroup);
-  const conditionalNote = IMPORT_CONDITIONAL_NOTE[guideGroup];
-
-  const handleImport = async () => {
-    if (!file) {
-      return;
-    }
-
-    setImporting(true);
-    setError('');
-    setResult(null);
-
-    try {
-      const importResult = await importInventory(file);
-      setResult(importResult);
-
-      if (importResult.created > 0) {
-        await onImported();
-      }
-    } catch (importError) {
-      setError(importError instanceof Error ? importError.message : 'Import failed');
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950/40 px-4 py-8">
-      <div className="mx-auto max-w-3xl overflow-hidden rounded-lg bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold">Bulk Import Inventory</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Pick a category to see its fields, download a ready-to-fill template, then upload it.
-              Each row becomes one inventory item with an auto-generated code.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700"
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="mt-5 space-y-5">
-          <div>
-            <p className="mb-2 text-sm font-semibold text-slate-900">
-              Step 1 — Choose a category
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {IMPORT_CATEGORY_GROUPS.map((group) => (
-                <button
-                  key={group}
-                  type="button"
-                  onClick={() => setGuideGroup(group)}
-                  className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
-                    guideGroup === group
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-300 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {group}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200">
-            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-sm text-slate-600">
-                <span className="font-semibold text-slate-900">Valid sub categories:</span>{' '}
-                {IMPORT_SUBCATEGORIES[guideGroup].join(', ')}
-              </p>
-              {conditionalNote ? (
-                <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                  {conditionalNote}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="max-h-72 overflow-y-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 bg-white text-xs uppercase tracking-wide text-slate-500">
-                  <tr className="border-b border-slate-200">
-                    <th className="px-4 py-2 font-medium">Column</th>
-                    <th className="px-4 py-2 font-medium">Need</th>
-                    <th className="px-4 py-2 font-medium">Accepted values</th>
-                    <th className="px-4 py-2 font-medium">Example</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fieldRows.map((row) => {
-                    const badge = requirementBadge[row.requirement];
-
-                    return (
-                      <tr key={row.name} className="border-b border-slate-100 align-top">
-                        <td className="px-4 py-2">
-                          <span className="font-mono text-xs text-slate-900">{row.name}</span>
-                          <span className="block text-xs text-slate-500">{row.label}</span>
-                        </td>
-                        <td className="px-4 py-2">
-                          <span
-                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}
-                          >
-                            {badge.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-slate-600">{row.valueHint}</td>
-                        <td className="px-4 py-2 text-slate-500">{row.example || '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 px-4 py-3">
-              <button
-                type="button"
-                onClick={() => downloadCategoryTemplate(guideGroup)}
-                className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
-              >
-                Download {guideGroup} template
-              </button>
-              <button
-                type="button"
-                onClick={downloadCombinedTemplate}
-                className="text-sm font-medium text-slate-700 underline"
-              >
-                Download template with all categories
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-            <p className="font-semibold text-slate-700">Format tips</p>
-            <ul className="mt-1 list-disc space-y-1 pl-4">
-              <li>Keep the header row exactly as in the template; column order can vary.</li>
-              <li>
-                Multi-value fields (<code>photos</code>, <code>tags</code>) use <code>|</code> to
-                separate values.
-              </li>
-              <li>Enum fields must match the accepted values exactly (case-sensitive).</li>
-              <li>Leave a cell empty to skip an optional field. You can mix categories in one file.</li>
-            </ul>
-          </div>
-
-          <div>
-            <p className="mb-2 text-sm font-semibold text-slate-900">Step 2 — Upload your file</p>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(event) => {
-                setFile(event.target.files?.[0] ?? null);
-                setResult(null);
-                setError('');
-              }}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-            />
-          </div>
-
-          {error ? (
-            <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
-            </div>
-          ) : null}
-
-          {result ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-4 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm">
-                <span className="text-slate-600">
-                  Processed: <span className="font-semibold text-slate-900">{result.total}</span>
-                </span>
-                <span className="text-emerald-700">
-                  Created: <span className="font-semibold">{result.created}</span>
-                </span>
-                <span className="text-rose-700">
-                  Failed: <span className="font-semibold">{result.failed}</span>
-                </span>
-              </div>
-
-              {result.errors.length > 0 ? (
-                <div className="max-h-48 overflow-y-auto rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-                  <ul className="space-y-1">
-                    {result.errors.map((rowError) => (
-                      <li key={rowError.row}>
-                        <span className="font-medium">Row {rowError.row}:</span> {rowError.message}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <p className="text-sm text-emerald-700">All rows imported successfully.</p>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
-          >
-            {result ? 'Done' : 'Cancel'}
-          </button>
-          <button
-            type="button"
-            onClick={handleImport}
-            disabled={!file || importing}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400"
-          >
-            {importing ? 'Importing...' : 'Import'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default Inventory;

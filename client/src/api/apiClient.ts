@@ -1,13 +1,19 @@
 const configuredLegacyUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
 const configuredServerUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '');
-const legacyServerUrl = configuredLegacyUrl?.startsWith('/')
-  ? ''
+const usesRelativeApiUrl = configuredLegacyUrl?.startsWith('/') || false;
+const legacyServerUrl = usesRelativeApiUrl
+  ? undefined
   : configuredLegacyUrl?.replace(/\/api$/, '');
 export const SERVER_BASE_URL =
-  configuredServerUrl ?? legacyServerUrl ?? 'http://localhost:5000';
-export const API_BASE_URL = configuredLegacyUrl?.endsWith('/api')
-  ? configuredLegacyUrl
-  : `${SERVER_BASE_URL}/api`;
+  configuredServerUrl ??
+  legacyServerUrl ??
+  (import.meta.env.DEV ? 'http://localhost:5000' : '');
+export const API_BASE_URL =
+  usesRelativeApiUrl && import.meta.env.DEV
+    ? `${SERVER_BASE_URL}${configuredLegacyUrl}`
+    : configuredLegacyUrl?.endsWith('/api')
+      ? configuredLegacyUrl
+      : `${SERVER_BASE_URL}/api`;
 
 type ApiOptions = Omit<RequestInit, 'body'> & {
   body?: BodyInit | object | null;

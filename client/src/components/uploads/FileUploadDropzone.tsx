@@ -20,6 +20,7 @@ const FileUploadDropzone = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<File[]>([]);
   const [error, setError] = useState('');
+  const [dragging, setDragging] = useState(false);
 
   const selectFiles = (files: File[]) => {
     if (files.length > maxFiles) {
@@ -68,9 +69,16 @@ const FileUploadDropzone = ({
   return (
     <div>
       <div
+        onDragEnter={() => setDragging(true)}
+        onDragLeave={() => setDragging(false)}
         onDragOver={(event) => event.preventDefault()}
-        onDrop={handleDrop}
-        className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center"
+        onDrop={(event) => {
+          setDragging(false);
+          handleDrop(event);
+        }}
+        className={`rounded-md border border-dashed p-4 text-center transition ${
+          dragging ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 bg-slate-50'
+        }`}
       >
         <input
           ref={inputRef}
@@ -92,16 +100,24 @@ const FileUploadDropzone = ({
         <p className="mt-2 text-xs text-slate-500">
           Drop files here or browse. Up to {maxFiles} files, {maxFileSizeMb} MB each.
         </p>
+        <p className="mt-1 text-[11px] text-slate-400">
+          Accepted: {formatAcceptedTypes(accept)} · 50 MB total per upload
+        </p>
         {selected.length ? (
-          <div className="mt-3">
-            <p className="text-xs text-slate-600">
-              {selected.map((file) => file.name).join(', ')}
-            </p>
+          <div className="mt-3 text-left">
+            <ul className="divide-y divide-slate-100 rounded-md border border-slate-200 bg-white">
+              {selected.map((file) => (
+                <li key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                  <span className="min-w-0 truncate text-slate-700">{file.name}</span>
+                  <span className="shrink-0 text-slate-400">{formatSize(file.size)}</span>
+                </li>
+              ))}
+            </ul>
             <button
               type="button"
               disabled={uploading}
               onClick={() => void upload()}
-              className="mt-3 rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700 disabled:bg-slate-400"
+              className="mt-3 w-full rounded-md bg-emerald-800 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400"
             >
               {uploading ? 'Uploading...' : `Upload ${selected.length} ${selected.length === 1 ? 'file' : 'files'}`}
             </button>
@@ -112,5 +128,13 @@ const FileUploadDropzone = ({
     </div>
   );
 };
+
+const formatAcceptedTypes = (types: string[]) =>
+  [...new Set(types.map((type) => type.split('/').pop()?.replace('x-', '').toUpperCase()).filter(Boolean))].join(', ');
+
+const formatSize = (bytes: number) =>
+  bytes < 1024 * 1024
+    ? `${Math.max(Math.round(bytes / 1024), 1)} KB`
+    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 export default FileUploadDropzone;

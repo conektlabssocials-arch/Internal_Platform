@@ -17,12 +17,16 @@ const CampaignDetail = ({
   onEdit,
   onStatus,
   onChanged,
+  readOnly = false,
+  canManagePlans = true,
 }: {
   campaign: Campaign;
   onClose: () => void;
   onEdit: () => void;
   onStatus: () => void;
   onChanged?: () => void;
+  readOnly?: boolean;
+  canManagePlans?: boolean;
 }) => {
   const { isAdmin } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -89,7 +93,7 @@ const CampaignDetail = ({
       <div className="mx-auto max-w-6xl rounded-lg bg-white p-6 shadow-xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div><p className="text-sm font-medium text-slate-500">{campaign.campaignCode}</p><h2 className="mt-1 text-xl font-semibold">{campaign.title}</h2><p className="mt-1 text-sm text-slate-500">{campaign.client.displayName || campaign.client.name}</p></div>
-          <div className="flex gap-2"><button type="button" onClick={onStatus} className={secondary}>Change Status</button><button type="button" onClick={onEdit} className={secondary}>Edit</button><button type="button" onClick={onClose} className={secondary}>Close</button></div>
+          <div className="flex gap-2">{!readOnly ? <><button type="button" onClick={onStatus} className={secondary}>Change Status</button><button type="button" onClick={onEdit} className={secondary}>Edit</button></> : null}<button type="button" onClick={onClose} className={secondary}>Close</button></div>
         </div>
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <Section title="Client and Requirement"><Detail label="Client" value={`${campaign.client.displayName || campaign.client.name} (${campaign.clientType})`} /><Detail label="Agency Brand" value={campaign.agencyBrandName} /><Detail label="Source" value={campaign.source} /><Detail label="Status" value={campaign.status} /><Detail label="Brief" value={campaign.brief} wide /><Detail label="Objective" value={campaign.objective} wide /></Section>
@@ -99,13 +103,13 @@ const CampaignDetail = ({
         </div>
 
         <section className="mt-5 overflow-hidden rounded-lg border border-slate-200">
-          <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3"><div><h3 className="font-semibold">Plans</h3><p className="mt-1 text-xs text-slate-500">Versioned media plans for this campaign.</p></div><button type="button" onClick={create} className={primary}>Create Plan</button></div>
+          <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3"><div><h3 className="font-semibold">Plans</h3><p className="mt-1 text-xs text-slate-500">Versioned media plans for this campaign.</p></div>{canManagePlans ? <button type="button" onClick={create} className={primary}>Create Plan</button> : null}</div>
           {planError ? <p className="border-b border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{planError}</p> : null}
           {loadingPlans ? <p className="p-5 text-sm text-slate-500">Loading plans...</p> : plans.length === 0 ? <p className="p-6 text-center text-sm text-slate-500">No plans yet. Create v1 plan for this campaign.</p> : (
             <div className="divide-y divide-slate-100">
               {plans.map((plan, index) => <div key={plan.id} className="flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-wrap items-center gap-3"><span className="font-semibold">{plan.versionLabel}</span><PlanBadge status={plan.status} />{index === 0 ? <span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700">Latest</span> : null}<span className="text-sm text-slate-600">{money(plan.pricing.grandTotal)}</span><span className="text-xs text-slate-500">{date(plan.createdAt)}</span></div>
-                <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setPlanId(plan.id)} className={small}>Open Plan</button><button type="button" onClick={() => clone(plan.id)} className={small}>Clone Version</button>{plan.status === 'Draft' ? <button type="button" onClick={() => status(plan.id, 'Shared')} className={small}>Mark Shared</button> : null}{['Shared', 'Negotiating'].includes(plan.status) ? <><button type="button" onClick={() => status(plan.id, 'Won')} className={small}>Mark Won</button><button type="button" onClick={() => status(plan.id, 'Lost')} className={small}>Mark Lost</button></> : null}{isAdmin && plan.status === 'Draft' && !plan.isLocked ? <button type="button" onClick={() => remove(plan.id)} className={small}>Delete</button> : null}</div>
+                <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setPlanId(plan.id)} className={small}>Open Plan</button>{canManagePlans ? <><button type="button" onClick={() => clone(plan.id)} className={small}>Clone Version</button>{plan.status === 'Draft' ? <button type="button" onClick={() => status(plan.id, 'Shared')} className={small}>Mark Shared</button> : null}{['Shared', 'Negotiating'].includes(plan.status) ? <><button type="button" onClick={() => status(plan.id, 'Won')} className={small}>Mark Won</button><button type="button" onClick={() => status(plan.id, 'Lost')} className={small}>Mark Lost</button></> : null}</> : null}{isAdmin && plan.status === 'Draft' && !plan.isLocked ? <button type="button" onClick={() => remove(plan.id)} className={small}>Delete</button> : null}</div>
               </div>)}
             </div>
           )}
@@ -122,6 +126,6 @@ const Detail = ({ label, value, wide }: { label: string; value?: string; wide?: 
 const PlanBadge = ({ status }: { status: PlanStatus }) => <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium">{status}</span>;
 const secondary = 'rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100';
 const small = 'rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100';
-const primary = 'rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700';
+const primary = 'rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700';
 
 export default CampaignDetail;

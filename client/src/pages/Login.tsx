@@ -90,7 +90,7 @@ const Login = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="mt-3 w-full rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400"
+                  className="mt-3 w-full rounded-md bg-emerald-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400"
                 >
                   {submitting ? 'Signing in...' : 'Sign in for Development'}
                 </button>

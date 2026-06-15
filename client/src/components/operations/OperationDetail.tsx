@@ -12,6 +12,7 @@ import type {
   OperationStatus,
 } from '../../types/operation';
 import ActivityTimeline from '../activity/ActivityTimeline';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import OperationDocumentPanel from './OperationDocumentPanel';
 import OperationItemTracker from './OperationItemTracker';
 import OperationStatusBadge from './OperationStatusBadge';
@@ -39,7 +40,8 @@ const OperationDetail = ({
   onClose: () => void;
   onUpdated?: (operation: Operation) => void;
 }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canManageOperations = can('operations.manage');
   const [operation, setOperation] = useState<Operation | null>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('execution');
   const [priority, setPriority] = useState<OperationPriority>('Medium');
@@ -48,6 +50,7 @@ const OperationDetail = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [cancelRequested, setCancelRequested] = useState(false);
 
   const apply = (next: Operation) => {
     setOperation(next);
@@ -65,6 +68,14 @@ const OperationDetail = ({
       .finally(() => setLoading(false));
   }, [operationId]);
 
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !cancelRequested) onClose();
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [cancelRequested, onClose]);
+
   const saveSettings = async () => {
     if (!operation) return;
     setSaving(true);
@@ -79,7 +90,7 @@ const OperationDetail = ({
   };
 
   const cancel = async () => {
-    if (!operation || !window.confirm('Cancel this Work Order?')) return;
+    if (!operation) return;
     setSaving(true);
     try {
       apply(await updateOperationStatus(operation.id, 'Cancelled'));
@@ -122,12 +133,12 @@ const OperationDetail = ({
     { id: 'execution', label: 'Execution Items', count: operation.items.length },
     { id: 'documents', label: 'Documents' },
     { id: 'activity', label: 'Activity' },
-    { id: 'settings', label: 'Work Order Settings' },
+    ...(canManageOperations ? [{ id: 'settings' as const, label: 'Work Order Settings' }] : []),
   ];
 
   return (
     <div className="fixed inset-0 z-[70] bg-slate-950/60 p-0 sm:p-4">
-      <div className="mx-auto flex h-full w-full max-w-[1500px] flex-col overflow-hidden bg-slate-50 shadow-2xl sm:rounded-lg">
+      <div role="dialog" aria-modal="true" aria-label={`Work Order ${operation.operationCode}`} className="mx-auto flex h-full w-full max-w-[1500px] flex-col overflow-hidden bg-slate-50 shadow-2xl sm:rounded-lg">
         <header className="shrink-0 border-b border-slate-200 bg-white">
           <div className="flex items-start justify-between gap-4 px-5 py-4 lg:px-7">
             <div className="min-w-0">
@@ -241,6 +252,7 @@ const OperationDetail = ({
                     operationId={operation.id}
                     item={item}
                     onUpdated={apply}
+                    readOnly={!canManageOperations}
                   />
                 ))}
                 {!operation.items.length ? (
@@ -331,7 +343,7 @@ const OperationDetail = ({
                     <button
                       type="button"
                       disabled={saving}
-                      onClick={() => void cancel()}
+                      onClick={() => setCancelRequested(true)}
                       className="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                     >
                       Cancel Work Order
@@ -343,6 +355,19 @@ const OperationDetail = ({
           ) : null}
         </main>
       </div>
+      <ConfirmDialog
+        open={cancelRequested}
+        title="Cancel this Work Order?"
+        description="The Work Order will remain available for audit history, but execution tracking will be marked Cancelled."
+        confirmText="Cancel Work Order"
+        danger
+        busy={saving}
+        onClose={() => setCancelRequested(false)}
+        onConfirm={() => {
+          setCancelRequested(false);
+          void cancel();
+        }}
+      />
     </div>
   );
 };
@@ -406,6 +431,6 @@ const startOfToday = () => {
 };
 const label = 'text-xs font-medium text-slate-600';
 const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600';
-const primary = 'rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400';
+const primary = 'rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400';
 
 export default OperationDetail;

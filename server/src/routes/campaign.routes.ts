@@ -15,11 +15,11 @@ router.use(auth.requireAuth);
 router.get('/summary', asyncHandler(controller.summary));
 router.get('/preview-code', asyncHandler(controller.preview));
 router.get('/:campaignId/plans', asyncHandler(planController.listByCampaign));
-router.post('/:campaignId/plans', asyncHandler(planController.create));
+router.post('/:campaignId/plans', auth.requirePermission('plans.manage'), asyncHandler(planController.create));
 router.get('/', asyncHandler(controller.list));
 router.get('/:id', asyncHandler(controller.detail));
-router.post('/', asyncHandler(controller.create));
-router.patch('/:id', asyncHandler(controller.update));
-router.patch('/:id/status', asyncHandler(controller.status));
+router.post('/', auth.requirePermission('campaigns.manage'), asyncHandler(controller.create));
+router.patch('/:id', auth.requirePermission('campaigns.manage'), asyncHandler(controller.update));
+router.patch('/:id/status', auth.requirePermission('campaigns.manage'), asyncHandler(controller.status));
 
 export default router;

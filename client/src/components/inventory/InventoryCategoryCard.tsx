@@ -38,7 +38,7 @@ const InventoryCategoryCard = ({
       <button
         type="button"
         onClick={onClick}
-        className="mt-5 w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+        className="mt-5 w-full rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
       >
         View Inventory
       </button>

@@ -10,6 +10,7 @@ import type {
   OperationDocumentType,
 } from '../../types/document';
 import type { Operation } from '../../types/operation';
+import { useAuth } from '../../context/AuthContext';
 
 const documentLabels: Record<OperationDocumentType, string> = {
   WorkOrder: 'Work Order PDF',
@@ -30,6 +31,8 @@ const descriptions: Record<OperationDocumentType, string> = {
 };
 
 const OperationDocumentPanel = ({ operation }: { operation: Operation }) => {
+  const { can } = useAuth();
+  const canGenerateDocuments = can('documents.generate');
   const [documents, setDocuments] = useState<OperationDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState<OperationDocumentType | null>(null);
@@ -91,7 +94,7 @@ const OperationDocumentPanel = ({ operation }: { operation: Operation }) => {
             Generate operation PDFs from the latest saved Work Order data.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        {canGenerateDocuments ? <div className="flex flex-wrap gap-2">
           {(Object.keys(documentLabels) as OperationDocumentType[]).map((type) => (
             <button
               key={type}
@@ -104,7 +107,7 @@ const OperationDocumentPanel = ({ operation }: { operation: Operation }) => {
               {generating === type ? 'Generating...' : `Generate ${documentLabels[type]}`}
             </button>
           ))}
-        </div>
+        </div> : <p className="text-sm text-slate-500">Document generation is disabled for Members.</p>}
       </div>
 
       <div className="mt-3 grid gap-2 text-xs text-slate-600 md:grid-cols-3">

@@ -11,7 +11,7 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
   const { isAdmin } = useAuth();
 
   if (!isAdmin) {
-    return <Navigate to="/settings/platform" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return children;

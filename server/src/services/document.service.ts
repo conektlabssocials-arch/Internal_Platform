@@ -12,6 +12,7 @@ import type { IPlanRepository } from '../repositories/plan.repository.js';
 import { buildExecutionReportHtml } from '../templates/executionReport.template.js';
 import { buildInternalCostSheetHtml } from '../templates/internalCostSheet.template.js';
 import { buildPlanProposalHtml } from '../templates/planProposal.template.js';
+import { buildPlanProposalV2Html } from '../templates/planProposalV2.template.js';
 import { buildPurchaseOrderHtml } from '../templates/purchaseOrder.template.js';
 import { buildQuotationHtml } from '../templates/quotation.template.js';
 import type {
@@ -44,6 +45,7 @@ export interface IDocumentService {
 
 const planDocumentTypes: DocumentType[] = [
   'PlanProposal',
+  'PlanProposalV2',
   'Quotation',
   'InternalCostSheet',
 ];
@@ -133,6 +135,7 @@ const toTemplateData = (plan: any, generatedAt: Date): TemplatePlanData => {
 
 const buildHtml = (type: DocumentType, data: TemplatePlanData) => {
   if (type === 'PlanProposal') return buildPlanProposalHtml(data);
+  if (type === 'PlanProposalV2') return buildPlanProposalV2Html(data);
   if (type === 'Quotation') return buildQuotationHtml(data);
   return buildInternalCostSheetHtml(data);
 };

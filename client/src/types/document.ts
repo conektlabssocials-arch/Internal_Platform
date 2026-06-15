@@ -1,4 +1,8 @@
-export type PlanDocumentType = 'PlanProposal' | 'Quotation' | 'InternalCostSheet';
+export type PlanDocumentType =
+  | 'PlanProposal'
+  | 'PlanProposalV2'
+  | 'Quotation'
+  | 'InternalCostSheet';
 export type OperationDocumentType = 'WorkOrder' | 'PurchaseOrder' | 'ExecutionReport';
 export type DocumentType = PlanDocumentType | OperationDocumentType;
 

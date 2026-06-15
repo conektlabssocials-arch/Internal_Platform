@@ -5,6 +5,7 @@ const categoryCodeMap: Record<CategoryGroup, string> = {
   Auto: 'AUTO',
   Bus: 'BUS',
   'Mobile Van': 'MV',
+  'A3 Screens': 'A3',
 };
 
 const cityCodeMap: Record<string, string> = {

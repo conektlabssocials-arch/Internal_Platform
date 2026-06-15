@@ -46,12 +46,15 @@ const OperationItemTracker = ({
   operationId,
   item,
   onUpdated,
+  readOnly = false,
 }: {
   operationId: string;
   item: OperationItem;
   onUpdated: (operation: Operation) => void;
+  readOnly?: boolean;
 }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canUpload = can('uploads.manage');
   const [expanded, setExpanded] = useState(false);
   const [activeStage, setActiveStage] = useState<ItemStage>('details');
   const [draft, setDraft] = useState(item);
@@ -202,14 +205,15 @@ const OperationItemTracker = ({
           </p>
         </div>
 
-        <div>
-          <div className="grid grid-cols-5 gap-1">
+        <div className="overflow-x-auto pb-1">
+          <div className="grid min-w-[420px] grid-cols-5 gap-2">
             {stages.map((stage) => (
               <button
                 key={stage.id}
                 type="button"
+                disabled={readOnly}
                 onClick={() => openStage(stage.id)}
-                className="group min-w-0 text-left"
+                className="group min-w-0 rounded-md px-1 py-1 text-left hover:bg-slate-50"
                 title={`${stage.label}: ${stage.done ? 'Complete' : stage.required ? 'Pending' : 'Not required'}`}
               >
                 <span className={`block h-1.5 rounded-full ${
@@ -227,10 +231,10 @@ const OperationItemTracker = ({
               </button>
             ))}
           </div>
-          <button
+          {!readOnly ? <button
             type="button"
             onClick={() => openStage(nextAction.stage)}
-            className={`mt-2 text-xs font-semibold ${
+            className={`mt-2 rounded-md px-2 py-1 text-xs font-semibold ${
               nextAction.text === 'Execution complete'
                 ? 'text-emerald-700'
                 : overdue
@@ -239,19 +243,19 @@ const OperationItemTracker = ({
             }`}
           >
             {nextAction.text === 'Execution complete' ? 'Complete' : `Next: ${nextAction.text}`}
-          </button>
+          </button> : <p className="mt-2 text-xs text-slate-500">Read-only execution access</p>}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
           {overdue ? <AlertBadge tone="red">Mounting overdue</AlertBadge> : null}
           {proofPending ? <AlertBadge tone="amber">Proof pending</AlertBadge> : null}
-          <button
+          {!readOnly ? <button
             type="button"
             onClick={() => setExpanded((current) => !current)}
             className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             {expanded ? 'Close Tracker' : 'Open Tracker'}
-          </button>
+          </button> : null}
         </div>
       </div>
 
@@ -307,14 +311,14 @@ const OperationItemTracker = ({
                     onFirst={(required) => setDraft({ ...draft, creative: { ...draft.creative, required } })}
                     onSecond={(received) => setDraft({ ...draft, creative: { ...draft.creative, received } })}
                   />
-                  <FileUploadDropzone
+                  {canUpload ? <FileUploadDropzone
                     accept={['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4', 'application/zip', 'application/x-zip-compressed']}
                     maxFiles={10}
                     maxFileSizeMb={50}
                     uploading={uploading === 'creative'}
                     label="Upload Creative Files"
                     onUpload={(files) => uploadFiles('creative', files)}
-                  />
+                  /> : <PermissionNote />}
                   <UploadedFileList files={filesByCategory('creative')} deletingId={deletingId} onDelete={isAdmin ? removeUpload : undefined} />
                   <Field label="Manual file URLs (optional)" value={draft.creative.fileUrls.join(', ')} onChange={(value) => setDraft({ ...draft, creative: { ...draft.creative, fileUrls: splitUrls(value) } })} />
                   <TextArea label="Creative notes" value={draft.creative.notes} onChange={(notes) => setDraft({ ...draft, creative: { ...draft.creative, notes } })} />
@@ -333,14 +337,14 @@ const OperationItemTracker = ({
                     onSecond={(sent) => setDraft({ ...draft, purchaseOrder: { ...draft.purchaseOrder, sent } })}
                   />
                   <Field label="PO number" value={draft.purchaseOrder.poNumber} onChange={(poNumber) => setDraft({ ...draft, purchaseOrder: { ...draft.purchaseOrder, poNumber } })} />
-                  <FileUploadDropzone
+                  {canUpload ? <FileUploadDropzone
                     accept={['application/pdf', 'image/jpeg', 'image/png', 'image/webp']}
                     maxFiles={5}
                     maxFileSizeMb={20}
                     uploading={uploading === 'purchase_order'}
                     label="Upload PO Files"
                     onUpload={(files) => uploadFiles('purchase_order', files)}
-                  />
+                  /> : <PermissionNote />}
                   <UploadedFileList files={filesByCategory('purchase_order')} deletingId={deletingId} onDelete={isAdmin ? removeUpload : undefined} />
                   <Field label="Manual PO file URL (optional)" value={draft.purchaseOrder.poFileUrl} onChange={(poFileUrl) => setDraft({ ...draft, purchaseOrder: { ...draft.purchaseOrder, poFileUrl } })} />
                   <TextArea label="PO notes" value={draft.purchaseOrder.notes} onChange={(notes) => setDraft({ ...draft, purchaseOrder: { ...draft.purchaseOrder, notes } })} />
@@ -363,14 +367,14 @@ const OperationItemTracker = ({
                 <StagePanel title="Proof of Execution" description="Upload final client-safe photos after mounting or deployment is complete.">
                   {!draft.mounting.completed ? <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">Mounting is not marked complete yet. You can prepare proof here, but verify the deployment first.</p> : null}
                   <Check label="Proof uploaded" checked={draft.proof.uploaded} onChange={(uploaded) => setDraft({ ...draft, proof: { ...draft.proof, uploaded } })} />
-                  <FileUploadDropzone
+                  {canUpload ? <FileUploadDropzone
                     accept={['image/jpeg', 'image/png', 'image/webp']}
                     maxFiles={20}
                     maxFileSizeMb={15}
                     uploading={uploading === 'proof'}
                     label="Upload Proof Photos"
                     onUpload={(files) => uploadFiles('proof', files)}
-                  />
+                  /> : <PermissionNote />}
                   <ImagePreviewGrid uploads={filesByCategory('proof')} legacyUrls={draft.proof.photoUrls} />
                   <UploadedFileList files={filesByCategory('proof')} deletingId={deletingId} onDelete={isAdmin ? removeUpload : undefined} />
                   <Field label="Manual photo URLs (optional)" value={draft.proof.photoUrls.join(', ')} onChange={(value) => setDraft({ ...draft, proof: { ...draft.proof, photoUrls: splitUrls(value) } })} />
@@ -493,7 +497,12 @@ const Checks = ({ firstLabel, first, secondLabel, second, onFirst, onSecond }: {
   <div className="grid gap-3 sm:grid-cols-2"><Check label={firstLabel} checked={first} onChange={onFirst} /><Check label={secondLabel} checked={second} onChange={onSecond} /></div>
 );
 const SaveButton = ({ label: text, loading, onClick }: { label: string; loading: boolean; onClick: () => void }) => (
-  <button type="button" disabled={loading} onClick={onClick} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-400">{loading ? 'Saving...' : text}</button>
+  <button type="button" disabled={loading} onClick={onClick} className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-400">{loading ? 'Saving...' : text}</button>
+);
+const PermissionNote = () => (
+  <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">
+    File uploads are disabled for Members by Platform Settings.
+  </p>
 );
 
 const label = 'text-xs font-medium text-slate-600';

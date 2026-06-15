@@ -17,6 +17,8 @@ import {
 import ContactForm from '../components/crm/ContactForm';
 import CrmEntityDetail from '../components/crm/CrmEntityDetail';
 import CrmEntityForm from '../components/crm/CrmEntityForm';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
+import PageHeader from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
 import type {
   Contact,
@@ -62,7 +64,8 @@ type CategorySummary = {
 };
 
 const CRM = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, can } = useAuth();
+  const canManage = can('crm.manage');
   const [selectedType, setSelectedType] = useState<CrmEntityType | null>(null);
   const [summaries, setSummaries] = useState<Record<string, CategorySummary>>({});
   const [entities, setEntities] = useState<CrmEntity[]>([]);
@@ -76,6 +79,7 @@ const CRM = () => {
   const [detailEntity, setDetailEntity] = useState<CrmEntity | null>(null);
   const [contactFormOpen, setContactFormOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [statusEntity, setStatusEntity] = useState<CrmEntity | null>(null);
 
   const loadSummary = async () => {
     setLoading(true);
@@ -261,23 +265,22 @@ const CRM = () => {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">CRM</h1>
-            <p className="mt-2 text-slate-600">
-              {selectedCategory
-                ? `Manage ${selectedCategory.label.toLowerCase()} and their contacts.`
-                : 'Manage clients, agencies, advertisers, suppliers, and contacts.'}
-            </p>
-          </div>
-          {selectedType ? (
+      <PageHeader
+        title="CRM"
+        eyebrow="Clients and partners"
+        description={
+          selectedCategory
+            ? `Manage ${selectedCategory.label.toLowerCase()} and their contacts.`
+            : 'Manage clients, agencies, advertisers, suppliers, and contacts.'
+        }
+        actions={
+          selectedType && canManage ? (
             <button type="button" onClick={openCreate} className={primaryButtonClass}>
               Add {selectedCategory?.label}
             </button>
-          ) : null}
-        </div>
-      </div>
+          ) : null
+        }
+      />
 
       {error ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -312,7 +315,12 @@ const CRM = () => {
       ) : (
         <>
           <div className="rounded-lg border border-slate-200 bg-white p-5">
-            <button type="button" onClick={() => setSelectedType(null)} className="text-sm font-medium text-slate-700 hover:text-slate-950">
+            <button
+              type="button"
+              onClick={() => setSelectedType(null)}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <span aria-hidden="true">←</span>
               Back to CRM Categories
             </button>
             <h2 className="mt-4 text-base font-semibold text-slate-900">{selectedCategory?.label}</h2>
@@ -339,7 +347,8 @@ const CRM = () => {
                 <p className="mt-1 text-sm text-slate-500">Add the first record in this category.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 text-slate-500">
                     <tr>
@@ -365,9 +374,9 @@ const CRM = () => {
                         <td className="px-4 py-4"><StatusBadge status={entity.status} /></td>
                         <td className="px-4 py-4">
                           <div className="flex gap-2">
-                            <button type="button" onClick={() => openDetail(entity)} className={smallButtonClass}>View/Edit</button>
+                            <button type="button" onClick={() => openDetail(entity)} className={smallButtonClass}>{canManage ? 'View / Edit' : 'View'}</button>
                             {isAdmin ? (
-                              <button type="button" onClick={() => toggleEntity(entity)} className={smallButtonClass}>
+                              <button type="button" onClick={() => setStatusEntity(entity)} className={smallButtonClass}>
                                 {entity.status === 'active' ? 'Deactivate' : 'Activate'}
                               </button>
                             ) : null}
@@ -378,6 +387,37 @@ const CRM = () => {
                   </tbody>
                 </table>
               </div>
+              <div className="divide-y divide-slate-100 md:hidden">
+                {entities.map((entity) => (
+                  <article key={entity.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-slate-900">{entity.displayName || entity.name}</h3>
+                        <p className="mt-1 break-all text-sm text-slate-500">{entity.email || entity.phone || 'No contact details'}</p>
+                      </div>
+                      <StatusBadge status={entity.status} />
+                    </div>
+                    <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                      <MobileDetail label="City" value={entity.address?.city || '-'} />
+                      <MobileDetail label="Primary contact" value={entity.primaryContact?.name || '-'} />
+                    </dl>
+                    {entity.tags.length ? (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {entity.tags.map((tag) => <span key={tag} className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{tag}</span>)}
+                      </div>
+                    ) : null}
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => openDetail(entity)} className={smallButtonClass}>{canManage ? 'View / Edit' : 'View'}</button>
+                      {isAdmin ? (
+                        <button type="button" onClick={() => setStatusEntity(entity)} className={smallButtonClass}>
+                          {entity.status === 'active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+              </>
             )}
             <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-slate-500">
@@ -424,6 +464,7 @@ const CRM = () => {
           onEditContact={(contact) => { setEditingContact(contact); setContactFormOpen(true); }}
           onToggleContact={toggleContact}
           onDeleteContact={removeContact}
+          readOnly={!canManage}
         />
       ) : null}
 
@@ -435,9 +476,33 @@ const CRM = () => {
           onSave={saveContact}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(statusEntity)}
+        title={statusEntity?.status === 'active' ? 'Deactivate CRM record?' : 'Activate CRM record?'}
+        description={
+          statusEntity?.status === 'active'
+            ? `${statusEntity.displayName || statusEntity.name} will be hidden from active selections.`
+            : `${statusEntity?.displayName || statusEntity?.name || 'This record'} will become active again.`
+        }
+        confirmText={statusEntity?.status === 'active' ? 'Deactivate' : 'Activate'}
+        danger={statusEntity?.status === 'active'}
+        onClose={() => setStatusEntity(null)}
+        onConfirm={() => {
+          if (!statusEntity) return;
+          void toggleEntity(statusEntity).finally(() => setStatusEntity(null));
+        }}
+      />
     </section>
   );
 };
+
+const MobileDetail = ({ label, value }: { label: string; value: string }) => (
+  <div>
+    <dt className="text-xs text-slate-500">{label}</dt>
+    <dd className="mt-0.5 text-slate-800">{value}</dd>
+  </div>
+);
 
 const Metric = ({ label, value }: { label: string; value: number }) => (
   <div className="rounded-md bg-slate-50 px-3 py-2">
@@ -453,7 +518,7 @@ const StatusBadge = ({ status }: { status: 'active' | 'inactive' }) => (
 );
 
 const inputClass = 'rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900';
-const primaryButtonClass = 'rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700';
+const primaryButtonClass = 'rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700';
 const smallButtonClass = 'rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100';
 const paginationButtonClass = 'rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40';
 

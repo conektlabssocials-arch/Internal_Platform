@@ -9,9 +9,11 @@ import type {
   PlanDocument,
   PlanDocumentType,
 } from '../../types/document';
+import { useAuth } from '../../context/AuthContext';
 
 const documentLabels: Record<PlanDocumentType, string> = {
-  PlanProposal: 'Plan Proposal PDF',
+  PlanProposal: 'Media Plan Proposal',
+  PlanProposalV2: 'Media Plan Proposal V2',
   Quotation: 'Quotation PDF',
   InternalCostSheet: 'Internal Cost Sheet',
 };
@@ -23,6 +25,8 @@ const DocumentPanel = ({
   planId: string;
   beforeGenerate: () => Promise<boolean>;
 }) => {
+  const { can } = useAuth();
+  const canGenerate = can('documents.generate');
   const [documents, setDocuments] = useState<PlanDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState<PlanDocumentType | null>(null);
@@ -67,7 +71,7 @@ const DocumentPanel = ({
             Generate version-specific PDFs from the latest saved plan data.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        {canGenerate ? <div className="flex flex-wrap gap-2">
           {(Object.keys(documentLabels) as PlanDocumentType[]).map((type) => (
             <button
               key={type}
@@ -79,7 +83,7 @@ const DocumentPanel = ({
               {generating === type ? 'Generating...' : `Generate ${documentLabels[type]}`}
             </button>
           ))}
-        </div>
+        </div> : <p className="text-sm text-slate-500">You can view and download existing documents. Generation is restricted by Admin.</p>}
       </div>
 
       <p className="mt-3 text-xs font-medium text-amber-700">

@@ -84,8 +84,8 @@ const SharedPlanMap = ({
   if (mapError) return <MapEmptyState message={mapError} />;
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-      <div ref={containerRef} className="h-[360px] w-full md:h-[500px]" />
+    <div className="relative overflow-hidden rounded-md border border-slate-200 bg-slate-100" aria-label="Outdoor inventory map">
+      <div ref={containerRef} className="h-[360px] w-full md:h-[500px]" role="region" aria-label={`${mapItems.length} outdoor site locations`} />
       {selected ? <PlanMapMarkerPopup item={selected} onClose={() => setSelected(null)} /> : null}
     </div>
   );
