@@ -18,6 +18,7 @@ import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard
 import ActivityTimeline from '../components/activity/ActivityTimeline';
 import InventoryPhotoUploads from '../components/uploads/InventoryPhotoUploads';
 import ImagePreviewGrid from '../components/uploads/ImagePreviewGrid';
+import InventoryImage from '../components/ui/InventoryImage';
 import LocationPicker from '../components/map/LocationPicker';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import PageHeader from '../components/ui/PageHeader';
@@ -1046,15 +1047,11 @@ const InventoryTable = ({
                 <td className="px-4 py-4 font-medium text-slate-900">{item.inventoryCode}</td>
                 <td className="min-w-64 px-4 py-4 text-slate-700">
                   <div className="flex items-center gap-3">
-                    {item.photos[0] ? (
-                      <img
-                        src={item.photos[0]}
-                        alt=""
-                        className="h-10 w-10 shrink-0 rounded-md border border-slate-200 object-cover"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-50" />
-                    )}
+                    <InventoryImage
+                      src={item.photos[0]}
+                      alt={item.title}
+                      className="h-10 w-10 shrink-0 rounded-md border border-slate-200 object-cover"
+                    />
                     <button
                       type="button"
                       onClick={() => onView(item)}
@@ -1109,11 +1106,11 @@ const InventoryTable = ({
         {items.map((item) => (
           <article key={item.id} className="p-4">
             <div className="flex items-start gap-3">
-              {item.photos[0] ? (
-                <img src={item.photos[0]} alt={item.title} className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover" />
-              ) : (
-                <div className="h-14 w-14 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-50" />
-              )}
+              <InventoryImage
+                src={item.photos[0]}
+                alt={item.title}
+                className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover"
+              />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-emerald-700">{item.inventoryCode}</p>
                 <button

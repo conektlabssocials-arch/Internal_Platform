@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title description">
+  <title id="title">No inventory image available</title>
+  <desc id="description">Conekt Ads placeholder for inventory without a photograph</desc>
+  <rect width="640" height="420" fill="#eaf5ef"/>
+  <rect x="120" y="72" width="400" height="248" rx="18" fill="#d6eadf" stroke="#8fc5a8" stroke-width="6"/>
+  <circle cx="238" cy="156" r="34" fill="#68ad88"/>
+  <path d="M155 286l105-104 72 68 54-48 99 84H155z" fill="#27805a"/>
+  <path d="M155 286l105-104 41 39-60 65H155z" fill="#3d9970"/>
+  <text x="320" y="370" fill="#176b4d" font-family="Arial, sans-serif" font-size="28" font-weight="700" text-anchor="middle">NO IMAGE AVAILABLE</text>
+</svg>

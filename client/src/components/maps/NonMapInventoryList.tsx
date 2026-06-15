@@ -1,4 +1,5 @@
 import type { NonMapPlanItem } from '../../types/share';
+import InventoryImage from '../ui/InventoryImage';
 
 const categoryOrder = ['Auto', 'Bus', 'Mobile Van'];
 
@@ -16,13 +17,11 @@ const NonMapInventoryList = ({ items }: { items: NonMapPlanItem[] }) => {
             <div className="mt-2 grid gap-3 md:grid-cols-2">
               {categoryItems.map((item) => (
                 <article key={item.planItemId} className="rounded-md border border-slate-200 bg-white p-4">
-                  {item.photoUrl ? (
-                    <img
-                      src={item.photoUrl}
-                      alt={item.title || 'Inventory'}
-                      className="mb-3 h-32 w-full rounded-md object-cover"
-                    />
-                  ) : null}
+                  <InventoryImage
+                    src={item.photoUrl}
+                    alt={item.title || 'Inventory'}
+                    className="mb-3 h-32 w-full rounded-md object-cover"
+                  />
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-medium text-slate-900">{item.title}</p>

@@ -5,6 +5,7 @@ import { getPublicShare, PublicShareError } from '../api/shareApi';
 import NonMapInventoryList from '../components/maps/NonMapInventoryList';
 import SharedPlanMap from '../components/maps/SharedPlanMap';
 import type { PublicSharedPlan as PublicSharedPlanData } from '../types/share';
+import InventoryImage from '../components/ui/InventoryImage';
 
 const pendingRequests = new Map<string, Promise<PublicSharedPlanData>>();
 
@@ -141,13 +142,11 @@ const PublicSharedPlan = () => {
                   <tr key={`${item.title}-${index}`}>
                     <td className="px-4 py-4">
                       <div className="flex items-start gap-3">
-                        {item.photoUrl ? (
-                          <img
-                            src={item.photoUrl}
-                            alt={item.title}
-                            className="h-14 w-14 shrink-0 rounded-md object-cover"
-                          />
-                        ) : null}
+                        <InventoryImage
+                          src={item.photoUrl}
+                          alt={item.title}
+                          className="h-14 w-14 shrink-0 rounded-md object-cover"
+                        />
                         <div>
                           <p className="font-medium">{item.title}</p>
                           {item.notes ? <p className="mt-1 text-xs text-slate-500">{item.notes}</p> : null}
@@ -168,9 +167,11 @@ const PublicSharedPlan = () => {
               {data.plan.items.map((item, index) => (
                 <article key={`${item.title}-${index}`} className="p-4">
                   <div className="flex items-start gap-3">
-                    {item.photoUrl ? (
-                      <img src={item.photoUrl} alt={item.title} className="h-16 w-16 shrink-0 rounded-md object-cover" />
-                    ) : null}
+                    <InventoryImage
+                      src={item.photoUrl}
+                      alt={item.title}
+                      className="h-16 w-16 shrink-0 rounded-md object-cover"
+                    />
                     <div className="min-w-0">
                       <h3 className="font-semibold text-slate-900">{item.title}</h3>
                       <p className="mt-1 text-xs text-slate-500">{item.categoryGroup} / {item.subCategory}</p>
