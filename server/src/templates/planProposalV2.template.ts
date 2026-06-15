@@ -11,6 +11,15 @@ type PlanItem = TemplatePlanData['items'][number];
 const number = (value?: number) =>
   new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(value || 0);
 
+const noImageGraphic = `
+  <svg viewBox="0 0 640 420" aria-label="No inventory image available">
+    <rect width="640" height="420" fill="#eaf5ef"/>
+    <rect x="120" y="72" width="400" height="248" rx="18" fill="#d6eadf" stroke="#8fc5a8" stroke-width="6"/>
+    <circle cx="238" cy="156" r="34" fill="#68ad88"/>
+    <path d="M155 286l105-104 72 68 54-48 99 84H155z" fill="#27805a"/>
+    <text x="320" y="370" fill="#176b4d" font-family="Arial, sans-serif" font-size="28" font-weight="700" text-anchor="middle">NO IMAGE AVAILABLE</text>
+  </svg>`;
+
 const durationDays = (item: PlanItem) => {
   if (!item.startDate || !item.endDate) return 1;
   const start = new Date(item.startDate).getTime();
@@ -81,6 +90,7 @@ const sitePage = (item: PlanItem, index: number) => {
           ['Approx. Reach', number(item.approxReach)],
           ['Monthly Impressions', number(item.monthlyImpressions)],
           ['Building Age', item.buildingAge !== undefined ? `${number(item.buildingAge)} years` : '-'],
+          ['Physical Size', item.width && item.height ? `${number(item.height)} H x ${number(item.width)} W` : '-'],
           ['Screen Size', item.screenSize || '-'],
           ['No. of Screens', number(item.numberOfScreens)],
         ]
@@ -99,9 +109,9 @@ const sitePage = (item: PlanItem, index: number) => {
         <div class="photo-frame">
           ${
             photo
-              ? `<div class="photo-empty"><span>Site image not available</span></div>
+              ? `<div class="photo-empty">${noImageGraphic}</div>
                  <img src="${escapeHtml(photo)}" alt="${escapeHtml(item.title)}" onerror="this.style.display='none'" />`
-              : `<div class="photo-empty"><span>Site image not available</span></div>`
+              : `<div class="photo-empty">${noImageGraphic}</div>`
           }
         </div>
         <div class="site-details">
@@ -225,6 +235,7 @@ export const buildPlanProposalV2Html = (data: TemplatePlanData) => {
     .photo-frame { position: relative; min-width: 0; overflow: hidden; border: 1px solid #d3e1d9; border-radius: 2mm; background: #e5eee9; }
     .photo-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .photo-empty { display: grid; width: 100%; height: 100%; place-items: center; color: #718078; background: #e9f0ec; }
+    .photo-empty svg { width: 78%; max-height: 78%; }
     .site-details { min-width: 0; padding: 6mm; border: 1px solid #d7e4dc; border-radius: 2mm; background: #fff; }
     .site-code { margin-bottom: 4mm; color: #2b8a61; font-size: 10px; font-weight: 800; letter-spacing: .7px; }
     dl { margin: 0; }

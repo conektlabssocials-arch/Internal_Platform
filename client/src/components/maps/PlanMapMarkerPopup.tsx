@@ -1,4 +1,5 @@
 import type { PlanMapItem } from '../../types/share';
+import InventoryImage from '../ui/InventoryImage';
 
 const PlanMapMarkerPopup = ({
   item,
@@ -8,9 +9,11 @@ const PlanMapMarkerPopup = ({
   onClose: () => void;
 }) => (
   <div role="dialog" aria-label={item.title || item.inventoryCode || 'Site details'} className="absolute inset-x-2 bottom-2 z-10 max-h-[78%] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-xl sm:inset-x-auto sm:bottom-4 sm:left-4 sm:w-[360px] sm:max-w-[calc(100%-2rem)]">
-    {item.photoUrl ? (
-      <img src={item.photoUrl} alt={item.title || 'Outdoor inventory'} className="h-36 w-full object-cover" />
-    ) : null}
+    <InventoryImage
+      src={item.photoUrl}
+      alt={item.title || 'Outdoor inventory'}
+      className="h-36 w-full object-cover"
+    />
     <div className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div>

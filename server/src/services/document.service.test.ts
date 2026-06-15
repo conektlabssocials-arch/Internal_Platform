@@ -153,6 +153,8 @@ test('plan proposal V2 shows A3 property audience metrics', () => {
       ...data.items[0],
       categoryGroup: 'A3 Screens',
       subCategory: 'Residential',
+      width: 3,
+      height: 2,
       screenSize: '32 inch LED TV',
       numberOfScreens: 4,
       households: 202,
@@ -166,6 +168,7 @@ test('plan proposal V2 shows A3 property audience metrics', () => {
   assert.match(html, /Households \/ Flats/);
   assert.match(html, /26,670/);
   assert.match(html, /32 inch LED TV/);
+  assert.match(html, /2 H x 3 W/);
   assert.match(html, /No\. of Screens/);
 });
 

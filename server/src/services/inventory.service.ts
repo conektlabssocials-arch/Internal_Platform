@@ -38,6 +38,7 @@ import type { IInventoryRepository } from '../repositories/inventory.repository.
 import type { IInventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
 import type { ICrmService } from './crm.service.js';
 import { HttpError } from '../utils/httpError.js';
+import { completeA3ScreenDimensions } from '../utils/a3ScreenDimensions.js';
 
 type PaginatedInventory = {
   data: InventoryDto[];
@@ -504,6 +505,15 @@ export class InventoryService implements IInventoryService {
     }
 
     if (categoryGroup === 'A3 Screens') {
+      Object.assign(
+        data,
+        completeA3ScreenDimensions({
+          screenSize: data.screenSize as string | undefined,
+          width: data.width as number | undefined,
+          height: data.height as number | undefined,
+        }),
+      );
+
       if (data.internalCost === undefined) {
         data.internalCost =
           data.discountedMonthlyAdBudget ?? data.monthlyAdBudget;
@@ -564,9 +574,7 @@ export class InventoryService implements IInventoryService {
   private validateRequiredFields(data: Record<string, unknown>) {
     const requiredFields = ['categoryGroup', 'subCategory', 'title', 'city', 'area'];
 
-    if (data.categoryGroup !== 'A3 Screens') {
-      requiredFields.push('width', 'height');
-    }
+    requiredFields.push('width', 'height');
 
     for (const field of requiredFields) {
       if (data[field] === undefined || data[field] === '') {
@@ -634,6 +642,7 @@ export class InventoryService implements IInventoryService {
       if (location?.latitude === undefined || location.longitude === undefined) {
         throw new HttpError(400, 'A3 Screens inventory requires latitude and longitude');
       }
+
     }
   }
 }

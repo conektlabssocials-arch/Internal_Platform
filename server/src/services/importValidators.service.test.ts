@@ -113,6 +113,8 @@ test('A3 Screens validation maps zone and locality and preserves audience pricin
       pinCode: '122001',
       propertyPriceUptoCr: '17',
       screenSize: '32 inch LED TV',
+      width: '3',
+      height: '2',
       numberOfScreens: '4',
       households: '202',
       approxReach: '898',
@@ -151,7 +153,8 @@ test('A3 Screens validation maps zone and locality and preserves audience pricin
   );
   assert.equal(result.rows[0].data.internalCost, 9100);
   assert.equal(result.rows[0].data.sellingPrice, 12500);
-  assert.equal(result.rows[0].data.width, undefined);
+  assert.equal(result.rows[0].data.width, 3);
+  assert.equal(result.rows[0].data.height, 2);
   assert.equal(
     (result.rows[0].data.location as { latitude: number }).latitude,
     28.459046,
@@ -175,6 +178,8 @@ test('A3 Screens bulk validation fills address and PIN code from coordinates', a
     locality: 'Sushant Lok',
     propertyName: 'Sushant Apartments',
     screenSize: '32 inch LED TV',
+    width: '3',
+    height: '2',
     numberOfScreens: '4',
     households: '202',
     approxReach: '898',
@@ -196,6 +201,71 @@ test('A3 Screens bulk validation fills address and PIN code from coordinates', a
   );
   assert.equal(result.rows[0].data.pinCode, '122001');
   assert.equal(result.warnings.length, 2);
+});
+
+test('A3 Screens calculates width and height from screen size', async () => {
+  const service = createService();
+  const result = await service.validate('inventory', [{
+    categoryGroup: 'A3 Screens',
+    subCategory: 'Residential',
+    title: 'Residency Screen Network',
+    city: 'Bangalore',
+    locality: 'Indiranagar',
+    propertyName: 'Residency One',
+    pinCode: '560038',
+    screenSize: '32 inch LED TV',
+    numberOfScreens: '6',
+    households: '180',
+    approxReach: '720',
+    monthlyImpressions: '21000',
+    address: 'Residency One, Indiranagar, Bangalore',
+    latitude: '12.9784',
+    longitude: '77.6408',
+    monthlyAdBudget: '12000',
+    internalCost: '9000',
+    sellingPrice: '12500',
+    mediaSiteId: 'A3-BLR-001',
+    propertyType: 'RESIDENTIAL',
+    nccsClass: 'A3',
+  }]);
+
+  assert.equal(result.validRows, 1);
+  assert.equal(result.rows[0].data.screenSize, '32 inch LED TV');
+  assert.equal(result.rows[0].data.width, 2.32);
+  assert.equal(result.rows[0].data.height, 1.31);
+  assert.equal(result.rows[0].data.totalSqFt, 3.0392);
+});
+
+test('A3 Screens calculates height and screen size from width', async () => {
+  const service = createService();
+  const result = await service.validate('inventory', [{
+    categoryGroup: 'A3 Screens',
+    subCategory: 'Corporate',
+    title: 'Corporate Screen Network',
+    city: 'Bangalore',
+    locality: 'Whitefield',
+    propertyName: 'Corporate Tower',
+    pinCode: '560066',
+    width: '2.32',
+    numberOfScreens: '8',
+    households: '300',
+    approxReach: '1200',
+    monthlyImpressions: '36000',
+    address: 'Corporate Tower, Whitefield, Bangalore',
+    latitude: '12.9698',
+    longitude: '77.7500',
+    monthlyAdBudget: '18000',
+    internalCost: '12000',
+    sellingPrice: '18000',
+    mediaSiteId: 'A3-BLR-002',
+    propertyType: 'CORPORATE',
+    nccsClass: 'A3',
+  }]);
+
+  assert.equal(result.validRows, 1);
+  assert.equal(result.rows[0].data.width, 2.32);
+  assert.equal(result.rows[0].data.height, 1.31);
+  assert.equal(result.rows[0].data.screenSize, '31.9 inch LED TV');
 });
 
 test('contacts resolve CRM by email and reject unknown entities', async () => {

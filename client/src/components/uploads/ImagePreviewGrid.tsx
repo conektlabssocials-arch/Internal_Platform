@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { UploadedFile } from '../../types/upload';
 import { getPublicUploadUrl } from '../../api/uploadApi';
 import ImagePreviewModal from './ImagePreviewModal';
+import InventoryImage from '../ui/InventoryImage';
 
 const ImagePreviewGrid = ({
   uploads = [],
@@ -26,7 +27,17 @@ const ImagePreviewGrid = ({
       .map((url) => ({ key: url, url, name: 'Uploaded image' })),
   ];
 
-  if (!images.length) return <p className="text-xs text-slate-500">No images uploaded.</p>;
+  if (!images.length) {
+    return (
+      <div className="max-w-56 overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+        <InventoryImage
+          alt="No image uploaded"
+          className="aspect-square w-full object-cover"
+        />
+        <p className="px-3 py-2 text-xs text-slate-500">No images uploaded.</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -39,7 +50,11 @@ const ImagePreviewGrid = ({
             aria-label={`Preview ${image.name}`}
             className="overflow-hidden rounded-md border border-slate-200 bg-slate-50 text-left transition hover:border-emerald-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
           >
-            <img src={image.url} alt={image.name} className="aspect-square w-full object-cover" />
+            <InventoryImage
+              src={image.url}
+              alt={image.name}
+              className="aspect-square w-full object-cover"
+            />
             <p className="truncate px-2 py-1.5 text-xs text-slate-600">{image.name}</p>
           </button>
         ))}

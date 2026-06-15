@@ -11,6 +11,7 @@ import type { IContactRepository } from '../repositories/contact.repository.js';
 import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
 import type { IGeocodingService } from './geocoding.service.js';
+import { completeA3ScreenDimensions } from '../utils/a3ScreenDimensions.js';
 
 export type ImportValidationResult = {
   rows: ImportStoredRow[];
@@ -166,9 +167,44 @@ export class ImportValidatorsService {
       if (!city) errors.push(issue(rowNumber, 'city', 'city is required', raw.city || raw.zone));
       if (!area) errors.push(issue(rowNumber, 'locality', categoryGroup === 'A3 Screens' ? 'locality is required' : 'area is required', raw.area || raw.locality));
 
-      const sizeRequired = categoryGroup !== 'A3 Screens';
-      const width = parseNumber(raw.width, rowNumber, 'width', errors, sizeRequired);
-      const height = parseNumber(raw.height, rowNumber, 'height', errors, sizeRequired);
+      const screenSize = text(raw.screenSize);
+      const parsedWidth = parseNumber(
+        raw.width,
+        rowNumber,
+        'width',
+        errors,
+        categoryGroup !== 'A3 Screens',
+      );
+      const parsedHeight = parseNumber(
+        raw.height,
+        rowNumber,
+        'height',
+        errors,
+        categoryGroup !== 'A3 Screens',
+      );
+      const completedScreen =
+        categoryGroup === 'A3 Screens'
+          ? completeA3ScreenDimensions({
+              screenSize,
+              width: parsedWidth,
+              height: parsedHeight,
+            })
+          : { screenSize, width: parsedWidth, height: parsedHeight };
+      const width = completedScreen.width;
+      const height = completedScreen.height;
+      const completedScreenSize = completedScreen.screenSize;
+
+      if (categoryGroup === 'A3 Screens') {
+        if (width === undefined) {
+          errors.push(issue(rowNumber, 'width', 'width could not be calculated'));
+        }
+        if (height === undefined) {
+          errors.push(issue(rowNumber, 'height', 'height could not be calculated'));
+        }
+        if (!completedScreenSize) {
+          errors.push(issue(rowNumber, 'screenSize', 'screenSize could not be calculated'));
+        }
+      }
 
       if (categoryGroup && !Object.hasOwn(INVENTORY_SUBCATEGORIES, categoryGroup)) {
         errors.push(issue(rowNumber, 'categoryGroup', 'categoryGroup is invalid', categoryGroup));
@@ -307,7 +343,6 @@ export class ImportValidatorsService {
 
       const a3RequiredTextFields = [
         'propertyName',
-        'screenSize',
         'mediaSiteId',
         'propertyType',
         'nccsClass',
@@ -451,7 +486,7 @@ export class ImportValidatorsService {
           'propertyPriceUptoCr',
           errors,
         ),
-        screenSize: text(raw.screenSize),
+        screenSize: completedScreenSize,
         propertyVisualLink: text(raw.propertyVisualLink),
         numberOfScreens,
         households,

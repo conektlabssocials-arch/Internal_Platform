@@ -18,6 +18,7 @@ import InventoryCategoryCard from '../components/inventory/InventoryCategoryCard
 import ActivityTimeline from '../components/activity/ActivityTimeline';
 import InventoryPhotoUploads from '../components/uploads/InventoryPhotoUploads';
 import ImagePreviewGrid from '../components/uploads/ImagePreviewGrid';
+import InventoryImage from '../components/ui/InventoryImage';
 import LocationPicker from '../components/map/LocationPicker';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import PageHeader from '../components/ui/PageHeader';
@@ -40,6 +41,7 @@ import type {
   InventorySummaryItem,
 } from '../types/inventory';
 import type { SupplierSearchItem } from '../types/crm';
+import { updateA3ScreenDimensions } from '../utils/a3ScreenDimensions';
 
 const availabilityStatuses: AvailabilityStatus[] = ['available', 'booked', 'hold', 'unknown'];
 const inventoryStatuses: InventoryStatus[] = ['active', 'inactive'];
@@ -547,7 +549,7 @@ const Inventory = () => {
       return 'City and area are required';
     }
 
-    if (form.categoryGroup !== 'A3 Screens' && (!form.width.trim() || !form.height.trim())) {
+    if (!form.width.trim() || !form.height.trim()) {
       return 'Width and height are required';
     }
 
@@ -874,6 +876,7 @@ const Inventory = () => {
             isAdmin={isAdmin}
             canEdit={canEdit}
             canConfirm={canConfirm}
+            categoryGroup={selectedCategory}
             items={items}
             loading={loading}
             paginationTotal={pagination.total}
@@ -991,6 +994,7 @@ type InventoryTableProps = {
   isAdmin: boolean;
   canEdit: boolean;
   canConfirm: boolean;
+  categoryGroup: CategoryGroup | null;
   items: InventoryItem[];
   loading: boolean;
   paginationTotal: number;
@@ -1004,6 +1008,7 @@ const InventoryTable = ({
   isAdmin,
   canEdit,
   canConfirm,
+  categoryGroup,
   items,
   loading,
   paginationTotal,
@@ -1023,7 +1028,12 @@ const InventoryTable = ({
     ) : (
       <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[1420px] text-left text-sm">
+        <table
+          className={[
+            'w-full text-left text-sm',
+            categoryGroup === 'A3 Screens' ? 'min-w-[1300px]' : 'min-w-[1420px]',
+          ].join(' ')}
+        >
           <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Code</th>
@@ -1032,7 +1042,9 @@ const InventoryTable = ({
               <th className="px-4 py-3 font-medium">Subcategory</th>
               <th className="px-4 py-3 font-medium">City / Zone</th>
               <th className="px-4 py-3 font-medium">Area / Locality</th>
-              <th className="px-4 py-3 font-medium">Size</th>
+              {categoryGroup !== 'A3 Screens' ? (
+                <th className="px-4 py-3 font-medium">Size</th>
+              ) : null}
               <th className="px-4 py-3 font-medium">Selling Price</th>
               <th className="px-4 py-3 font-medium">Availability</th>
               <th className="px-4 py-3 font-medium">Confirmation</th>
@@ -1046,15 +1058,11 @@ const InventoryTable = ({
                 <td className="px-4 py-4 font-medium text-slate-900">{item.inventoryCode}</td>
                 <td className="min-w-64 px-4 py-4 text-slate-700">
                   <div className="flex items-center gap-3">
-                    {item.photos[0] ? (
-                      <img
-                        src={item.photos[0]}
-                        alt=""
-                        className="h-10 w-10 shrink-0 rounded-md border border-slate-200 object-cover"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-50" />
-                    )}
+                    <InventoryImage
+                      src={item.photos[0]}
+                      alt={item.title}
+                      className="h-10 w-10 shrink-0 rounded-md border border-slate-200 object-cover"
+                    />
                     <button
                       type="button"
                       onClick={() => onView(item)}
@@ -1068,13 +1076,13 @@ const InventoryTable = ({
                 <td className="px-4 py-4 text-slate-600">{item.subCategory}</td>
                 <td className="px-4 py-4 text-slate-600">{item.city}</td>
                 <td className="px-4 py-4 text-slate-600">{item.area}</td>
-                <td className="whitespace-nowrap px-4 py-4 text-slate-600">
-                  {item.categoryGroup === 'A3 Screens'
-                    ? item.screenSize || '-'
-                    : item.width && item.height
-                    ? `${item.width} x ${item.height} = ${item.totalSqFt || item.width * item.height} sq.ft.`
-                    : '-'}
-                </td>
+                {categoryGroup !== 'A3 Screens' ? (
+                  <td className="whitespace-nowrap px-4 py-4 text-slate-600">
+                    {item.width && item.height
+                      ? `${item.width} x ${item.height} = ${item.totalSqFt || item.width * item.height} sq.ft.`
+                      : '-'}
+                  </td>
+                ) : null}
                 <td className="px-4 py-4 text-slate-600">{currency(item.sellingPrice)}</td>
                 <td className="px-4 py-4 capitalize text-slate-600">{item.availabilityStatus}</td>
                 <td className="px-4 py-4">
@@ -1109,11 +1117,11 @@ const InventoryTable = ({
         {items.map((item) => (
           <article key={item.id} className="p-4">
             <div className="flex items-start gap-3">
-              {item.photos[0] ? (
-                <img src={item.photos[0]} alt={item.title} className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover" />
-              ) : (
-                <div className="h-14 w-14 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-50" />
-              )}
+              <InventoryImage
+                src={item.photos[0]}
+                alt={item.title}
+                className="h-14 w-14 shrink-0 rounded-md border border-slate-200 object-cover"
+              />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-emerald-700">{item.inventoryCode}</p>
                 <button
@@ -1246,7 +1254,16 @@ const InventoryDetailModal = ({
         </InventoryDetailSection>
 
         <InventoryDetailSection title="Media Details">
-          <InventoryDetail label="Size" value={item.width && item.height ? `${item.width} x ${item.height}` : undefined} />
+          <InventoryDetail
+            label="Size"
+            value={
+              item.width && item.height
+                ? item.categoryGroup === 'A3 Screens'
+                  ? `${item.height} H x ${item.width} W`
+                  : `${item.width} W x ${item.height} H`
+                : undefined
+            }
+          />
           <InventoryDetail label="Total Sq.Ft." value={item.totalSqFt ? `${item.totalSqFt} sq.ft.` : undefined} />
           <InventoryDetail label="Illumination" value={item.illumination} />
           <InventoryDetail label="Facing" value={item.facingDirection} />
@@ -1526,26 +1543,34 @@ const InventoryFormModal = ({
         </FormSection>
 
         <FormSection title="Common Details">
-          {form.categoryGroup !== 'A3 Screens' ? (
-            <>
-              <TextField
-                label="Width"
-                value={form.width}
-                onChange={(value) => onFormChange({ ...form, width: value })}
-                required
-              />
-              <TextField
-                label="Height"
-                value={form.height}
-                onChange={(value) => onFormChange({ ...form, height: value })}
-                required
-              />
-              <ReadOnlyField
-                label="Total Sq.Ft."
-                value={totalSqFt !== undefined ? `${totalSqFt} sq.ft.` : 'Enter width and height'}
-              />
-            </>
-          ) : null}
+          <TextField
+            label={form.categoryGroup === 'A3 Screens' ? 'Width (ft)' : 'Width'}
+            value={form.width}
+            onChange={(value) =>
+              onFormChange(
+                form.categoryGroup === 'A3 Screens'
+                  ? { ...form, ...updateA3ScreenDimensions(form, 'width', value) }
+                  : { ...form, width: value },
+              )
+            }
+            required
+          />
+          <TextField
+            label={form.categoryGroup === 'A3 Screens' ? 'Height (ft)' : 'Height'}
+            value={form.height}
+            onChange={(value) =>
+              onFormChange(
+                form.categoryGroup === 'A3 Screens'
+                  ? { ...form, ...updateA3ScreenDimensions(form, 'height', value) }
+                  : { ...form, height: value },
+              )
+            }
+            required
+          />
+          <ReadOnlyField
+            label="Total Sq.Ft."
+            value={totalSqFt !== undefined ? `${totalSqFt} sq.ft.` : 'Enter width and height'}
+          />
           {form.categoryGroup !== 'A3 Screens' ? (
             <>
               <TextField label="Internal Cost" value={form.internalCost} onChange={(value) => onFormChange({ ...form, internalCost: value })} />
@@ -1635,7 +1660,17 @@ const InventoryFormModal = ({
             <TextField label="Profile" value={form.profile} onChange={(value) => onFormChange({ ...form, profile: value })} />
             <TextField label="PIN Code" value={form.pinCode} onChange={(value) => onFormChange({ ...form, pinCode: value })} required />
             <TextField label="Property Price Upto (Cr)" value={form.propertyPriceUptoCr} onChange={(value) => onFormChange({ ...form, propertyPriceUptoCr: value })} />
-            <TextField label="Screen Size" value={form.screenSize} onChange={(value) => onFormChange({ ...form, screenSize: value })} required />
+            <TextField
+              label="Screen Size"
+              value={form.screenSize}
+              onChange={(value) =>
+                onFormChange({
+                  ...form,
+                  ...updateA3ScreenDimensions(form, 'screenSize', value),
+                })
+              }
+              required
+            />
             <TextField label="Property Visual Link" value={form.propertyVisualLink} onChange={(value) => onFormChange({ ...form, propertyVisualLink: value })} />
             <TextField label="No. of Screens" value={form.numberOfScreens} onChange={(value) => onFormChange({ ...form, numberOfScreens: value })} required />
             <TextField label="Households / Flats" value={form.households} onChange={(value) => onFormChange({ ...form, households: value })} required />

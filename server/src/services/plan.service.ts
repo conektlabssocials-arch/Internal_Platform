@@ -266,7 +266,10 @@ export class PlanService implements IPlanService {
           buildingAge: inventory.buildingAge,
           startDate,
           endDate,
-          quantity: numberValue(input.quantity, 1),
+          quantity:
+            getEffectiveCategoryGroup(inventory) === 'A3 Screens'
+              ? numberValue(inventory.numberOfScreens, 1)
+              : numberValue(input.quantity, 1),
           unitSellingPrice: numberValue(input.unitSellingPrice),
           unitInternalCost: numberValue(input.unitInternalCost),
           notes: trim(input.notes),
