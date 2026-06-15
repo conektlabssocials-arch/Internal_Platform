@@ -202,6 +202,7 @@ Phase 6 introduces `crm:write` and `inventory:write`, and expands
 | `update_crm_contact` | Update a contact, status, or primary designation |
 | `create_campaign` | Create a New campaign for an existing CRM client |
 | `update_campaign_details` | Update campaign brief, budget, dates, geography, owner, or follow-up |
+| `create_inventory` | Create active, unconfirmed inventory with a generated inventory code |
 | `confirm_inventory` | Refresh confirmation and update availability or prices |
 | `change_inventory_status` | Admin-only inventory activation or deactivation |
 
@@ -212,6 +213,12 @@ unsets the previous primary contact.
 Campaign creation requires an existing Brand, Agency, or Individual CRM client;
 Supplier/Owner records cannot be campaign clients. Ownership defaults to the
 signed-in platform user unless an active owner user ID is supplied.
+
+Inventory creation validates the fields required by the selected category,
+including location and dimensions for Outdoor inventory. The platform generates
+the inventory code and attributes the record to the signed-in user. New records
+are active but unconfirmed, so Claude must use `confirm_inventory` before the
+inventory can be added to a plan.
 
 Inventory confirmation records the signed-in user and refreshes the 30-day
 confirmation window. Claude must state the previous and proposed availability,
@@ -413,8 +420,8 @@ curl https://internal-api.conektads.com/.well-known/oauth-authorization-server
 
 The OAuth metadata must contain the configured scopes. Remove and re-add the
 Claude connector, sign in again, then ask Claude to list its Conekt Ads tools.
-A fully scoped Admin connection exposes 46 tools. A fully scoped member
-connection exposes 44 tools because inventory status changes and profitability
+A fully scoped Admin connection exposes 47 tools. A fully scoped member
+connection exposes 45 tools because inventory status changes and profitability
 are Admin-only.
 
 Recommended smoke tests:

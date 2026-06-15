@@ -6,11 +6,14 @@ import { TOKENS } from '../config/tokens.js';
 import type {
   ConfirmInventoryDto,
   InventoryDto,
+  InventoryMutationDto,
 } from '../dto/inventory.dto.js';
 import type { InventoryStatus } from '../models/inventory.model.js';
+import type { UserRole } from '../models/user.model.js';
 import type { IActivityService } from './activity.service.js';
 import type { CampaignCommandActor } from './campaignCommand.service.js';
 import type { IInventoryService } from './inventory.service.js';
+import type { IPlatformSettingsService } from './platformSettings.service.js';
 import { HttpError } from '../utils/httpError.js';
 
 export type ConfirmInventoryCommandInput = Omit<
@@ -21,6 +24,11 @@ export type ConfirmInventoryCommandInput = Omit<
 };
 
 export interface IInventoryCommandService {
+  create(
+    input: InventoryMutationDto,
+    actor: CampaignCommandActor,
+    req?: Request,
+  ): Promise<InventoryDto>;
   confirm(
     id: string,
     input: ConfirmInventoryCommandInput,
@@ -50,7 +58,47 @@ export class InventoryCommandService implements IInventoryCommandService {
     private readonly inventory: IInventoryService,
     @inject(TOKENS.ActivityService)
     private readonly activity: IActivityService,
+    @inject(TOKENS.PlatformSettingsService)
+    private readonly platformSettings: IPlatformSettingsService,
   ) {}
+
+  async create(
+    input: InventoryMutationDto,
+    actor: CampaignCommandActor,
+    req?: Request,
+  ) {
+    if (
+      !(await this.platformSettings.hasPermission(
+        actor.role as UserRole,
+        'inventory.create',
+      ))
+    ) {
+      throw new HttpError(403, 'You do not have permission to create inventory');
+    }
+    const item = await this.inventory.createInventory({
+      ...input,
+      status: undefined,
+      createdBy: actor.userId,
+      updatedBy: actor.userId,
+    });
+    await this.activity.logEntityActivity({
+      actor,
+      action: ACTIVITY_ACTIONS.INVENTORY_CREATED,
+      entityType: 'Inventory',
+      entityId: item.id,
+      entityCode: item.inventoryCode,
+      entityTitle: item.title,
+      message: `${item.inventoryCode} inventory was created.`,
+      metadata: {
+        categoryGroup: item.categoryGroup,
+        subCategory: item.subCategory,
+        availabilityStatus: item.availabilityStatus,
+        confirmationStatus: item.confirmationStatus,
+      },
+      req,
+    });
+    return item;
+  }
 
   async confirm(
     id: string,

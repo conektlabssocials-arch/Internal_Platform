@@ -189,6 +189,37 @@ const reportLocationFilters = {
     z.enum(['Outdoor', 'Auto', 'Bus', 'Mobile Van', 'A3 Screens']).optional(),
   ),
 };
+const inventoryCategory = z.enum([
+  'Outdoor',
+  'Auto',
+  'Bus',
+  'Mobile Van',
+  'A3 Screens',
+]);
+const inventorySubCategory = z.enum([
+  'Bus Shelter',
+  'Hoarding',
+  'Digital OOH',
+  'Digital Bus Shelter',
+  'Auto Hood',
+  'Auto Back Panel',
+  'Bus Panel',
+  'Combo Panel',
+  'Full Bus Interior',
+  'Full Bus Exterior',
+  'Van LED Screen',
+  '3D Digital Screen',
+  'Corporate',
+  'Residential',
+]);
+const optionalPositiveNumber = z.preprocess(
+  emptyToUndefined,
+  z.coerce.number().min(0).optional(),
+);
+const optionalPositiveInteger = z.preprocess(
+  emptyToUndefined,
+  z.coerce.number().int().min(0).optional(),
+);
 
 const asQuery = (value: number | undefined) => value?.toString();
 const asBooleanQuery = (value: boolean | 'true' | 'false' | undefined) =>
@@ -246,7 +277,7 @@ export const createPhase1McpServer = (
 ) => {
   const server = new McpServer({
     name: 'conekt-ads-internal-platform',
-    version: '0.7.0',
+    version: '0.7.1',
   });
 
   const activity = container.resolve<IActivityService>(TOKENS.ActivityService);
@@ -670,6 +701,103 @@ export const createPhase1McpServer = (
   if (scopes.includes(MCP_SCOPES.InventoryWrite)) {
     const inventoryCommands = container.resolve<IInventoryCommandService>(
       TOKENS.InventoryCommandService,
+    );
+
+    server.registerTool(
+      'create_inventory',
+      {
+        title: 'Create inventory',
+        description:
+          'Creates an active but unconfirmed inventory record and automatically generates its inventory code. Search Supplier/Owner CRM records first when linking ownerEntity or supplierEntity. Explain all location, category, commercial, and category-specific fields, then obtain explicit confirmation. The new inventory must be confirmed separately before it can be added to a plan.',
+        inputSchema: {
+          categoryGroup: inventoryCategory,
+          subCategory: inventorySubCategory,
+          title: z.string().trim().min(1).max(250),
+          city: z.string().trim().min(1).max(150),
+          area: z.string().trim().min(1).max(200),
+          location: z
+            .object({
+              latitude: z.coerce.number().min(-90).max(90).optional(),
+              longitude: z.coerce.number().min(-180).max(180).optional(),
+              address: z.string().trim().min(1).max(1000).optional(),
+              source: z
+                .enum(['manual', 'map_picker', 'reverse_geocode'])
+                .default('manual'),
+            })
+            .optional(),
+          photos: z.array(z.string().url()).max(20).optional(),
+          ownerName: optionalShortText,
+          ownerPhone: optionalShortText,
+          supplierName: optionalShortText,
+          ownerEntity: optionalText.describe(
+            'Optional Supplier/Owner CRM MongoDB ID',
+          ),
+          supplierEntity: optionalText.describe(
+            'Optional Supplier/Owner CRM MongoDB ID',
+          ),
+          internalCost: optionalPositiveNumber,
+          sellingPrice: optionalPositiveNumber,
+          minSpend: optionalPositiveNumber,
+          minDurationDays: optionalPositiveInteger,
+          availabilityStatus: z
+            .enum(['available', 'booked', 'hold', 'unknown'])
+            .default('unknown'),
+          tags: optionalStringList,
+          internalNotes: optionalPlanText,
+          width: optionalPositiveNumber,
+          height: optionalPositiveNumber,
+          illumination: z.preprocess(
+            emptyToUndefined,
+            z.enum(['Lit', 'Non-lit', 'Backlit', 'Frontlit', 'NA']).optional(),
+          ),
+          facingDirection: optionalShortText,
+          trafficDirection: optionalShortText,
+          estimatedTraffic: optionalShortText,
+          loopLengthSeconds: optionalPositiveNumber,
+          spotsPerHour: optionalPositiveNumber,
+          screenSpecs: optionalPlanText,
+          numberOfVehicles: optionalPositiveInteger,
+          route: optionalPlanText,
+          depot: optionalShortText,
+          brandingType: optionalShortText,
+          ratePerVehiclePerMonth: optionalPositiveNumber,
+          operatorName: optionalShortText,
+          itinerary: optionalPlanText,
+          operationDays: optionalPositiveInteger,
+          hasLedScreen: z.boolean().optional(),
+          hasAudioSystem: z.boolean().optional(),
+          hasCanopy: z.boolean().optional(),
+          ratePerDay: optionalPositiveNumber,
+          propertyName: optionalShortText,
+          phase: optionalShortText,
+          profile: optionalShortText,
+          pinCode: optionalShortText,
+          propertyPriceUptoCr: optionalPositiveNumber,
+          screenSize: optionalShortText,
+          propertyVisualLink: z.preprocess(
+            emptyToUndefined,
+            z.string().url().max(1000).optional(),
+          ),
+          numberOfScreens: optionalPositiveInteger,
+          households: optionalPositiveInteger,
+          approxReach: optionalPositiveInteger,
+          monthlyImpressions: optionalPositiveInteger,
+          monthlyAdBudget: optionalPositiveNumber,
+          discountedMonthlyAdBudget: optionalPositiveNumber,
+          mediaSiteId: optionalShortText,
+          buildingAge: optionalPositiveNumber,
+          propertyType: optionalShortText,
+          nccsClass: optionalShortText,
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({ confirm: _confirm, ...input }) =>
+        runTool('create_inventory', actor, () =>
+          inventoryCommands.create(input, actor),
+        ),
     );
 
     server.registerTool(
