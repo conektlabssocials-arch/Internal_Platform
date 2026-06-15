@@ -239,6 +239,7 @@ test('draft updates preserve A3 property audience data in the plan snapshot', as
   const result = (await planService.update(planId.toString(), {
     items: [{
       inventory: inventoryId.toString(),
+      quantity: 99,
       unitSellingPrice: 12500,
       unitInternalCost: 9100,
     }],
@@ -251,6 +252,9 @@ test('draft updates preserve A3 property audience data in the plan snapshot', as
       buildingAge?: number;
       screenSize?: string;
       numberOfScreens?: number;
+      quantity?: number;
+      totalSellingPrice?: number;
+      totalInternalCost?: number;
     }>;
   };
 
@@ -261,6 +265,9 @@ test('draft updates preserve A3 property audience data in the plan snapshot', as
   assert.equal(result.items[0].buildingAge, 23);
   assert.equal(result.items[0].screenSize, '32 inch LED TV');
   assert.equal(result.items[0].numberOfScreens, 4);
+  assert.equal(result.items[0].quantity, 4);
+  assert.equal(result.items[0].totalSellingPrice, 12500);
+  assert.equal(result.items[0].totalInternalCost, 9100);
 });
 
 test('plan statuses cannot skip the documented workflow', async () => {

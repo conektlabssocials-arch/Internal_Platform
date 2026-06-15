@@ -45,7 +45,8 @@ const base = (item: ClientPlanMapSource) => ({
   unitSellingPrice: Number(item.unitSellingPrice) || 0,
   totalSellingPrice:
     item.totalSellingPrice ??
-    (Number(item.unitSellingPrice) || 0) * (Number(item.quantity) || 1),
+    (Number(item.unitSellingPrice) || 0) *
+      (item.categoryGroup === 'A3 Screens' ? 1 : Number(item.quantity) || 1),
 });
 
 export const buildClientPlanMapData = (

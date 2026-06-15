@@ -1,4 +1,5 @@
 export type PlanPricingItemInput = {
+  categoryGroup?: string;
   startDate?: Date;
   endDate?: Date;
   quantity?: number;
@@ -15,10 +16,11 @@ export const calculateDurationDays = (startDate?: Date, endDate?: Date) => {
 
 export const calculatePlanItem = <T extends PlanPricingItemInput>(item: T) => {
   const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
+  const pricingQuantity = item.categoryGroup === 'A3 Screens' ? 1 : quantity;
   const unitSellingPrice = item.unitSellingPrice || 0;
   const unitInternalCost = item.unitInternalCost || 0;
-  const totalSellingPrice = unitSellingPrice * quantity;
-  const totalInternalCost = unitInternalCost * quantity;
+  const totalSellingPrice = unitSellingPrice * pricingQuantity;
+  const totalInternalCost = unitInternalCost * pricingQuantity;
   const marginAmount = totalSellingPrice - totalInternalCost;
 
   return {

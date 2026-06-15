@@ -198,6 +198,40 @@ test('A3 Screens bulk validation fills address and PIN code from coordinates', a
   assert.equal(result.warnings.length, 2);
 });
 
+test('A3 Screens accepts width and height when screen size is not provided', async () => {
+  const service = createService();
+  const result = await service.validate('inventory', [{
+    categoryGroup: 'A3 Screens',
+    subCategory: 'Residential',
+    title: 'Residency Screen Network',
+    city: 'Bangalore',
+    locality: 'Indiranagar',
+    propertyName: 'Residency One',
+    pinCode: '560038',
+    width: '3',
+    height: '2',
+    numberOfScreens: '6',
+    households: '180',
+    approxReach: '720',
+    monthlyImpressions: '21000',
+    address: 'Residency One, Indiranagar, Bangalore',
+    latitude: '12.9784',
+    longitude: '77.6408',
+    monthlyAdBudget: '12000',
+    internalCost: '9000',
+    sellingPrice: '12500',
+    mediaSiteId: 'A3-BLR-001',
+    propertyType: 'RESIDENTIAL',
+    nccsClass: 'A3',
+  }]);
+
+  assert.equal(result.validRows, 1);
+  assert.equal(result.rows[0].data.screenSize, undefined);
+  assert.equal(result.rows[0].data.width, 3);
+  assert.equal(result.rows[0].data.height, 2);
+  assert.equal(result.rows[0].data.totalSqFt, 6);
+});
+
 test('contacts resolve CRM by email and reject unknown entities', async () => {
   const entityId = new Types.ObjectId();
   const service = createService({

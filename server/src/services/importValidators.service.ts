@@ -166,7 +166,8 @@ export class ImportValidatorsService {
       if (!city) errors.push(issue(rowNumber, 'city', 'city is required', raw.city || raw.zone));
       if (!area) errors.push(issue(rowNumber, 'locality', categoryGroup === 'A3 Screens' ? 'locality is required' : 'area is required', raw.area || raw.locality));
 
-      const sizeRequired = categoryGroup !== 'A3 Screens';
+      const screenSize = text(raw.screenSize);
+      const sizeRequired = categoryGroup !== 'A3 Screens' || !screenSize;
       const width = parseNumber(raw.width, rowNumber, 'width', errors, sizeRequired);
       const height = parseNumber(raw.height, rowNumber, 'height', errors, sizeRequired);
 
@@ -307,7 +308,6 @@ export class ImportValidatorsService {
 
       const a3RequiredTextFields = [
         'propertyName',
-        'screenSize',
         'mediaSiteId',
         'propertyType',
         'nccsClass',
@@ -451,7 +451,7 @@ export class ImportValidatorsService {
           'propertyPriceUptoCr',
           errors,
         ),
-        screenSize: text(raw.screenSize),
+        screenSize,
         propertyVisualLink: text(raw.propertyVisualLink),
         numberOfScreens,
         households,

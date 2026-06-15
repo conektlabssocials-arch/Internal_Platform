@@ -610,7 +610,6 @@ export class InventoryService implements IInventoryService {
         'location.address',
         'propertyName',
         'pinCode',
-        'screenSize',
         'numberOfScreens',
         'households',
         'approxReach',
@@ -633,6 +632,16 @@ export class InventoryService implements IInventoryService {
 
       if (location?.latitude === undefined || location.longitude === undefined) {
         throw new HttpError(400, 'A3 Screens inventory requires latitude and longitude');
+      }
+
+      if (
+        !data.screenSize &&
+        (data.width === undefined || data.height === undefined)
+      ) {
+        throw new HttpError(
+          400,
+          'A3 Screens inventory requires screenSize or width and height',
+        );
       }
     }
   }

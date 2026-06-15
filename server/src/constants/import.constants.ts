@@ -144,6 +144,8 @@ export const IMPORT_TEMPLATES: ImportTemplate[] = [
       'pinCode',
       'propertyPriceUptoCr',
       'screenSize',
+      'width',
+      'height',
       'propertyVisualLink',
       'numberOfScreens',
       'households',
