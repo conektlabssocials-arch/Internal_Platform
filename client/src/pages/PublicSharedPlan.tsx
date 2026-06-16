@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { getPublicShare, PublicShareError } from '../api/shareApi';
 import NonMapInventoryList from '../components/maps/NonMapInventoryList';
+import PlanItemDetailModal, { type PlanItemDetail } from '../components/maps/PlanItemDetailModal';
 import SharedPlanMap from '../components/maps/SharedPlanMap';
 import type { PublicSharedPlan as PublicSharedPlanData } from '../types/share';
 import InventoryImage from '../components/ui/InventoryImage';
+
+const ALL_CITIES = 'all';
 
 const pendingRequests = new Map<string, Promise<PublicSharedPlanData>>();
 
@@ -24,6 +27,8 @@ const PublicSharedPlan = () => {
   const [data, setData] = useState<PublicSharedPlanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
+  const [cityFilter, setCityFilter] = useState<string>(ALL_CITIES);
+  const [selectedItem, setSelectedItem] = useState<PlanItemDetail | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +54,23 @@ const PublicSharedPlan = () => {
       cancelled = true;
     };
   }, [token]);
+
+  const cities = useMemo(() => {
+    if (!data) return [];
+    const all = [
+      ...data.plan.items,
+      ...(data.mapItems || []),
+      ...(data.nonMapItems || []),
+    ]
+      .map((item) => item.city?.trim())
+      .filter((city): city is string => Boolean(city));
+    return Array.from(new Set(all)).sort((a, b) => a.localeCompare(b));
+  }, [data]);
+
+  const matchesCity = (city?: string) => cityFilter === ALL_CITIES || city === cityFilter;
+  const planItems = (data?.plan.items || []).filter((item) => matchesCity(item.city));
+  const mapItems = (data?.mapItems || []).filter((item) => matchesCity(item.city));
+  const nonMapItems = (data?.nonMapItems || []).filter((item) => matchesCity(item.city));
 
   if (loading) {
     return (
@@ -95,6 +117,18 @@ const PublicSharedPlan = () => {
         </div>
       </header>
 
+      {cities.length > 1 ? (
+        <div className="sticky top-0 z-30 border-b border-slate-200 bg-[#f7f7f2]/95 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-5 py-3 sm:px-8">
+            <span className="mr-1 text-xs font-semibold uppercase text-emerald-700">Filter by city</span>
+            <CityChip label="All cities" active={cityFilter === ALL_CITIES} onClick={() => setCityFilter(ALL_CITIES)} />
+            {cities.map((city) => (
+              <CityChip key={city} label={city} active={cityFilter === city} onClick={() => setCityFilter(city)} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mx-auto max-w-6xl space-y-8 px-5 py-8 sm:px-8">
         <section>
           <h2 className="text-lg font-semibold">Campaign Brief</h2>
@@ -109,21 +143,23 @@ const PublicSharedPlan = () => {
             <h2 className="mt-1 text-lg font-semibold">Map View</h2>
             <p className="mt-1 text-sm text-slate-500">Click a pin to view site details.</p>
           </div>
-          <SharedPlanMap mapItems={data.mapItems || []} shareToken={token} publicMode />
+          <SharedPlanMap mapItems={mapItems} shareToken={token} publicMode />
         </section>
 
-        {(data.nonMapItems || []).length ? (
+        {nonMapItems.length ? (
           <section>
             <p className="text-xs font-semibold uppercase text-emerald-700">Flexible media</p>
             <h2 className="mt-1 text-lg font-semibold">Mobile / Transit Inventory</h2>
+            <p className="mt-1 text-sm text-slate-500">Click a card to view photos and details.</p>
             <div className="mt-3">
-              <NonMapInventoryList items={data.nonMapItems} />
+              <NonMapInventoryList items={nonMapItems} onSelect={setSelectedItem} />
             </div>
           </section>
         ) : null}
 
         <section>
           <h2 className="text-lg font-semibold">Selected Media</h2>
+          <p className="mt-1 text-sm text-slate-500">Click a row to view photos and details.</p>
           <div className="mt-3 overflow-hidden border border-slate-200 bg-white">
             <table className="hidden w-full min-w-[850px] text-left text-sm md:table">
               <thead className="bg-emerald-50 text-emerald-900">
@@ -138,8 +174,12 @@ const PublicSharedPlan = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {data.plan.items.map((item, index) => (
-                  <tr key={`${item.title}-${index}`}>
+                {planItems.map((item, index) => (
+                  <tr
+                    key={`${item.title}-${index}`}
+                    onClick={() => setSelectedItem(item)}
+                    className="cursor-pointer transition hover:bg-emerald-50/60"
+                  >
                     <td className="px-4 py-4">
                       <div className="flex items-start gap-3">
                         <InventoryImage
@@ -164,8 +204,12 @@ const PublicSharedPlan = () => {
               </tbody>
             </table>
             <div className="divide-y divide-slate-100 md:hidden">
-              {data.plan.items.map((item, index) => (
-                <article key={`${item.title}-${index}`} className="p-4">
+              {planItems.map((item, index) => (
+                <article
+                  key={`${item.title}-${index}`}
+                  className="cursor-pointer p-4 transition hover:bg-emerald-50/60"
+                  onClick={() => setSelectedItem(item)}
+                >
                   <div className="flex items-start gap-3">
                     <InventoryImage
                       src={item.photoUrl}
@@ -188,7 +232,11 @@ const PublicSharedPlan = () => {
                 </article>
               ))}
             </div>
-            {!data.plan.items.length ? <p className="p-6 text-center text-sm text-slate-500">No media items included.</p> : null}
+            {!planItems.length ? (
+              <p className="p-6 text-center text-sm text-slate-500">
+                {data.plan.items.length ? 'No media items in this city.' : 'No media items included.'}
+              </p>
+            ) : null}
           </div>
         </section>
 
@@ -216,9 +264,34 @@ const PublicSharedPlan = () => {
           This shared plan is read-only.
         </footer>
       </div>
+
+      <PlanItemDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
     </main>
   );
 };
+
+const CityChip = ({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    className={`rounded-full border px-3 py-1 text-sm transition ${
+      active
+        ? 'border-emerald-600 bg-emerald-600 text-white'
+        : 'border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-700'
+    }`}
+  >
+    {label}
+  </button>
+);
 
 const Price = ({ label, value }: { label: string; value: number }) => (
   <div className="flex justify-between gap-4">
