@@ -5,10 +5,12 @@ import { getPublicShare, PublicShareError } from '../api/shareApi';
 import NonMapInventoryList from '../components/maps/NonMapInventoryList';
 import PlanItemDetailModal, { type PlanItemDetail } from '../components/maps/PlanItemDetailModal';
 import SharedPlanMap from '../components/maps/SharedPlanMap';
+import Pagination from '../components/ui/Pagination';
 import type { PublicSharedPlan as PublicSharedPlanData } from '../types/share';
 import InventoryImage from '../components/ui/InventoryImage';
 
 const ALL_CITIES = 'all';
+const ALL_AREAS = 'all';
 const PAGE_SIZE = 10;
 
 const pendingRequests = new Map<string, Promise<PublicSharedPlanData>>();
@@ -29,6 +31,8 @@ const PublicSharedPlan = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [cityFilter, setCityFilter] = useState<string>(ALL_CITIES);
+  const [areaFilter, setAreaFilter] = useState<string>(ALL_AREAS);
+  const [areasOpen, setAreasOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PlanItemDetail | null>(null);
   const [page, setPage] = useState(1);
 
@@ -70,13 +74,38 @@ const PublicSharedPlan = () => {
   }, [data]);
 
   const matchesCity = (city?: string) => cityFilter === ALL_CITIES || city === cityFilter;
-  const planItems = (data?.plan.items || []).filter((item) => matchesCity(item.city));
-  const mapItems = (data?.mapItems || []).filter((item) => matchesCity(item.city));
-  const nonMapItems = (data?.nonMapItems || []).filter((item) => matchesCity(item.city));
+  const matchesArea = (area?: string) => areaFilter === ALL_AREAS || area === areaFilter;
+
+  // Areas depend on the selected city so the area chips only show areas that exist there.
+  const areas = useMemo(() => {
+    if (!data) return [];
+    const all = [
+      ...data.plan.items,
+      ...(data.mapItems || []),
+      ...(data.nonMapItems || []),
+    ]
+      .filter((item) => matchesCity(item.city))
+      .map((item) => item.area?.trim())
+      .filter((area): area is string => Boolean(area));
+    return Array.from(new Set(all)).sort((a, b) => a.localeCompare(b));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, cityFilter]);
+
+  const matchesFilters = (item: { city?: string; area?: string }) =>
+    matchesCity(item.city) && matchesArea(item.area);
+  const planItems = (data?.plan.items || []).filter(matchesFilters);
+  const mapItems = (data?.mapItems || []).filter(matchesFilters);
+  const nonMapItems = (data?.nonMapItems || []).filter(matchesFilters);
+
+  // Changing city resets the area selection (the previous area may not exist in the new city).
+  useEffect(() => {
+    setAreaFilter(ALL_AREAS);
+    setAreasOpen(false);
+  }, [cityFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [cityFilter]);
+  }, [cityFilter, areaFilter]);
 
   const totalPages = Math.max(1, Math.ceil(planItems.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -128,14 +157,57 @@ const PublicSharedPlan = () => {
         </div>
       </header>
 
-      {cities.length > 1 ? (
+      {cities.length > 1 || (cityFilter !== ALL_CITIES && areas.length > 1) ? (
         <div className="sticky top-0 z-30 border-b border-slate-200 bg-[#f7f7f2]/95 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-5 py-3 sm:px-8">
-            <span className="mr-1 text-xs font-semibold uppercase text-emerald-700">Filter by city</span>
-            <CityChip label="All cities" active={cityFilter === ALL_CITIES} onClick={() => setCityFilter(ALL_CITIES)} />
-            {cities.map((city) => (
-              <CityChip key={city} label={city} active={cityFilter === city} onClick={() => setCityFilter(city)} />
-            ))}
+          <div className="mx-auto max-w-6xl space-y-2 px-5 py-3 sm:px-8">
+            {cities.length > 1 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 w-14 shrink-0 text-xs font-semibold uppercase text-emerald-700">City</span>
+                <CityChip label="All cities" active={cityFilter === ALL_CITIES} onClick={() => setCityFilter(ALL_CITIES)} />
+                {cities.map((city) => (
+                  <CityChip key={city} label={city} active={cityFilter === city} onClick={() => setCityFilter(city)} />
+                ))}
+              </div>
+            ) : null}
+            {cityFilter !== ALL_CITIES && areas.length > 1 ? (
+              <div className="flex flex-wrap items-start gap-2">
+                <span className="mr-1 w-14 shrink-0 pt-1.5 text-xs font-semibold uppercase text-emerald-700">Area</span>
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setAreasOpen((open) => !open)}
+                    aria-expanded={areasOpen}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 transition hover:border-emerald-400 hover:text-emerald-700"
+                  >
+                    <span>{areaFilter === ALL_AREAS ? `All areas (${areas.length})` : areaFilter}</span>
+                    <span className={`text-xs transition-transform ${areasOpen ? 'rotate-180' : ''}`}>▾</span>
+                  </button>
+                  {areasOpen ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <CityChip
+                        label="All areas"
+                        active={areaFilter === ALL_AREAS}
+                        onClick={() => {
+                          setAreaFilter(ALL_AREAS);
+                          setAreasOpen(false);
+                        }}
+                      />
+                      {areas.map((area) => (
+                        <CityChip
+                          key={area}
+                          label={area}
+                          active={areaFilter === area}
+                          onClick={() => {
+                            setAreaFilter(area);
+                            setAreasOpen(false);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -245,7 +317,7 @@ const PublicSharedPlan = () => {
             </div>
             {!planItems.length ? (
               <p className="p-6 text-center text-sm text-slate-500">
-                {data.plan.items.length ? 'No media items in this city.' : 'No media items included.'}
+                {data.plan.items.length ? 'No media items match these filters.' : 'No media items included.'}
               </p>
             ) : null}
             {planItems.length > PAGE_SIZE ? (
@@ -290,86 +362,6 @@ const PublicSharedPlan = () => {
     </main>
   );
 };
-
-const getPageWindow = (page: number, totalPages: number): (number | 'ellipsis')[] => {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-  const pages = new Set<number>([1, totalPages, page, page - 1, page + 1]);
-  const sorted = Array.from(pages)
-    .filter((p) => p >= 1 && p <= totalPages)
-    .sort((a, b) => a - b);
-  const result: (number | 'ellipsis')[] = [];
-  sorted.forEach((p, index) => {
-    if (index > 0 && p - sorted[index - 1] > 1) result.push('ellipsis');
-    result.push(p);
-  });
-  return result;
-};
-
-const Pagination = ({
-  page,
-  totalPages,
-  rangeStart,
-  rangeEnd,
-  total,
-  onChange,
-}: {
-  page: number;
-  totalPages: number;
-  rangeStart: number;
-  rangeEnd: number;
-  total: number;
-  onChange: (page: number) => void;
-}) => (
-  <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 sm:flex-row">
-    <p className="text-xs text-slate-500">
-      Showing <span className="font-medium text-slate-700">{rangeStart}</span>–
-      <span className="font-medium text-slate-700">{rangeEnd}</span> of{' '}
-      <span className="font-medium text-slate-700">{total}</span>
-    </p>
-    <nav className="flex items-center gap-1" aria-label="Pagination">
-      <PageButton label="‹" ariaLabel="Previous page" disabled={page <= 1} onClick={() => onChange(page - 1)} />
-      {getPageWindow(page, totalPages).map((entry, index) =>
-        entry === 'ellipsis' ? (
-          <span key={`ellipsis-${index}`} className="px-2 text-sm text-slate-400">
-            …
-          </span>
-        ) : (
-          <PageButton key={entry} label={String(entry)} active={entry === page} onClick={() => onChange(entry)} />
-        ),
-      )}
-      <PageButton label="›" ariaLabel="Next page" disabled={page >= totalPages} onClick={() => onChange(page + 1)} />
-    </nav>
-  </div>
-);
-
-const PageButton = ({
-  label,
-  ariaLabel,
-  active,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  ariaLabel?: string;
-  active?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    disabled={disabled}
-    aria-label={ariaLabel}
-    aria-current={active ? 'page' : undefined}
-    className={`flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-sm transition ${
-      active
-        ? 'border-emerald-600 bg-emerald-600 font-medium text-white'
-        : 'border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-700'
-    } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-300 disabled:hover:text-slate-600`}
-  >
-    {label}
-  </button>
-);
 
 const CityChip = ({
   label,

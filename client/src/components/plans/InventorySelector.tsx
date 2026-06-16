@@ -7,14 +7,22 @@ import {
 } from '../../constants/inventoryCategories';
 import type { InventoryItem } from '../../types/inventory';
 
+const isEligible = (item: InventoryItem) =>
+  item.status === 'active' &&
+  item.confirmationStatus === 'fresh' &&
+  ['available', 'hold'].includes(item.availabilityStatus);
+
 const InventorySelector = ({
   selectedIds,
   onAdd,
+  onAddMany,
 }: {
   selectedIds: string[];
   onAdd: (inventory: InventoryItem) => void;
+  onAddMany: (inventories: InventoryItem[]) => void;
 }) => {
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [categoryGroup, setCategoryGroup] = useState('');
   const [subCategory, setSubCategory] = useState('');
@@ -22,6 +30,7 @@ const InventorySelector = ({
   const [area, setArea] = useState('');
   const [availabilityStatus, setAvailabilityStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [addingAll, setAddingAll] = useState(false);
   const subCategories = categoryGroup
     ? INVENTORY_CATEGORIES[categoryGroup as keyof typeof INVENTORY_CATEGORIES]
     : [...new Set(Object.values(INVENTORY_CATEGORIES).flat())];
@@ -44,17 +53,14 @@ const InventorySelector = ({
           limit: 100,
         });
         if (!cancelled) {
-          setItems(
-            response.data.filter(
-              (item) =>
-                item.status === 'active' &&
-                item.confirmationStatus === 'fresh' &&
-                ['available', 'hold'].includes(item.availabilityStatus),
-            ),
-          );
+          setItems(response.data.filter(isEligible));
+          setTotal(response.pagination?.total ?? response.data.length);
         }
       } catch {
-        if (!cancelled) setItems([]);
+        if (!cancelled) {
+          setItems([]);
+          setTotal(0);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -65,13 +71,60 @@ const InventorySelector = ({
     };
   }, [area, availabilityStatus, categoryGroup, city, search, subCategory]);
 
+  const addAllMatching = async () => {
+    setAddingAll(true);
+    try {
+      const collected: InventoryItem[] = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const response = await getInventory({
+          search,
+          categoryGroup,
+          subCategory,
+          city,
+          area,
+          availabilityStatus,
+          status: 'active',
+          confirmationStatus: 'fresh',
+          page,
+          limit: 200,
+        });
+        collected.push(...response.data.filter(isEligible));
+        totalPages = response.pagination?.totalPages ?? 1;
+        page += 1;
+      } while (page <= totalPages);
+
+      const selected = new Set(selectedIds);
+      const additions = collected.filter((item) => !selected.has(item.id));
+      if (additions.length) onAddMany(additions);
+    } catch {
+      // Surfaced via the parent's save errors; keep the selector resilient.
+    } finally {
+      setAddingAll(false);
+    }
+  };
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white">
       <div className="border-b border-slate-200 p-4">
-        <h3 className="font-semibold">Inventory Selection</h3>
-        <p className="mt-1 text-xs text-slate-500">
-          Only active, recently confirmed inventory can be added to plans.
-        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-semibold">Inventory Selection</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Only active, recently confirmed inventory can be added to plans.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void addAllMatching()}
+            disabled={addingAll || loading || total === 0}
+            title="Add every inventory item matching the current filters (category, city, etc.)"
+            className="shrink-0 rounded-md bg-emerald-800 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:bg-slate-300"
+          >
+            {addingAll ? 'Adding all…' : `Add all matching${total ? ` (${total})` : ''}`}
+          </button>
+        </div>
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-6">
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search inventory" className={input} />
           <select

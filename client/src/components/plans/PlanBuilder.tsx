@@ -20,9 +20,12 @@ import SharedPlanMap from '../maps/SharedPlanMap';
 import OperationDetail from '../operations/OperationDetail';
 import ActivityTimeline from '../activity/ActivityTimeline';
 import ConfirmDialog from '../ui/ConfirmDialog';
+import Pagination from '../ui/Pagination';
 import DocumentPanel from './DocumentPanel';
 import InventorySelector from './InventorySelector';
 import SharePanel from './SharePanel';
+
+const ITEMS_PAGE_SIZE = 25;
 
 type BuilderItem = PlanItemPayload & {
   inventoryCode: string;
@@ -76,6 +79,31 @@ const toBuilderItem = (item: PlanItem): BuilderItem => ({
   notes: item.notes,
 });
 
+const buildItemFromInventory = (inventory: InventoryItem): BuilderItem => ({
+  inventory: inventory.id,
+  inventoryCode: inventory.inventoryCode,
+  title: inventory.title,
+  categoryGroup: inventory.categoryGroup,
+  subCategory: inventory.subCategory,
+  city: inventory.city,
+  area: inventory.area,
+  width: inventory.width,
+  height: inventory.height,
+  totalSqFt: inventory.totalSqFt,
+  location: inventory.location,
+  photos: inventory.photos,
+  route: inventory.route,
+  depot: inventory.depot,
+  itinerary: inventory.itinerary,
+  screenSize: inventory.screenSize,
+  numberOfScreens: inventory.numberOfScreens,
+  quantity:
+    inventory.categoryGroup === 'A3 Screens' ? inventory.numberOfScreens || 1 : 1,
+  unitSellingPrice: inventory.sellingPrice || 0,
+  unitInternalCost: inventory.internalCost || 0,
+  notes: '',
+});
+
 const PlanBuilder = ({
   planId,
   onClose,
@@ -101,6 +129,12 @@ const PlanBuilder = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pendingStatus, setPendingStatus] = useState<PlanStatus | null>(null);
+  const [itemsPage, setItemsPage] = useState(1);
+  const [itemSearch, setItemSearch] = useState('');
+
+  useEffect(() => {
+    setItemsPage(1);
+  }, [itemSearch]);
 
   const loadOperation = async (id: string) => {
     setOperationLoading(true);
@@ -169,37 +203,28 @@ const PlanBuilder = ({
   const mapData = useMemo(() => buildClientPlanMapData(preview.items), [preview.items]);
 
   const addInventory = (inventory: InventoryItem) => {
-    setItems((current) => [...current, {
-      inventory: inventory.id,
-      inventoryCode: inventory.inventoryCode,
-      title: inventory.title,
-      categoryGroup: inventory.categoryGroup,
-      subCategory: inventory.subCategory,
-      city: inventory.city,
-      area: inventory.area,
-      width: inventory.width,
-      height: inventory.height,
-      totalSqFt: inventory.totalSqFt,
-      location: inventory.location,
-      photos: inventory.photos,
-      route: inventory.route,
-      depot: inventory.depot,
-      itinerary: inventory.itinerary,
-      screenSize: inventory.screenSize,
-      numberOfScreens: inventory.numberOfScreens,
-      quantity:
-        inventory.categoryGroup === 'A3 Screens'
-          ? inventory.numberOfScreens || 1
-          : 1,
-      unitSellingPrice: inventory.sellingPrice || 0,
-      unitInternalCost: inventory.internalCost || 0,
-      notes: '',
-    }]);
+    setItems((current) => [...current, buildItemFromInventory(inventory)]);
     setIsDirty(true);
   };
 
-  const updateItem = (index: number, key: keyof BuilderItem, value: string | number) => {
-    setItems((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
+  const addManyInventory = (inventories: InventoryItem[]) => {
+    setItems((current) => {
+      const existing = new Set(current.map((item) => item.inventory));
+      const additions = inventories
+        .filter((inventory) => !existing.has(inventory.id))
+        .map(buildItemFromInventory);
+      return additions.length ? [...current, ...additions] : current;
+    });
+    setIsDirty(true);
+  };
+
+  const updateItem = (inventory: string, key: keyof BuilderItem, value: string | number) => {
+    setItems((current) => current.map((item) => (item.inventory === inventory ? { ...item, [key]: value } : item)));
+    setIsDirty(true);
+  };
+
+  const removeItem = (inventory: string) => {
+    setItems((current) => current.filter((item) => item.inventory !== inventory));
     setIsDirty(true);
   };
 
@@ -208,9 +233,12 @@ const PlanBuilder = ({
     setSaving(true);
     setError('');
     try {
+      // Every item inherits the campaign flight dates; we no longer set dates per item.
+      const startDate = plan.campaign.startDate?.slice(0, 10);
+      const endDate = plan.campaign.endDate?.slice(0, 10);
       const updated = await updatePlan(plan.id, {
         title,
-        items: items.map(({ inventory, startDate, endDate, quantity, unitSellingPrice, unitInternalCost, notes }) => ({
+        items: items.map(({ inventory, quantity, unitSellingPrice, unitInternalCost, notes }) => ({
           inventory, startDate, endDate, quantity: Number(quantity), unitSellingPrice: Number(unitSellingPrice), unitInternalCost: Number(unitInternalCost), notes,
         })),
         taxPercentage: Number(taxPercentage),
@@ -262,6 +290,20 @@ const PlanBuilder = ({
   if (loading) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 text-white">Loading plan...</div>;
   if (!plan) return null;
   const editable = canManagePlans && plan.status === 'Draft' && !plan.isLocked;
+  const campaignStart = plan.campaign.startDate?.slice(0, 10);
+  const campaignEnd = plan.campaign.endDate?.slice(0, 10);
+  const itemQuery = itemSearch.trim().toLowerCase();
+  const filteredItems = itemQuery
+    ? preview.items.filter((item) =>
+        [item.inventoryCode, item.title, item.city, item.area, item.subCategory, item.categoryGroup]
+          .filter(Boolean)
+          .some((field) => String(field).toLowerCase().includes(itemQuery)),
+      )
+    : preview.items;
+  const totalItemPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PAGE_SIZE));
+  const currentItemsPage = Math.min(itemsPage, totalItemPages);
+  const itemsPageStart = (currentItemsPage - 1) * ITEMS_PAGE_SIZE;
+  const pagedItems = filteredItems.slice(itemsPageStart, itemsPageStart + ITEMS_PAGE_SIZE);
   const saveBeforeArtifact = async () => (editable ? save() : true);
   const refreshAfterShare = async () => {
     const updated = await loadPlan(plan.id);
@@ -292,17 +334,37 @@ const PlanBuilder = ({
 
         <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0 space-y-5">
-            {editable ? <InventorySelector selectedIds={items.map((item) => item.inventory)} onAdd={addInventory} /> : null}
+            {editable ? <InventorySelector selectedIds={items.map((item) => item.inventory)} onAdd={addInventory} onAddMany={addManyInventory} /> : null}
             <section className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
-              <div className="border-b border-slate-200 p-4"><label className="block"><span className="text-sm font-medium text-slate-700">Plan Title</span><input value={title} disabled={!editable} onChange={(event) => { setTitle(event.target.value); setIsDirty(true); }} className={input} /></label></div>
+              <div className="grid gap-4 border-b border-slate-200 p-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                <label className="block"><span className="text-sm font-medium text-slate-700">Plan Title</span><input value={title} disabled={!editable} onChange={(event) => { setTitle(event.target.value); setIsDirty(true); }} className={input} /></label>
+                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Flight dates · from campaign</p>
+                  <p className="mt-1 text-sm font-medium text-slate-800">
+                    {campaignStart ? `${formatDisplayDate(campaignStart)} – ${formatDisplayDate(campaignEnd)}` : 'Set start/end dates on the campaign'}
+                  </p>
+                </div>
+              </div>
+              {items.length ? (
+                <div className="border-b border-slate-200 p-4">
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">Search selected inventory</span>
+                    <input
+                      value={itemSearch}
+                      onChange={(event) => setItemSearch(event.target.value)}
+                      placeholder="Find by code, title, city or category to edit or remove"
+                      className={input}
+                    />
+                  </label>
+                </div>
+              ) : null}
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[1100px] text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500"><tr>{['Inventory', 'Location', 'Dates', 'Qty', 'Selling', 'Internal Cost', 'Total', 'Margin', 'Notes', ''].map((heading) => <th key={heading} className="px-3 py-2 font-medium">{heading}</th>)}</tr></thead>
+                  <thead className="bg-slate-50 text-slate-500"><tr>{['Inventory', 'Location', 'Qty', 'Selling', 'Internal Cost', 'Total', 'Margin', 'Notes', ''].map((heading) => <th key={heading} className="px-3 py-2 font-medium">{heading}</th>)}</tr></thead>
                   <tbody className="divide-y divide-slate-100">
-                    {preview.items.map((item, index) => <tr key={item.inventory}>
+                    {pagedItems.map((item) => <tr key={item.inventory}>
                       <td className="px-3 py-3"><p className="font-medium">{item.inventoryCode}</p><p className="text-xs text-slate-500">{item.title}</p></td>
                       <td className="px-3 py-3 text-slate-600">{item.city} / {item.area}<br />{item.width && item.height ? `${item.width} x ${item.height}` : ''}</td>
-                      <td className="px-3 py-3"><input type="date" disabled={!editable} value={item.startDate || ''} onChange={(event) => updateItem(index, 'startDate', event.target.value)} className={tableInput} /><input type="date" disabled={!editable} value={item.endDate || ''} onChange={(event) => updateItem(index, 'endDate', event.target.value)} className={`${tableInput} mt-1`} /></td>
                       <td className="px-3 py-3">
                         {item.categoryGroup === 'A3 Screens' ? (
                           <div className="w-20">
@@ -312,22 +374,22 @@ const PlanBuilder = ({
                             <p className="mt-1 text-[10px] leading-3 text-slate-500">No. of Screens</p>
                           </div>
                         ) : (
-                          <input type="number" min="1" disabled={!editable} value={item.quantity || 1} onChange={(event) => updateItem(index, 'quantity', event.target.value)} className={smallInput} />
+                          <input type="number" min="1" disabled={!editable} value={item.quantity || 1} onChange={(event) => updateItem(item.inventory, 'quantity', event.target.value)} className={smallInput} />
                         )}
                       </td>
-                      <td className="px-3 py-3"><input type="number" disabled={!editable} value={item.unitSellingPrice || 0} onChange={(event) => updateItem(index, 'unitSellingPrice', event.target.value)} className={priceInput} /></td>
-                      <td className="px-3 py-3"><input type="number" disabled={!editable} value={item.unitInternalCost || 0} onChange={(event) => updateItem(index, 'unitInternalCost', event.target.value)} className={priceInput} /></td>
+                      <td className="px-3 py-3"><input type="number" disabled={!editable} value={item.unitSellingPrice || 0} onChange={(event) => updateItem(item.inventory, 'unitSellingPrice', event.target.value)} className={priceInput} /></td>
+                      <td className="px-3 py-3 text-slate-600">{currency(item.unitInternalCost || 0)}</td>
                       <td className="px-3 py-3 font-medium">{currency(item.totalSellingPrice)}</td>
                       <td className="px-3 py-3 text-slate-600">{currency(item.marginAmount)}</td>
-                      <td className="px-3 py-3"><input disabled={!editable} value={item.notes || ''} onChange={(event) => updateItem(index, 'notes', event.target.value)} className={tableInput} /></td>
-                      <td className="px-3 py-3">{editable ? <button type="button" onClick={() => { setItems((current) => current.filter((_, i) => i !== index)); setIsDirty(true); }} className="text-xs font-medium text-red-600">Remove</button> : null}</td>
+                      <td className="px-3 py-3"><input disabled={!editable} value={item.notes || ''} onChange={(event) => updateItem(item.inventory, 'notes', event.target.value)} className={tableInput} /></td>
+                      <td className="px-3 py-3">{editable ? <button type="button" onClick={() => removeItem(item.inventory)} className="text-xs font-medium text-red-600">Remove</button> : null}</td>
                     </tr>)}
                   </tbody>
                 </table>
-                {!items.length ? <p className="p-6 text-center text-sm text-slate-500">No inventory selected yet.</p> : null}
+                {!filteredItems.length ? <p className="p-6 text-center text-sm text-slate-500">{items.length ? 'No selected items match your search.' : 'No inventory selected yet.'}</p> : null}
               </div>
               <div className="divide-y divide-slate-100 md:hidden">
-                {preview.items.map((item, index) => (
+                {pagedItems.map((item) => (
                   <article key={item.inventory} className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -335,29 +397,38 @@ const PlanBuilder = ({
                         <h4 className="mt-1 font-semibold text-slate-900">{item.title}</h4>
                         <p className="mt-1 text-xs text-slate-500">{item.categoryGroup} · {item.city} / {item.area}</p>
                       </div>
-                      {editable ? <button type="button" onClick={() => { setItems((current) => current.filter((_, i) => i !== index)); setIsDirty(true); }} className="text-xs font-medium text-red-600">Remove</button> : null}
+                      {editable ? <button type="button" onClick={() => removeItem(item.inventory)} className="text-xs font-medium text-red-600">Remove</button> : null}
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3">
-                      <PlanField label="Start date"><input type="date" disabled={!editable} value={item.startDate || ''} onChange={(event) => updateItem(index, 'startDate', event.target.value)} className={mobileInput} /></PlanField>
-                      <PlanField label="End date"><input type="date" disabled={!editable} value={item.endDate || ''} onChange={(event) => updateItem(index, 'endDate', event.target.value)} className={mobileInput} /></PlanField>
                       <PlanField label={item.categoryGroup === 'A3 Screens' ? 'No. of Screens' : 'Quantity'}>
                         {item.categoryGroup === 'A3 Screens' ? (
                           <p className={`${mobileInput} bg-slate-100 font-semibold text-slate-700`}>
                             {item.numberOfScreens || item.quantity || 1}
                           </p>
                         ) : (
-                          <input type="number" min="1" disabled={!editable} value={item.quantity || 1} onChange={(event) => updateItem(index, 'quantity', event.target.value)} className={mobileInput} />
+                          <input type="number" min="1" disabled={!editable} value={item.quantity || 1} onChange={(event) => updateItem(item.inventory, 'quantity', event.target.value)} className={mobileInput} />
                         )}
                       </PlanField>
-                      <PlanField label="Selling price"><input type="number" disabled={!editable} value={item.unitSellingPrice || 0} onChange={(event) => updateItem(index, 'unitSellingPrice', event.target.value)} className={mobileInput} /></PlanField>
-                      <PlanField label="Internal cost"><input type="number" disabled={!editable} value={item.unitInternalCost || 0} onChange={(event) => updateItem(index, 'unitInternalCost', event.target.value)} className={mobileInput} /></PlanField>
+                      <PlanField label="Selling price"><input type="number" disabled={!editable} value={item.unitSellingPrice || 0} onChange={(event) => updateItem(item.inventory, 'unitSellingPrice', event.target.value)} className={mobileInput} /></PlanField>
+                      <PlanField label="Internal cost"><p className={`${mobileInput} bg-slate-100 font-medium text-slate-700`}>{currency(item.unitInternalCost || 0)}</p></PlanField>
                       <PlanField label="Total"><p className="py-2 font-semibold">{currency(item.totalSellingPrice)}</p></PlanField>
                     </div>
-                    <label className="mt-3 block text-xs font-medium text-slate-600">Notes<input disabled={!editable} value={item.notes || ''} onChange={(event) => updateItem(index, 'notes', event.target.value)} className={mobileInput} /></label>
+                    <label className="mt-3 block text-xs font-medium text-slate-600">Notes<input disabled={!editable} value={item.notes || ''} onChange={(event) => updateItem(item.inventory, 'notes', event.target.value)} className={mobileInput} /></label>
                   </article>
                 ))}
-                {!items.length ? <p className="p-6 text-center text-sm text-slate-500">No inventory selected yet.</p> : null}
+                {!filteredItems.length ? <p className="p-6 text-center text-sm text-slate-500">{items.length ? 'No selected items match your search.' : 'No inventory selected yet.'}</p> : null}
               </div>
+              {filteredItems.length > ITEMS_PAGE_SIZE ? (
+                <Pagination
+                  page={currentItemsPage}
+                  totalPages={totalItemPages}
+                  rangeStart={itemsPageStart + 1}
+                  rangeEnd={itemsPageStart + pagedItems.length}
+                  total={filteredItems.length}
+                  onChange={setItemsPage}
+                  label="inventory items"
+                />
+              ) : null}
             </section>
             <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-2">
               <label><span className="text-sm font-medium text-slate-700">Client Notes</span><textarea disabled={!editable} value={clientNotes} onChange={(event) => { setClientNotes(event.target.value); setIsDirty(true); }} rows={4} className={input} /></label>
@@ -467,6 +538,8 @@ const PlanField = ({ label, children }: { label: string; children: React.ReactNo
 );
 
 const currency = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value || 0);
+const formatDisplayDate = (value?: string) =>
+  value ? new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value)) : '—';
 const Price = ({ label, value, strong }: { label: string; value: number; strong?: boolean }) => <div className={`flex justify-between ${strong ? 'border-y border-slate-200 py-3 text-base font-semibold' : ''}`}><dt>{label}</dt><dd>{currency(value)}</dd></div>;
 const StatusBadge = ({ status }: { status: PlanStatus }) => <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">{status}</span>;
 const input = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900 disabled:bg-slate-100';
