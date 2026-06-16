@@ -31,6 +31,10 @@ import { DocumentCommandService } from '../services/documentCommand.service.js';
 import type { IDocumentCommandService } from '../services/documentCommand.service.js';
 import { GeocodingService } from '../services/geocoding.service.js';
 import type { IGeocodingService } from '../services/geocoding.service.js';
+import {
+  GoogleDrivePhotoService,
+  type IGoogleDrivePhotoService,
+} from '../services/googleDrivePhoto.service.js';
 import { InventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
 import type { IInventoryCounterRepository } from '../repositories/inventoryCounter.repository.js';
 import { InventoryRepository } from '../repositories/inventory.repository.js';
@@ -132,6 +136,10 @@ container.registerSingleton<IDocumentCommandService>(
   DocumentCommandService,
 );
 container.registerSingleton<IGeocodingService>(TOKENS.GeocodingService, GeocodingService);
+container.registerSingleton<IGoogleDrivePhotoService>(
+  TOKENS.GoogleDrivePhotoService,
+  GoogleDrivePhotoService,
+);
 container.registerSingleton<IInventoryCounterRepository>(
   TOKENS.InventoryCounterRepository,
   InventoryCounterRepository,

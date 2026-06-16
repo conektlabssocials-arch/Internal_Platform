@@ -14,6 +14,7 @@ export const TOKENS = {
   DocumentRepository: Symbol('DocumentRepository'),
   DocumentService: Symbol('DocumentService'),
   GeocodingService: Symbol('GeocodingService'),
+  GoogleDrivePhotoService: Symbol('GoogleDrivePhotoService'),
   InventoryCounterRepository: Symbol('InventoryCounterRepository'),
   InventoryRepository: Symbol('InventoryRepository'),
   InventoryService: Symbol('InventoryService'),

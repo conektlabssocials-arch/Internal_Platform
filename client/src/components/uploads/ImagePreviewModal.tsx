@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+import InventoryImage from '../ui/InventoryImage';
+
 type ImagePreviewModalProps = {
   image: {
     url: string;
@@ -46,9 +48,10 @@ const ImagePreviewModal = ({ image, onClose }: ImagePreviewModalProps) => {
           </button>
         </div>
         <div className="flex max-h-[calc(90vh-61px)] items-center justify-center overflow-auto bg-slate-100 p-4">
-          <img
+          <InventoryImage
             src={image.url}
             alt={image.name}
+            displaySize={2400}
             className="max-h-[calc(90vh-93px)] max-w-full object-contain"
           />
         </div>
