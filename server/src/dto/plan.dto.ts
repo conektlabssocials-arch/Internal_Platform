@@ -33,6 +33,8 @@ const ref = (value: any) => {
       email: value.email,
       campaignCode: value.campaignCode,
       title: value.title,
+      startDate: value.startDate,
+      endDate: value.endDate,
       client: value.client
         ? {
             id: value.client._id?.toString?.() || value.client.toString(),

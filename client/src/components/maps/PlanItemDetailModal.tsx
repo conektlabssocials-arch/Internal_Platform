@@ -93,8 +93,8 @@ const PlanItemDetailModal = ({
         </button>
 
         {/* Image stage — fixed height so the frame never resizes with the photo */}
-        <div className="flex h-[44vh] shrink-0 flex-col bg-slate-900 lg:h-auto lg:min-h-0 lg:flex-1">
-          <div className="relative flex min-h-0 flex-1 items-center justify-center">
+        <div className="flex h-[44vh] min-w-0 shrink-0 flex-col bg-slate-900 lg:h-auto lg:min-h-0 lg:flex-1">
+          <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center">
             <InventoryImage
               src={activePhoto}
               alt={item.title || 'Inventory photo'}
@@ -146,11 +146,11 @@ const PlanItemDetailModal = ({
 
         {/* Details panel */}
         <div className="flex min-h-0 w-full flex-1 flex-col border-t border-slate-200 lg:w-[360px] lg:flex-none lg:border-l lg:border-t-0">
-          <div className="border-b border-slate-200 px-5 py-4">
+          <div className="border-b border-slate-200 px-5 py-4 pr-14">
             {item.inventoryCode ? (
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{item.inventoryCode}</p>
             ) : null}
-            <h3 className="mt-1 text-lg font-semibold leading-tight text-slate-900">{item.title || 'Site details'}</h3>
+            <h3 className="mt-1 truncate text-lg font-semibold leading-tight text-slate-900">{item.title || 'Site details'}</h3>
             {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
           </div>
 

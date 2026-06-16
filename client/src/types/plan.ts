@@ -56,6 +56,8 @@ export type Plan = {
     name: string;
     campaignCode?: string;
     title?: string;
+    startDate?: string;
+    endDate?: string;
     client?: { id: string; name: string };
   };
   versionNumber: number;
