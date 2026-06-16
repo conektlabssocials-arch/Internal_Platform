@@ -29,14 +29,13 @@ export const getDisplayImageUrls = (url?: string, size = 1600) => {
   if (!fileId) return [url];
 
   const encodedFileId = encodeURIComponent(fileId);
-  return [
-    // Always render Drive photos through our backend proxy. It authenticates
-    // with the API key, validates that the response is really an image (so
-    // Drive's HTML interstitials become a clean 404 instead of a fake 200 that
-    // never fires `onError`), and serves a single stable, cacheable URL. This
-    // avoids the per-IP rate limiting you hit when hot-linking Drive directly.
-    `${API_BASE_URL}/public/drive-images/${encodedFileId}?size=${size}`,
-    // Last-ditch fallback to Google's CDN if our own server is unreachable.
-    `https://lh3.googleusercontent.com/d/${encodedFileId}=w${size}`,
-  ];
+  // Render Drive photos ONLY through our backend proxy. We deliberately do not
+  // fall back to a direct `lh3.googleusercontent.com`/`uc?id=` URL from the
+  // browser: those are anonymous endpoints rate-limited per client IP, so a
+  // grid/gallery that loads many images at once gets `429 Too Many Requests`
+  // for some of them ("some images show, some don't"). The proxy fetches from
+  // Google server-side (authenticated API-key quota, not per-IP), validates the
+  // response is really an image, and caches it, so the browser only ever hits
+  // one stable URL that returns either real bytes or a clean error.
+  return [`${API_BASE_URL}/public/drive-images/${encodedFileId}?size=${size}`];
 };

@@ -22,6 +22,34 @@ const driveFileIdPattern = /^[a-zA-Z0-9_-]{10,}$/;
 const defaultImageSize = 1600;
 const maxImageSize = 2400;
 
+// Cache fetched image bytes so a grid/gallery that requests the same photos
+// repeatedly (or many clients viewing the same plan) hits Google at most once
+// per file+size. `inFlight` collapses concurrent requests for the same image
+// into a single upstream fetch so a burst of grid loads can't fan out into many
+// duplicate Drive requests (which is what triggers Google's 429s).
+const imageCacheTtlMs = 6 * 60 * 60 * 1000;
+const imageCacheMaxEntries = 300;
+const imageCache = new Map<string, { value: DriveImageProxyResult; expires: number }>();
+const inFlight = new Map<string, Promise<DriveImageProxyResult>>();
+
+const readCache = (key: string) => {
+  const entry = imageCache.get(key);
+  if (!entry) return undefined;
+  if (entry.expires <= Date.now()) {
+    imageCache.delete(key);
+    return undefined;
+  }
+  return entry.value;
+};
+
+const writeCache = (key: string, value: DriveImageProxyResult) => {
+  imageCache.set(key, { value, expires: Date.now() + imageCacheTtlMs });
+  if (imageCache.size > imageCacheMaxEntries) {
+    const oldest = imageCache.keys().next().value;
+    if (oldest !== undefined) imageCache.delete(oldest);
+  }
+};
+
 const normalizeImageSize = (value: unknown) => {
   const size = Number(value);
   if (!Number.isFinite(size) || size <= 0) return defaultImageSize;
@@ -95,6 +123,28 @@ export class GoogleDrivePhotoService implements IGoogleDrivePhotoService {
     }
 
     const imageSize = normalizeImageSize(size);
+    const cacheKey = `${fileId}:${imageSize}`;
+
+    const cached = readCache(cacheKey);
+    if (cached) return cached;
+
+    const existing = inFlight.get(cacheKey);
+    if (existing) return existing;
+
+    const request = this.fetchImageFromGoogle(fileId, imageSize)
+      .then((value) => {
+        writeCache(cacheKey, value);
+        return value;
+      })
+      .finally(() => {
+        inFlight.delete(cacheKey);
+      });
+
+    inFlight.set(cacheKey, request);
+    return request;
+  }
+
+  private async fetchImageFromGoogle(fileId: string, imageSize: number): Promise<DriveImageProxyResult> {
     const encodedFileId = encodeURIComponent(fileId);
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
     const urls = [

@@ -18,6 +18,11 @@ export class GoogleDrivePhotoController {
       res.setHeader('Content-Type', image.contentType);
       res.setHeader('Cache-Control', 'public, max-age=86400');
       res.setHeader('X-Content-Type-Options', 'nosniff');
+      // These are public images embedded as <img> from the client app, which in
+      // development runs on a different origin (port). Helmet defaults to
+      // `Cross-Origin-Resource-Policy: same-origin`, which makes the browser
+      // refuse to render the (otherwise 200) response cross-origin. Allow it.
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.status(200).send(image.buffer);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Google Drive image failed';

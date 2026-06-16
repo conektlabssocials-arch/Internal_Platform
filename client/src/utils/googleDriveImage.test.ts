@@ -22,16 +22,13 @@ describe('googleDriveImage', () => {
     ).toBe('FILE_ID');
   });
 
-  it('renders Google Drive files through the backend proxy first', () => {
+  it('renders Google Drive files only through the backend proxy', () => {
     expect(
       getDisplayImageUrl('https://drive.google.com/uc?id=FILE_ID', 1200),
     ).toBe(`${API_BASE_URL}/public/drive-images/FILE_ID?size=1200`);
     expect(
       getDisplayImageUrls('https://drive.google.com/uc?id=FILE_ID', 1200),
-    ).toEqual([
-      `${API_BASE_URL}/public/drive-images/FILE_ID?size=1200`,
-      'https://lh3.googleusercontent.com/d/FILE_ID=w1200',
-    ]);
+    ).toEqual([`${API_BASE_URL}/public/drive-images/FILE_ID?size=1200`]);
     expect(getDisplayImageUrl('https://example.com/photo.jpg')).toBe(
       'https://example.com/photo.jpg',
     );
