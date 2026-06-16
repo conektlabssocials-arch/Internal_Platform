@@ -9,6 +9,7 @@ import type { PublicSharedPlan as PublicSharedPlanData } from '../types/share';
 import InventoryImage from '../components/ui/InventoryImage';
 
 const ALL_CITIES = 'all';
+const PAGE_SIZE = 10;
 
 const pendingRequests = new Map<string, Promise<PublicSharedPlanData>>();
 
@@ -29,6 +30,7 @@ const PublicSharedPlan = () => {
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [cityFilter, setCityFilter] = useState<string>(ALL_CITIES);
   const [selectedItem, setSelectedItem] = useState<PlanItemDetail | null>(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +73,15 @@ const PublicSharedPlan = () => {
   const planItems = (data?.plan.items || []).filter((item) => matchesCity(item.city));
   const mapItems = (data?.mapItems || []).filter((item) => matchesCity(item.city));
   const nonMapItems = (data?.nonMapItems || []).filter((item) => matchesCity(item.city));
+
+  useEffect(() => {
+    setPage(1);
+  }, [cityFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(planItems.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pagedItems = planItems.slice(pageStart, pageStart + PAGE_SIZE);
 
   if (loading) {
     return (
@@ -174,9 +185,9 @@ const PublicSharedPlan = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {planItems.map((item, index) => (
+                {pagedItems.map((item, index) => (
                   <tr
-                    key={`${item.title}-${index}`}
+                    key={`${item.title}-${pageStart + index}`}
                     onClick={() => setSelectedItem(item)}
                     className="cursor-pointer transition hover:bg-emerald-50/60"
                   >
@@ -204,9 +215,9 @@ const PublicSharedPlan = () => {
               </tbody>
             </table>
             <div className="divide-y divide-slate-100 md:hidden">
-              {planItems.map((item, index) => (
+              {pagedItems.map((item, index) => (
                 <article
-                  key={`${item.title}-${index}`}
+                  key={`${item.title}-${pageStart + index}`}
                   className="cursor-pointer p-4 transition hover:bg-emerald-50/60"
                   onClick={() => setSelectedItem(item)}
                 >
@@ -236,6 +247,16 @@ const PublicSharedPlan = () => {
               <p className="p-6 text-center text-sm text-slate-500">
                 {data.plan.items.length ? 'No media items in this city.' : 'No media items included.'}
               </p>
+            ) : null}
+            {planItems.length > PAGE_SIZE ? (
+              <Pagination
+                page={currentPage}
+                totalPages={totalPages}
+                rangeStart={pageStart + 1}
+                rangeEnd={pageStart + pagedItems.length}
+                total={planItems.length}
+                onChange={setPage}
+              />
             ) : null}
           </div>
         </section>
@@ -269,6 +290,86 @@ const PublicSharedPlan = () => {
     </main>
   );
 };
+
+const getPageWindow = (page: number, totalPages: number): (number | 'ellipsis')[] => {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const pages = new Set<number>([1, totalPages, page, page - 1, page + 1]);
+  const sorted = Array.from(pages)
+    .filter((p) => p >= 1 && p <= totalPages)
+    .sort((a, b) => a - b);
+  const result: (number | 'ellipsis')[] = [];
+  sorted.forEach((p, index) => {
+    if (index > 0 && p - sorted[index - 1] > 1) result.push('ellipsis');
+    result.push(p);
+  });
+  return result;
+};
+
+const Pagination = ({
+  page,
+  totalPages,
+  rangeStart,
+  rangeEnd,
+  total,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  rangeStart: number;
+  rangeEnd: number;
+  total: number;
+  onChange: (page: number) => void;
+}) => (
+  <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 sm:flex-row">
+    <p className="text-xs text-slate-500">
+      Showing <span className="font-medium text-slate-700">{rangeStart}</span>–
+      <span className="font-medium text-slate-700">{rangeEnd}</span> of{' '}
+      <span className="font-medium text-slate-700">{total}</span>
+    </p>
+    <nav className="flex items-center gap-1" aria-label="Pagination">
+      <PageButton label="‹" ariaLabel="Previous page" disabled={page <= 1} onClick={() => onChange(page - 1)} />
+      {getPageWindow(page, totalPages).map((entry, index) =>
+        entry === 'ellipsis' ? (
+          <span key={`ellipsis-${index}`} className="px-2 text-sm text-slate-400">
+            …
+          </span>
+        ) : (
+          <PageButton key={entry} label={String(entry)} active={entry === page} onClick={() => onChange(entry)} />
+        ),
+      )}
+      <PageButton label="›" ariaLabel="Next page" disabled={page >= totalPages} onClick={() => onChange(page + 1)} />
+    </nav>
+  </div>
+);
+
+const PageButton = ({
+  label,
+  ariaLabel,
+  active,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  ariaLabel?: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    aria-label={ariaLabel}
+    aria-current={active ? 'page' : undefined}
+    className={`flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-sm transition ${
+      active
+        ? 'border-emerald-600 bg-emerald-600 font-medium text-white'
+        : 'border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-700'
+    } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-300 disabled:hover:text-slate-600`}
+  >
+    {label}
+  </button>
+);
 
 const CityChip = ({
   label,

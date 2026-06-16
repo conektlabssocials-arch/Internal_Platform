@@ -70,12 +70,17 @@ const SharedPlanMap = ({
       );
     });
 
+    // Clicking the map (anywhere that is not a marker) dismisses the popup.
+    map.on('click', () => setSelected(null));
+
     const markers = mapItems.map((item) => {
       const element = document.createElement('button');
       element.type = 'button';
       element.className = 'h-5 w-5 rounded-full border-[3px] border-white bg-emerald-700 shadow-md';
       element.setAttribute('aria-label', `Open ${item.title || item.inventoryCode || 'site'}`);
-      element.addEventListener('click', () => {
+      element.addEventListener('click', (event) => {
+        // Keep the click from also reaching the map handler above.
+        event.stopPropagation();
         setSelected(item);
         if (publicMode && shareToken) {
           void trackPublicShareEvent(shareToken, {
@@ -113,6 +118,15 @@ const SharedPlanMap = ({
     // map is not torn down and recreated on every toggle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapItems, mapboxToken, publicMode, shareToken]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelected(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selected]);
 
   const toggle3D = () => {
     setIs3D((prev) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import InventoryImage from '../ui/InventoryImage';
 
@@ -45,22 +45,35 @@ const PlanItemDetailModal = ({
     setActiveIndex(0);
   }, [item]);
 
+  const hasMultiple = photos.length > 1;
+
+  const goTo = useCallback(
+    (next: number) => {
+      if (!photos.length) return;
+      setActiveIndex((next + photos.length) % photos.length);
+    },
+    [photos.length],
+  );
+
   useEffect(() => {
     if (!item) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
+      if (event.key === 'ArrowRight') goTo(activeIndex + 1);
+      if (event.key === 'ArrowLeft') goTo(activeIndex - 1);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [item, onClose]);
+  }, [item, onClose, goTo, activeIndex]);
 
   if (!item) return null;
 
   const activePhoto = photos[activeIndex];
+  const subtitle = [item.categoryGroup, item.subCategory].filter(Boolean).join(' · ');
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 p-4"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={item.title || item.inventoryCode || 'Site details'}
@@ -68,83 +81,122 @@ const PlanItemDetailModal = ({
         if (event.currentTarget === event.target) onClose();
       }}
     >
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3">
-          <div className="min-w-0">
-            {item.inventoryCode ? (
-              <p className="text-xs font-semibold uppercase text-emerald-700">{item.inventoryCode}</p>
-            ) : null}
-            <h3 className="truncate text-base font-semibold text-slate-900">{item.title || 'Site details'}</h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close details"
-            title="Close"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-          >
-            ×
-          </button>
-        </div>
+      <div className="relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl lg:flex-row">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close details"
+          title="Close"
+          className="absolute right-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/55 text-lg text-white backdrop-blur transition hover:bg-slate-900/80 lg:bg-white/90 lg:text-slate-700 lg:hover:bg-white"
+        >
+          ×
+        </button>
 
-        <div className="overflow-y-auto">
-          <div className="bg-slate-100 p-3">
+        {/* Image stage — fixed height so the frame never resizes with the photo */}
+        <div className="flex h-[44vh] shrink-0 flex-col bg-slate-900 lg:h-auto lg:min-h-0 lg:flex-1">
+          <div className="relative flex min-h-0 flex-1 items-center justify-center">
             <InventoryImage
               src={activePhoto}
               alt={item.title || 'Inventory photo'}
-              displaySize={1600}
-              className="h-64 w-full rounded-md object-contain"
+              displaySize={2400}
+              className="h-full w-full object-contain p-2"
             />
-            {photos.length > 1 ? (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {photos.map((photo, index) => (
-                  <button
-                    key={`${photo}-${index}`}
-                    type="button"
-                    onClick={() => setActiveIndex(index)}
-                    aria-label={`View photo ${index + 1}`}
-                    aria-current={index === activeIndex}
-                    className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 ${
-                      index === activeIndex ? 'border-emerald-600' : 'border-transparent'
-                    }`}
-                  >
-                    <InventoryImage
-                      src={photo}
-                      alt={`${item.title || 'Inventory'} thumbnail ${index + 1}`}
-                      displaySize={200}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
+
+            {hasMultiple ? (
+              <>
+                <NavButton side="left" onClick={() => goTo(activeIndex - 1)} />
+                <NavButton side="right" onClick={() => goTo(activeIndex + 1)} />
+                <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-slate-900/70 px-3 py-1 text-xs font-medium text-white">
+                  {activeIndex + 1} / {photos.length}
+                </span>
+              </>
+            ) : null}
+
+            {!photos.length ? (
+              <p className="px-6 py-16 text-sm text-slate-400">No photos available for this site.</p>
             ) : null}
           </div>
 
-          <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 p-4 text-sm">
-            <Row label="Category" value={[item.categoryGroup, item.subCategory].filter(Boolean).join(' / ')} />
-            <Row label="Location" value={[item.city, item.area].filter(Boolean).join(' / ')} />
-            {item.address ? <Row label="Address" value={item.address} /> : null}
-            {item.route ? <Row label="Route" value={item.route} /> : null}
-            {item.depot ? <Row label="Depot" value={item.depot} /> : null}
-            {item.itinerary ? <Row label="Itinerary" value={item.itinerary} /> : null}
-            <Row label="Size" value={formatSize(item)} />
-            <Row label="Dates" value={`${formatDate(item.startDate)} - ${formatDate(item.endDate)}`} />
-            <Row label="Quantity" value={String(item.quantity ?? '-')} />
-            {item.unitSellingPrice ? <Row label="Unit price" value={currency(item.unitSellingPrice)} /> : null}
-            <Row label="Total price" value={currency(item.totalSellingPrice || 0)} strong />
-            {item.notes ? <Row label="Notes" value={item.notes} /> : null}
-          </dl>
+          {hasMultiple ? (
+            <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-white/10 bg-slate-900/60 p-3">
+              {photos.map((photo, index) => (
+                <button
+                  key={`${photo}-${index}`}
+                  type="button"
+                  onClick={() => setActiveIndex(index)}
+                  aria-label={`View photo ${index + 1}`}
+                  aria-current={index === activeIndex}
+                  className={`h-16 w-20 shrink-0 overflow-hidden rounded-md border-2 transition ${
+                    index === activeIndex
+                      ? 'border-emerald-400 opacity-100'
+                      : 'border-transparent opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <InventoryImage
+                    src={photo}
+                    alt={`${item.title || 'Inventory'} thumbnail ${index + 1}`}
+                    displaySize={200}
+                    className="h-full w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Details panel */}
+        <div className="flex min-h-0 w-full flex-1 flex-col border-t border-slate-200 lg:w-[360px] lg:flex-none lg:border-l lg:border-t-0">
+          <div className="border-b border-slate-200 px-5 py-4">
+            {item.inventoryCode ? (
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{item.inventoryCode}</p>
+            ) : null}
+            <h3 className="mt-1 text-lg font-semibold leading-tight text-slate-900">{item.title || 'Site details'}</h3>
+            {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <dl className="space-y-3 text-sm">
+              <Row label="Location" value={[item.city, item.area].filter(Boolean).join(' / ')} />
+              {item.address ? <Row label="Address" value={item.address} /> : null}
+              {item.route ? <Row label="Route" value={item.route} /> : null}
+              {item.depot ? <Row label="Depot" value={item.depot} /> : null}
+              {item.itinerary ? <Row label="Itinerary" value={item.itinerary} /> : null}
+              <Row label="Size" value={formatSize(item)} />
+              <Row label="Dates" value={`${formatDate(item.startDate)} - ${formatDate(item.endDate)}`} />
+              <Row label="Quantity" value={String(item.quantity ?? '-')} />
+              {item.unitSellingPrice ? <Row label="Unit price" value={currency(item.unitSellingPrice)} /> : null}
+              {item.notes ? <Row label="Notes" value={item.notes} /> : null}
+            </dl>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-4">
+            <span className="text-sm text-slate-500">Total price</span>
+            <span className="text-lg font-semibold text-slate-900">{currency(item.totalSellingPrice || 0)}</span>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-const Row = ({ label, value, strong }: { label: string; value: string; strong?: boolean }) => (
-  <>
+const NavButton = ({ side, onClick }: { side: 'left' | 'right'; onClick: () => void }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={side === 'left' ? 'Previous photo' : 'Next photo'}
+    className={`absolute top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-slate-900/55 text-xl text-white backdrop-blur transition hover:bg-slate-900/80 ${
+      side === 'left' ? 'left-3' : 'right-3'
+    }`}
+  >
+    {side === 'left' ? '‹' : '›'}
+  </button>
+);
+
+const Row = ({ label, value }: { label: string; value: string }) => (
+  <div className="grid grid-cols-[96px_1fr] gap-3">
     <dt className="text-slate-500">{label}</dt>
-    <dd className={strong ? 'font-semibold text-slate-900' : 'text-slate-700'}>{value || '-'}</dd>
-  </>
+    <dd className="font-medium text-slate-800">{value || '-'}</dd>
+  </div>
 );
 
 const currency = (value: number) =>
