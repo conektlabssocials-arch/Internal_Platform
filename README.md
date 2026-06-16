@@ -15,7 +15,7 @@ This first version includes the project foundation, Google Workspace SSO, and si
 - Routing: React Router
 - Future auth: Google Workspace SSO
 - Future storage: S3 or compatible storage
-- Future deployment: AWS / Docker
+- Future deployment: AWS / Docker. 
 
 ## Project Structure
 
