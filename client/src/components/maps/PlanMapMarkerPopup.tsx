@@ -7,34 +7,71 @@ const PlanMapMarkerPopup = ({
 }: {
   item: PlanMapItem;
   onClose: () => void;
-}) => (
-  <div role="dialog" aria-label={item.title || item.inventoryCode || 'Site details'} className="absolute inset-x-2 bottom-2 z-10 max-h-[78%] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-xl sm:inset-x-auto sm:bottom-4 sm:left-4 sm:w-[360px] sm:max-w-[calc(100%-2rem)]">
-    <InventoryImage
-      src={item.photoUrl}
-      alt={item.title || 'Outdoor inventory'}
-      className="h-36 w-full object-cover"
-    />
-    <div className="p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase text-emerald-700">{item.inventoryCode}</p>
-          <h3 className="mt-1 font-semibold text-slate-900">{item.title}</h3>
-        </div>
-        <button type="button" onClick={onClose} aria-label="Close map detail" className="text-xl leading-none text-slate-400 hover:text-slate-700">
+}) => {
+  const photoCount = item.photos?.length || (item.photoUrl ? 1 : 0);
+
+  return (
+    <div
+      role="dialog"
+      aria-label={item.title || item.inventoryCode || 'Site details'}
+      onMouseDown={(event) => event.stopPropagation()}
+      className="absolute inset-x-3 bottom-3 z-10 overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-slate-900/10 sm:inset-x-auto sm:bottom-4 sm:left-4 sm:w-[330px]"
+    >
+      <div className="relative">
+        <InventoryImage
+          src={item.photoUrl}
+          alt={item.title || 'Outdoor inventory'}
+          displaySize={800}
+          className="h-40 w-full object-cover"
+        />
+        {item.subCategory ? (
+          <span className="absolute left-2 top-2 rounded-full bg-slate-900/65 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
+            {item.subCategory}
+          </span>
+        ) : null}
+        {photoCount > 1 ? (
+          <span className="absolute bottom-2 right-2 rounded-full bg-slate-900/65 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
+            {photoCount} photos
+          </span>
+        ) : null}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close map detail"
+          title="Close"
+          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900/55 text-lg text-white backdrop-blur transition hover:bg-slate-900/80"
+        >
           ×
         </button>
       </div>
-      <dl className="mt-3 grid grid-cols-[90px_1fr] gap-x-3 gap-y-2 text-xs">
-        <dt className="text-slate-500">Type</dt><dd>{item.subCategory || '-'}</dd>
-        <dt className="text-slate-500">Location</dt><dd>{item.city} / {item.area}</dd>
-        <dt className="text-slate-500">Address</dt><dd>{item.address || '-'}</dd>
-        <dt className="text-slate-500">Size</dt><dd>{formatSize(item)}</dd>
-        <dt className="text-slate-500">Dates</dt><dd>{formatDate(item.startDate)} - {formatDate(item.endDate)}</dd>
-        <dt className="text-slate-500">Quantity</dt><dd>{item.quantity}</dd>
-        <dt className="text-slate-500">Unit price</dt><dd>{currency(item.unitSellingPrice)}</dd>
-        <dt className="text-slate-500">Total price</dt><dd className="font-semibold">{currency(item.totalSellingPrice)}</dd>
-      </dl>
+
+      <div className="p-4">
+        {item.inventoryCode ? (
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{item.inventoryCode}</p>
+        ) : null}
+        <h3 className="mt-0.5 font-semibold leading-tight text-slate-900">{item.title}</h3>
+        <p className="mt-1 text-xs text-slate-500">{[item.city, item.area].filter(Boolean).join(' / ')}</p>
+
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+          <Cell label="Size" value={formatSize(item)} />
+          <Cell label="Quantity" value={String(item.quantity)} />
+          <Cell label="Dates" value={`${formatDate(item.startDate)} - ${formatDate(item.endDate)}`} span />
+          {item.address ? <Cell label="Address" value={item.address} span /> : null}
+        </dl>
+
+        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+          <span className="text-xs text-slate-500">Total price</span>
+          <span className="text-sm font-semibold text-slate-900">{currency(item.totalSellingPrice)}</span>
+        </div>
+      </div>
     </div>
+  );
+};
+
+const Cell = ({ label, value, span }: { label: string; value: string; span?: boolean }) => (
+  <div className={span ? 'col-span-2' : ''}>
+    <dt className="text-slate-400">{label}</dt>
+    <dd className="mt-0.5 font-medium text-slate-700">{value || '-'}</dd>
   </div>
 );
 

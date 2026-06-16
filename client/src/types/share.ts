@@ -64,6 +64,7 @@ export type PublicSharedPlan = {
       totalSellingPrice: number;
       notes?: string;
       photoUrl?: string;
+      photos?: string[];
     }>;
     pricing: {
       subtotal: number;
@@ -96,6 +97,7 @@ export type PlanMapItem = {
   unitSellingPrice: number;
   totalSellingPrice: number;
   photoUrl?: string;
+  photos?: string[];
 };
 
 export type NonMapPlanItem = Omit<

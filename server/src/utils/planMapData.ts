@@ -48,6 +48,7 @@ const baseItem = (item: PlanMapSourceItem, index: number) => ({
   unitSellingPrice: item.unitSellingPrice || 0,
   totalSellingPrice: item.totalSellingPrice || 0,
   photoUrl: item.photos?.[0],
+  photos: item.photos || [],
 });
 
 export const buildPlanMapData = (items: PlanMapSourceItem[] = []) => {

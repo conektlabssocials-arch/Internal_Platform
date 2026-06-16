@@ -3,7 +3,13 @@ import InventoryImage from '../ui/InventoryImage';
 
 const categoryOrder = ['Auto', 'Bus', 'Mobile Van'];
 
-const NonMapInventoryList = ({ items }: { items: NonMapPlanItem[] }) => {
+const NonMapInventoryList = ({
+  items,
+  onSelect,
+}: {
+  items: NonMapPlanItem[];
+  onSelect?: (item: NonMapPlanItem) => void;
+}) => {
   if (!items.length) return null;
 
   return (
@@ -16,7 +22,25 @@ const NonMapInventoryList = ({ items }: { items: NonMapPlanItem[] }) => {
             <h3 className="text-sm font-semibold text-emerald-800">{category}</h3>
             <div className="mt-2 grid gap-3 md:grid-cols-2">
               {categoryItems.map((item) => (
-                <article key={item.planItemId} className="rounded-md border border-slate-200 bg-white p-4">
+                <article
+                  key={item.planItemId}
+                  className={`rounded-md border border-slate-200 bg-white p-4 ${
+                    onSelect ? 'cursor-pointer transition hover:border-emerald-400 hover:shadow-sm' : ''
+                  }`}
+                  onClick={onSelect ? () => onSelect(item) : undefined}
+                  role={onSelect ? 'button' : undefined}
+                  tabIndex={onSelect ? 0 : undefined}
+                  onKeyDown={
+                    onSelect
+                      ? (event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onSelect(item);
+                          }
+                        }
+                      : undefined
+                  }
+                >
                   <InventoryImage
                     src={item.photoUrl}
                     alt={item.title || 'Inventory'}

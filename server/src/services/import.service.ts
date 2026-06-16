@@ -174,6 +174,10 @@ export class ImportService implements IImportService {
       job.previewRows = result.rows.slice(0, 20);
       job.importedRows = result.importedRows;
       job.skippedRows = result.skippedRows;
+      job.metadata = {
+        ...(job.metadata || {}),
+        drivePhotoImport: result.drivePhotoImport,
+      };
       job.set('errors', processorErrors);
       job.invalidRows = result.rows.filter(
         (row) => row.status === 'skipped' && (row.errors || []).length > 0,
@@ -191,6 +195,7 @@ export class ImportService implements IImportService {
           importType: job.importType,
           importedRows: result.importedRows,
           skippedRows: result.skippedRows,
+          drivePhotoImport: result.drivePhotoImport,
         },
         visibility: 'admin_only',
         req,
@@ -331,6 +336,7 @@ export class ImportService implements IImportService {
       importedRows: job.importedRows,
       skippedRows: job.skippedRows,
       warnings: job.warnings.length,
+      drivePhotoImport: job.metadata?.drivePhotoImport,
     };
   }
 
