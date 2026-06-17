@@ -142,16 +142,17 @@ const PublicSharedPlan = () => {
   return (
     <main className="min-h-screen bg-[#f7f7f2] text-slate-900">
       <header className="border-b border-emerald-900/10 bg-emerald-800 text-white">
-        <div className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-9">
-          <p className="text-sm font-bold tracking-wide text-emerald-100">CONEKT ADS</p>
-          <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="max-w-4xl text-2xl font-semibold sm:text-3xl">{data.campaign.title}</h1>
-              <p className="mt-2 text-emerald-100">{data.campaign.clientName}</p>
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-9">
+          <p className="text-xs font-bold tracking-wide text-emerald-100 sm:text-sm">CONEKT ADS</p>
+          <div className="mt-4 flex flex-col gap-3 sm:mt-5 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+            <div className="min-w-0">
+              <h1 className="max-w-4xl text-xl font-semibold leading-tight sm:text-3xl">{data.campaign.title}</h1>
+              <p className="mt-1.5 text-sm text-emerald-100 sm:mt-2 sm:text-base">{data.campaign.clientName}</p>
             </div>
-            <div className="text-sm text-emerald-100">
+            <div className="flex shrink-0 items-center gap-2 text-sm text-emerald-100 sm:block sm:text-right">
               <p>Plan {data.plan.versionLabel}</p>
-              <p className="mt-1">{data.plan.status}</p>
+              <span className="text-emerald-300 sm:hidden">·</span>
+              <p className="sm:mt-1">{data.plan.status}</p>
             </div>
           </div>
         </div>
@@ -159,7 +160,7 @@ const PublicSharedPlan = () => {
 
       {cities.length > 1 || (cityFilter !== ALL_CITIES && areas.length > 1) ? (
         <div className="sticky top-0 z-30 border-b border-slate-200 bg-[#f7f7f2]/95 backdrop-blur">
-          <div className="mx-auto max-w-6xl space-y-2 px-5 py-3 sm:px-8">
+          <div className="mx-auto max-w-6xl space-y-2 px-4 py-3 sm:px-8">
             {cities.length > 1 ? (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="mr-1 w-14 shrink-0 text-xs font-semibold uppercase text-emerald-700">City</span>
@@ -177,7 +178,7 @@ const PublicSharedPlan = () => {
                     type="button"
                     onClick={() => setAreasOpen((open) => !open)}
                     aria-expanded={areasOpen}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 transition hover:border-emerald-400 hover:text-emerald-700"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-emerald-400 hover:text-emerald-700"
                   >
                     <span>{areaFilter === ALL_AREAS ? `All areas (${areas.length})` : areaFilter}</span>
                     <span className={`text-xs transition-transform ${areasOpen ? 'rotate-180' : ''}`}>▾</span>
@@ -212,7 +213,7 @@ const PublicSharedPlan = () => {
         </div>
       ) : null}
 
-      <div className="mx-auto max-w-6xl space-y-8 px-5 py-8 sm:px-8">
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-8 sm:py-8">
         <section>
           <h2 className="text-lg font-semibold">Campaign Brief</h2>
           <p className="mt-2 max-w-4xl whitespace-pre-wrap text-sm leading-6 text-slate-600">
@@ -243,7 +244,7 @@ const PublicSharedPlan = () => {
         <section>
           <h2 className="text-lg font-semibold">Selected Media</h2>
           <p className="mt-1 text-sm text-slate-500">Click a row to view photos and details.</p>
-          <div className="mt-3 overflow-hidden border border-slate-200 bg-white">
+          <div className="mt-3 overflow-x-auto border border-slate-200 bg-white">
             <table className="hidden w-full min-w-[850px] text-left text-sm md:table">
               <thead className="bg-emerald-50 text-emerald-900">
                 <tr>
@@ -333,7 +334,7 @@ const PublicSharedPlan = () => {
           </div>
         </section>
 
-        <section className="grid gap-8 border-t border-slate-200 pt-8 md:grid-cols-[1fr_340px]">
+        <section className="grid gap-6 border-t border-slate-200 pt-6 sm:gap-8 sm:pt-8 md:grid-cols-[1fr_340px]">
           <div>
             <h2 className="text-lg font-semibold">Client Notes</h2>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">
@@ -376,7 +377,7 @@ const CityChip = ({
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    className={`rounded-full border px-3 py-1 text-sm transition ${
+    className={`rounded-full border px-3 py-1.5 text-sm transition ${
       active
         ? 'border-emerald-600 bg-emerald-600 text-white'
         : 'border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-700'

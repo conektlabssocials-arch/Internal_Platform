@@ -44,14 +44,14 @@ const NonMapInventoryList = ({
                   <InventoryImage
                     src={item.photoUrl}
                     alt={item.title || 'Inventory'}
-                    className="mb-3 h-32 w-full rounded-md object-cover"
+                    className="mb-3 h-40 w-full rounded-md object-cover sm:h-32"
                   />
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-medium text-slate-900">{item.title}</p>
-                      <p className="mt-1 text-xs text-slate-500">{item.subCategory} · {item.city} / {item.area}</p>
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-900 break-words">{item.title}</p>
+                      <p className="mt-1 text-xs text-slate-500 break-words">{item.subCategory} · {item.city} / {item.area}</p>
                     </div>
-                    <p className="whitespace-nowrap text-sm font-semibold">{currency(item.totalSellingPrice)}</p>
+                    <p className="shrink-0 text-base font-semibold sm:text-sm">{currency(item.totalSellingPrice)}</p>
                   </div>
                   <div className="mt-3 grid gap-1 text-xs text-slate-600">
                     {item.route ? <p><span className="font-medium">Route:</span> {item.route}</p> : null}
