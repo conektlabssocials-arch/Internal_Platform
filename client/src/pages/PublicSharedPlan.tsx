@@ -140,18 +140,19 @@ const PublicSharedPlan = () => {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f7f2] text-slate-900">
+    <main className="min-h-screen overflow-x-hidden bg-[#f7f7f2] text-slate-900">
       <header className="border-b border-emerald-900/10 bg-emerald-800 text-white">
-        <div className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-9">
-          <p className="text-sm font-bold tracking-wide text-emerald-100">CONEKT ADS</p>
-          <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="max-w-4xl text-2xl font-semibold sm:text-3xl">{data.campaign.title}</h1>
-              <p className="mt-2 text-emerald-100">{data.campaign.clientName}</p>
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-9">
+          <p className="text-xs font-bold tracking-wide text-emerald-100 sm:text-sm">CONEKT ADS</p>
+          <div className="mt-4 flex flex-col gap-3 sm:mt-5 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+            <div className="min-w-0">
+              <h1 className="max-w-4xl break-words text-xl font-semibold leading-tight sm:text-3xl">{data.campaign.title}</h1>
+              <p className="mt-1.5 break-words text-sm text-emerald-100 sm:mt-2 sm:text-base">{data.campaign.clientName}</p>
             </div>
-            <div className="text-sm text-emerald-100">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-emerald-100 sm:block sm:shrink-0 sm:text-right">
               <p>Plan {data.plan.versionLabel}</p>
-              <p className="mt-1">{data.plan.status}</p>
+              <span className="text-emerald-300 sm:hidden">·</span>
+              <p className="sm:mt-1">{data.plan.status}</p>
             </div>
           </div>
         </div>
@@ -159,31 +160,33 @@ const PublicSharedPlan = () => {
 
       {cities.length > 1 || (cityFilter !== ALL_CITIES && areas.length > 1) ? (
         <div className="sticky top-0 z-30 border-b border-slate-200 bg-[#f7f7f2]/95 backdrop-blur">
-          <div className="mx-auto max-w-6xl space-y-2 px-5 py-3 sm:px-8">
+          <div className="mx-auto max-w-6xl space-y-3 px-4 py-3 sm:px-8">
             {cities.length > 1 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="mr-1 w-14 shrink-0 text-xs font-semibold uppercase text-emerald-700">City</span>
+              <div className="flex items-center gap-2">
+                <span className="w-12 shrink-0 text-xs font-semibold uppercase text-emerald-700 sm:w-14">City</span>
+                <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                 <CityChip label="All cities" active={cityFilter === ALL_CITIES} onClick={() => setCityFilter(ALL_CITIES)} />
                 {cities.map((city) => (
                   <CityChip key={city} label={city} active={cityFilter === city} onClick={() => setCityFilter(city)} />
                 ))}
+                </div>
               </div>
             ) : null}
             {cityFilter !== ALL_CITIES && areas.length > 1 ? (
               <div className="flex flex-wrap items-start gap-2">
-                <span className="mr-1 w-14 shrink-0 pt-1.5 text-xs font-semibold uppercase text-emerald-700">Area</span>
+                <span className="w-12 shrink-0 pt-1.5 text-xs font-semibold uppercase text-emerald-700 sm:w-14">Area</span>
                 <div className="min-w-0 flex-1">
                   <button
                     type="button"
                     onClick={() => setAreasOpen((open) => !open)}
                     aria-expanded={areasOpen}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 transition hover:border-emerald-400 hover:text-emerald-700"
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-emerald-400 hover:text-emerald-700"
                   >
-                    <span>{areaFilter === ALL_AREAS ? `All areas (${areas.length})` : areaFilter}</span>
+                    <span className="min-w-0 truncate">{areaFilter === ALL_AREAS ? `All areas (${areas.length})` : areaFilter}</span>
                     <span className={`text-xs transition-transform ${areasOpen ? 'rotate-180' : ''}`}>▾</span>
                   </button>
                   {areasOpen ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="mt-2 flex max-h-36 flex-wrap items-center gap-2 overflow-y-auto pr-1 sm:max-h-none sm:overflow-visible sm:pr-0">
                       <CityChip
                         label="All areas"
                         active={areaFilter === ALL_AREAS}
@@ -212,10 +215,10 @@ const PublicSharedPlan = () => {
         </div>
       ) : null}
 
-      <div className="mx-auto max-w-6xl space-y-8 px-5 py-8 sm:px-8">
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-8 sm:py-8">
         <section>
           <h2 className="text-lg font-semibold">Campaign Brief</h2>
-          <p className="mt-2 max-w-4xl whitespace-pre-wrap text-sm leading-6 text-slate-600">
+          <p className="mt-2 max-w-4xl whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
             {data.campaign.brief || 'No campaign brief provided.'}
           </p>
         </section>
@@ -244,6 +247,7 @@ const PublicSharedPlan = () => {
           <h2 className="text-lg font-semibold">Selected Media</h2>
           <p className="mt-1 text-sm text-slate-500">Click a row to view photos and details.</p>
           <div className="mt-3 overflow-hidden border border-slate-200 bg-white">
+            <div className="overflow-x-auto">
             <table className="hidden w-full min-w-[850px] text-left text-sm md:table">
               <thead className="bg-emerald-50 text-emerald-900">
                 <tr>
@@ -286,23 +290,24 @@ const PublicSharedPlan = () => {
                 ))}
               </tbody>
             </table>
+            </div>
             <div className="divide-y divide-slate-100 md:hidden">
               {pagedItems.map((item, index) => (
                 <article
                   key={`${item.title}-${pageStart + index}`}
-                  className="cursor-pointer p-4 transition hover:bg-emerald-50/60"
+                  className="cursor-pointer p-3 transition hover:bg-emerald-50/60 sm:p-4"
                   onClick={() => setSelectedItem(item)}
                 >
                   <div className="flex items-start gap-3">
                     <InventoryImage
                       src={item.photoUrl}
                       alt={item.title}
-                      className="h-16 w-16 shrink-0 rounded-md object-cover"
+                      className="h-16 w-16 shrink-0 rounded-md object-cover sm:h-20 sm:w-20"
                     />
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-slate-900">{item.title}</h3>
-                      <p className="mt-1 text-xs text-slate-500">{item.categoryGroup} / {item.subCategory}</p>
-                      <p className="mt-1 text-xs text-slate-500">{item.city} / {item.area}</p>
+                      <h3 className="break-words font-semibold text-slate-900">{item.title}</h3>
+                      <p className="mt-1 break-words text-xs text-slate-500">{item.categoryGroup} / {item.subCategory}</p>
+                      <p className="mt-1 break-words text-xs text-slate-500">{item.city} / {item.area}</p>
                     </div>
                   </div>
                   <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -311,7 +316,7 @@ const PublicSharedPlan = () => {
                     <PublicItemInfo label="Dates" value={`${formatDate(item.startDate)} - ${formatDate(item.endDate)}`} />
                     <PublicItemInfo label="Amount" value={currency(item.totalSellingPrice)} strong />
                   </dl>
-                  {item.notes ? <p className="mt-3 text-sm leading-6 text-slate-600">{item.notes}</p> : null}
+                  {item.notes ? <p className="mt-3 break-words text-sm leading-6 text-slate-600">{item.notes}</p> : null}
                 </article>
               ))}
             </div>
@@ -333,21 +338,21 @@ const PublicSharedPlan = () => {
           </div>
         </section>
 
-        <section className="grid gap-8 border-t border-slate-200 pt-8 md:grid-cols-[1fr_340px]">
-          <div>
+        <section className="grid gap-6 border-t border-slate-200 pt-6 sm:gap-8 sm:pt-8 md:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold">Client Notes</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
               {data.plan.clientNotes || 'No additional notes.'}
             </p>
           </div>
-          <div className="bg-white p-5 shadow-sm">
+          <div className="min-w-0 bg-white p-4 shadow-sm sm:p-5">
             <h2 className="font-semibold">Pricing Summary</h2>
             <dl className="mt-4 space-y-3 text-sm">
               <Price label="Subtotal" value={data.plan.pricing.subtotal} />
               <Price label={`Tax (${data.plan.pricing.taxPercentage}%)`} value={data.plan.pricing.taxAmount} />
-              <div className="flex justify-between border-t-2 border-emerald-600 pt-4 text-base font-semibold">
-                <dt>Grand Total</dt>
-                <dd>{currency(data.plan.pricing.grandTotal)}</dd>
+              <div className="flex items-start justify-between gap-4 border-t-2 border-emerald-600 pt-4 text-base font-semibold">
+                <dt className="min-w-0">Grand Total</dt>
+                <dd className="shrink-0 text-right">{currency(data.plan.pricing.grandTotal)}</dd>
               </div>
             </dl>
           </div>
@@ -376,7 +381,7 @@ const CityChip = ({
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    className={`rounded-full border px-3 py-1 text-sm transition ${
+    className={`max-w-[14rem] shrink-0 truncate rounded-full border px-3 py-1.5 text-sm transition sm:max-w-full ${
       active
         ? 'border-emerald-600 bg-emerald-600 text-white'
         : 'border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-700'
@@ -387,9 +392,9 @@ const CityChip = ({
 );
 
 const Price = ({ label, value }: { label: string; value: number }) => (
-  <div className="flex justify-between gap-4">
-    <dt className="text-slate-600">{label}</dt>
-    <dd className="font-medium">{currency(value)}</dd>
+  <div className="flex items-start justify-between gap-4">
+    <dt className="min-w-0 text-slate-600">{label}</dt>
+    <dd className="shrink-0 text-right font-medium">{currency(value)}</dd>
   </div>
 );
 
@@ -402,9 +407,9 @@ const PublicItemInfo = ({
   value: string;
   strong?: boolean;
 }) => (
-  <div className={label === 'Dates' ? 'col-span-2' : ''}>
+  <div className={`min-w-0 ${label === 'Dates' ? 'col-span-2' : ''}`}>
     <dt className="text-xs text-slate-500">{label}</dt>
-    <dd className={`mt-0.5 ${strong ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>{value}</dd>
+    <dd className={`mt-0.5 break-words ${strong ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>{value}</dd>
   </div>
 );
 

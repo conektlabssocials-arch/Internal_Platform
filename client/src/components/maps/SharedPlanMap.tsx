@@ -141,7 +141,12 @@ const SharedPlanMap = ({
 
   return (
     <div className="relative overflow-hidden rounded-md border border-slate-200 bg-slate-100" aria-label="Outdoor inventory map">
-      <div ref={containerRef} className="h-[360px] w-full md:h-[500px]" role="region" aria-label={`${mapItems.length} outdoor site locations`} />
+      <div
+        ref={containerRef}
+        className="h-[min(68svh,430px)] min-h-[320px] w-full md:h-[500px]"
+        role="region"
+        aria-label={`${mapItems.length} outdoor site locations`}
+      />
       <button
         type="button"
         onClick={toggle3D}

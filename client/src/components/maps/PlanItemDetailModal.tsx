@@ -73,7 +73,7 @@ const PlanItemDetailModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/80 p-2 backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={item.title || item.inventoryCode || 'Site details'}
@@ -81,7 +81,7 @@ const PlanItemDetailModal = ({
         if (event.currentTarget === event.target) onClose();
       }}
     >
-      <div className="relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl lg:flex-row">
+      <div className="relative flex h-[calc(100svh-1rem)] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl sm:h-[88vh] sm:rounded-2xl lg:flex-row">
         <button
           type="button"
           onClick={onClose}
@@ -93,7 +93,7 @@ const PlanItemDetailModal = ({
         </button>
 
         {/* Image stage — fixed height so the frame never resizes with the photo */}
-        <div className="flex h-[44vh] min-w-0 shrink-0 flex-col bg-slate-900 lg:h-auto lg:min-h-0 lg:flex-1">
+        <div className="flex h-[36svh] min-h-[210px] min-w-0 shrink-0 flex-col bg-slate-900 sm:h-[44vh] lg:h-auto lg:min-h-0 lg:flex-1">
           <div className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center">
             <InventoryImage
               src={activePhoto}
@@ -118,7 +118,7 @@ const PlanItemDetailModal = ({
           </div>
 
           {hasMultiple ? (
-            <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-white/10 bg-slate-900/60 p-3">
+            <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-white/10 bg-slate-900/60 p-2 sm:p-3">
               {photos.map((photo, index) => (
                 <button
                   key={`${photo}-${index}`}
@@ -126,7 +126,7 @@ const PlanItemDetailModal = ({
                   onClick={() => setActiveIndex(index)}
                   aria-label={`View photo ${index + 1}`}
                   aria-current={index === activeIndex}
-                  className={`h-16 w-20 shrink-0 overflow-hidden rounded-md border-2 transition ${
+                  className={`h-14 w-16 shrink-0 overflow-hidden rounded-md border-2 transition sm:h-16 sm:w-20 ${
                     index === activeIndex
                       ? 'border-emerald-400 opacity-100'
                       : 'border-transparent opacity-60 hover:opacity-100'
@@ -146,15 +146,15 @@ const PlanItemDetailModal = ({
 
         {/* Details panel */}
         <div className="flex min-h-0 w-full flex-1 flex-col border-t border-slate-200 lg:w-[360px] lg:flex-none lg:border-l lg:border-t-0">
-          <div className="border-b border-slate-200 px-5 py-4 pr-14">
+          <div className="border-b border-slate-200 px-4 py-3 pr-14 sm:px-5 sm:py-4">
             {item.inventoryCode ? (
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{item.inventoryCode}</p>
             ) : null}
-            <h3 className="mt-1 truncate text-lg font-semibold leading-tight text-slate-900">{item.title || 'Site details'}</h3>
-            {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
+            <h3 className="mt-1 break-words text-base font-semibold leading-tight text-slate-900 sm:text-lg">{item.title || 'Site details'}</h3>
+            {subtitle ? <p className="mt-1 break-words text-sm text-slate-500">{subtitle}</p> : null}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4">
             <dl className="space-y-3 text-sm">
               <Row label="Location" value={[item.city, item.area].filter(Boolean).join(' / ')} />
               {item.address ? <Row label="Address" value={item.address} /> : null}
@@ -169,9 +169,9 @@ const PlanItemDetailModal = ({
             </dl>
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-4">
+          <div className="flex items-start justify-between gap-4 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-5 sm:py-4">
             <span className="text-sm text-slate-500">Total price</span>
-            <span className="text-lg font-semibold text-slate-900">{currency(item.totalSellingPrice || 0)}</span>
+            <span className="shrink-0 text-right text-base font-semibold text-slate-900 sm:text-lg">{currency(item.totalSellingPrice || 0)}</span>
           </div>
         </div>
       </div>
@@ -193,9 +193,9 @@ const NavButton = ({ side, onClick }: { side: 'left' | 'right'; onClick: () => v
 );
 
 const Row = ({ label, value }: { label: string; value: string }) => (
-  <div className="grid grid-cols-[96px_1fr] gap-3">
+  <div className="grid min-w-0 gap-1 sm:grid-cols-[96px_1fr] sm:gap-3">
     <dt className="text-slate-500">{label}</dt>
-    <dd className="font-medium text-slate-800">{value || '-'}</dd>
+    <dd className="break-words font-medium text-slate-800">{value || '-'}</dd>
   </div>
 );
 

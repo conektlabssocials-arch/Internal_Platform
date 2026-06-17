@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { v2 as cloudinary } from 'cloudinary';
+import { PDFDocument } from 'pdf-lib';
 import puppeteer from 'puppeteer';
 
 import type { DocumentType } from '../models/document.model.js';
@@ -100,12 +101,23 @@ export class PdfService {
     const browser = await puppeteer.launch({
       executablePath: getPuppeteerExecutablePath(),
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      // `--disable-dev-shm-usage` is essential in Docker: the default /dev/shm is
+      // only 64 MB and Chrome crashes ("Target closed"/"Page crashed") rendering
+      // large multi-page documents. `protocolTimeout` is raised because a big PDF
+      // can take well over the 180s default to render.
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
+      protocolTimeout: 600_000,
     });
 
     try {
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'domcontentloaded' });
+      page.setDefaultTimeout(0);
+      await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 0 });
       await page.evaluate(async () => {
         const images = Array.from(document.images);
         await Promise.all(
@@ -127,11 +139,26 @@ export class PdfService {
         format: 'A4',
         printBackground: true,
         preferCSSPageSize: true,
+        timeout: 0,
       });
       return Buffer.from(pdf);
     } finally {
       await browser.close();
     }
+  }
+
+  // Merge several PDF buffers (in order) into one. Used by the chunked renderer
+  // so a very large document can be rendered in small page batches that each stay
+  // within Chrome's memory limits, then stitched together.
+  async mergePdfs(buffers: Buffer[]): Promise<Buffer> {
+    if (buffers.length === 1) return buffers[0];
+    const merged = await PDFDocument.create();
+    for (const buffer of buffers) {
+      const source = await PDFDocument.load(buffer);
+      const pages = await merged.copyPages(source, source.getPageIndices());
+      for (const page of pages) merged.addPage(page);
+    }
+    return Buffer.from(await merged.save());
   }
 
   async uploadPdf(buffer: Buffer, fileName: string): Promise<CloudinaryPdfUpload> {
@@ -140,7 +167,13 @@ export class PdfService {
     const deliveryType = documentDeliveryType();
 
     const result = await new Promise<CloudinaryUploadResult>((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
+      // Use chunked upload: a large multi-hundred-page proposal PDF exceeds the
+      // single-request size limit and `upload_stream` rejects it with a 413.
+      // `upload_chunked_stream` sends the file in parts. The chunk size must stay
+      // below the account's per-request max (10 MB here, Cloudinary's minimum
+      // chunk is 5 MB), so each part is accepted and the full file is assembled
+      // server-side.
+      const uploadStream = cloudinary.uploader.upload_chunked_stream(
         {
           resource_type: 'raw',
           type: deliveryType,
@@ -150,6 +183,7 @@ export class PdfService {
           use_filename: false,
           unique_filename: false,
           overwrite: false,
+          chunk_size: 6_000_000,
         },
         (error, uploadResult) => {
           if (error || !uploadResult) {
