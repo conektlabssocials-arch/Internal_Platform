@@ -70,14 +70,13 @@ export class DocumentController {
         throw new HttpError(502, 'Failed to download document from storage');
       }
 
-      res.type('application/pdf');
+      // Content-Type is derived from the file extension (pdf, xlsx, ...).
       res.attachment(file.fileName);
       res.send(Buffer.from(await response.arrayBuffer()));
       return;
     }
 
     if (!file.filePath) throw new HttpError(404, 'Document file not found');
-    res.type('application/pdf');
     res.download(file.filePath, file.fileName);
   };
 }

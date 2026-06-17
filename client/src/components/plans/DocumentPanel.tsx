@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 const documentLabels: Record<PlanDocumentType, string> = {
   PlanProposal: 'Media Plan Proposal',
   PlanProposalV2: 'Media Plan Proposal V2',
+  PlanDataSheet: 'Plan Data Sheet (Excel)',
   Quotation: 'Quotation PDF',
   InternalCostSheet: 'Internal Cost Sheet',
 };
