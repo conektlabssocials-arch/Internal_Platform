@@ -48,6 +48,19 @@ const DocumentPanel = ({
     void load();
   }, [planId]);
 
+  // Large proposals are generated in the background, so poll the list while any
+  // document is still processing until everything settles to ready/failed.
+  const hasProcessing = documents.some((document) => document.status === 'processing');
+  useEffect(() => {
+    if (!hasProcessing) return;
+    const interval = window.setInterval(() => {
+      getPlanDocuments(planId)
+        .then(setDocuments)
+        .catch(() => undefined);
+    }, 3000);
+    return () => window.clearInterval(interval);
+  }, [hasProcessing, planId]);
+
   const generate = async (documentType: PlanDocumentType) => {
     setGenerating(documentType);
     setError('');
@@ -110,13 +123,23 @@ const DocumentPanel = ({
                   {document.generatedBy?.name || document.generatedBy?.email || '-'}
                 </td>
                 <td className="px-3 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => void downloadDocument(document).catch((err) => setError(err.message))}
-                    className={linkButton}
-                  >
-                    Download
-                  </button>
+                  {document.status === 'processing' ? (
+                    <span className="text-xs font-medium text-slate-500">
+                      Generating… {Math.round(document.progress ?? 0)}%
+                    </span>
+                  ) : document.status === 'failed' ? (
+                    <span className="text-xs font-medium text-red-600" title={document.error || undefined}>
+                      Failed
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void downloadDocument(document).catch((err) => setError(err.message))}
+                      className={linkButton}
+                    >
+                      Download
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

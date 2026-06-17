@@ -34,8 +34,18 @@ const documentSchema = new Schema(
     documentType: { type: String, enum: documentTypes, required: true },
     versionNumber: { type: Number, required: true },
     fileName: { type: String, required: true },
-    filePath: { type: String, required: true },
+    // Empty while a document is still being generated in the background; set once
+    // the PDF is uploaded.
+    filePath: { type: String, default: '' },
     fileUrl: String,
+    status: {
+      type: String,
+      enum: ['processing', 'ready', 'failed'],
+      default: 'ready',
+    },
+    // 0-100 generation progress, only meaningful while status is 'processing'.
+    progress: { type: Number, default: 0 },
+    error: String,
     storageProvider: { type: String, enum: ['local', 'cloudinary'], default: 'local' },
     storageKey: String,
     storageResourceType: { type: String, default: 'raw' },

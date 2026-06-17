@@ -6,6 +6,8 @@ export type PlanDocumentType =
 export type OperationDocumentType = 'WorkOrder' | 'PurchaseOrder' | 'ExecutionReport';
 export type DocumentType = PlanDocumentType | OperationDocumentType;
 
+export type DocumentStatus = 'processing' | 'ready' | 'failed';
+
 export type DocumentRecord = {
   id: string;
   plan: string;
@@ -15,6 +17,9 @@ export type DocumentRecord = {
   versionNumber: number;
   fileName: string;
   fileUrl?: string;
+  status?: DocumentStatus;
+  progress?: number;
+  error?: string;
   generatedBy?: {
     id: string;
     name: string;

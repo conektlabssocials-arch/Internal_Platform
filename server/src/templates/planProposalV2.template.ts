@@ -154,46 +154,7 @@ const sitePage = (item: PlanItem, index: number) => {
     </section>`;
 };
 
-export const buildPlanProposalV2Html = (data: TemplatePlanData) => {
-  const dates = getCampaignDates(data.items);
-  const cities = [...new Set(data.items.map((item) => item.city).filter(Boolean))];
-  const mediaSummary = buildMediaSummary(data.items);
-  const totalUnits = data.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  const totalSquareFeet = data.items.reduce(
-    (sum, item) => sum + (item.totalSqFt || 0) * (item.quantity || 1),
-    0,
-  );
-
-  const summaryRows = mediaSummary
-    .map(
-      (row) => `<tr>
-        <td>${escapeHtml(row.label)}</td>
-        <td class="number">${row.units}</td>
-        <td class="number">${number(row.squareFeet)}</td>
-        <td class="number">${row.duration} days</td>
-      </tr>`,
-    )
-    .join('');
-
-  const inventoryRows = data.items
-    .map(
-      (item, index) => `<tr>
-        <td>${String(index + 1).padStart(2, '0')}</td>
-        <td><strong>${escapeHtml(item.title)}</strong><br><span class="muted">${escapeHtml(item.inventoryCode || '')}</span></td>
-        <td>${escapeHtml([item.area, item.city].filter(Boolean).join(', ') || '-')}</td>
-        <td>${escapeHtml(formatSize(item))}</td>
-        <td>${escapeHtml(mediaLabel(item))}</td>
-        <td class="number">${durationDays(item)} days</td>
-        <td class="number">${escapeHtml(formatCurrencyINR(item.totalSellingPrice))}</td>
-      </tr>`,
-    )
-    .join('');
-
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <style>
+const documentStyles = `
     @page { size: A4 landscape; margin: 0; }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; color: #173229; background: #f7f8f3; font: 11px Arial, sans-serif; }
@@ -256,9 +217,99 @@ export const buildPlanProposalV2Html = (data: TemplatePlanData) => {
     .client-note { margin-top: 7mm; padding: 5mm; border-left: 3px solid #39a272; background: #edf5f0; white-space: pre-wrap; }
     .terms { margin-top: 5mm; color: #708078; font-size: 9px; line-height: 1.5; }
     .page-footer { position: absolute; right: 18mm; bottom: 7mm; left: 18mm; display: flex; justify-content: space-between; padding-top: 2mm; border-top: 1px solid #d7e4dc; color: #73827b; font-size: 8px; letter-spacing: .5px; }
-  </style>
+`;
+
+const renderShell = (body: string) => `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>${documentStyles}</style>
 </head>
 <body>
+${body}
+</body>
+</html>`;
+
+// How many inventory rows fit on one A4-landscape summary page (kept low so the
+// fixed-height, overflow-hidden page never clips the last rows).
+const SUMMARY_ROWS_PER_PAGE = 10;
+
+const renderFrontBody = (data: TemplatePlanData, detailedSiteCount?: number) => {
+  const dates = getCampaignDates(data.items);
+  const cities = [...new Set(data.items.map((item) => item.city).filter(Boolean))];
+  const mediaSummary = buildMediaSummary(data.items);
+  const totalUnits = data.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  const totalSquareFeet = data.items.reduce(
+    (sum, item) => sum + (item.totalSqFt || 0) * (item.quantity || 1),
+    0,
+  );
+
+  const summaryRows = mediaSummary
+    .map(
+      (row) => `<tr>
+        <td>${escapeHtml(row.label)}</td>
+        <td class="number">${row.units}</td>
+        <td class="number">${number(row.squareFeet)}</td>
+        <td class="number">${row.duration} days</td>
+      </tr>`,
+    )
+    .join('');
+
+  // Every item is listed here (even when its detailed photo page is capped), so
+  // the table is split across as many pages as needed instead of being clipped.
+  const inventoryRowList = data.items.map(
+    (item, index) => `<tr>
+        <td>${String(index + 1).padStart(2, '0')}</td>
+        <td><strong>${escapeHtml(item.title)}</strong><br><span class="muted">${escapeHtml(item.inventoryCode || '')}</span></td>
+        <td>${escapeHtml([item.area, item.city].filter(Boolean).join(', ') || '-')}</td>
+        <td>${escapeHtml(formatSize(item))}</td>
+        <td>${escapeHtml(mediaLabel(item))}</td>
+        <td class="number">${durationDays(item)} days</td>
+        <td class="number">${escapeHtml(formatCurrencyINR(item.totalSellingPrice))}</td>
+      </tr>`,
+  );
+
+  const rowPages: string[][] = [];
+  for (let i = 0; i < inventoryRowList.length; i += SUMMARY_ROWS_PER_PAGE) {
+    rowPages.push(inventoryRowList.slice(i, i + SUMMARY_ROWS_PER_PAGE));
+  }
+  if (!rowPages.length) rowPages.push([]);
+
+  const capped = detailedSiteCount != null && detailedSiteCount < data.items.length;
+  const summarySections = rowPages
+    .map((rows, pageIndex) => {
+      const isLast = pageIndex === rowPages.length - 1;
+      const pageLabel = rowPages.length > 1 ? ` (${pageIndex + 1}/${rowPages.length})` : '';
+      return `
+  <section class="page">
+    <div class="page-kicker">MEDIA PLAN</div>
+    <h2>Site Inventory Summary${pageLabel}</h2>
+    <table>
+      <thead><tr><th>#</th><th>Location / Inventory</th><th>Area / City</th><th>Size</th><th>Media Type</th><th class="number">Duration</th><th class="number">Total Cost</th></tr></thead>
+      <tbody>${rows.join('') || '<tr><td colspan="7">No inventory items.</td></tr>'}</tbody>
+    </table>
+    ${
+      isLast
+        ? `<table class="pricing">
+      <tr><td>Subtotal</td><td class="number">${escapeHtml(formatCurrencyINR(data.pricing.subtotal))}</td></tr>
+      <tr><td>Tax (${number(data.pricing.taxPercentage)}%)</td><td class="number">${escapeHtml(formatCurrencyINR(data.pricing.taxAmount))}</td></tr>
+      <tr class="grand"><td>Grand Total</td><td class="number">${escapeHtml(formatCurrencyINR(data.pricing.grandTotal))}</td></tr>
+    </table>
+    ${data.clientNotes ? `<div class="client-note"><strong>Client Notes</strong><br>${escapeHtml(data.clientNotes)}</div>` : ''}
+    ${
+      capped
+        ? `<div class="terms">Detailed location pages are included for the first ${detailedSiteCount} of ${data.items.length} sites. All ${data.items.length} sites are listed in the table above.</div>`
+        : ''
+    }
+    <div class="terms">Rates are subject to media availability and final confirmation. Production, permissions, taxes, and other terms apply as stated in the final commercial agreement.</div>`
+        : ''
+    }
+    <div class="page-footer"><span>CONEKT ADS</span><span>Inventory Summary</span></div>
+  </section>`;
+    })
+    .join('');
+
+  return `
   <section class="page cover">
     <div class="brand">CONEKT ADS</div>
     <div class="cover-main">
@@ -308,25 +359,25 @@ export const buildPlanProposalV2Html = (data: TemplatePlanData) => {
     <div class="brief"><strong>Campaign Brief</strong><br>${escapeHtml(data.campaignBrief || 'Campaign brief not provided.')}</div>
     <div class="page-footer"><span>CONEKT ADS</span><span>Plan Overview</span></div>
   </section>
-
-  <section class="page">
-    <div class="page-kicker">MEDIA PLAN</div>
-    <h2>Site Inventory Summary</h2>
-    <table>
-      <thead><tr><th>#</th><th>Location / Inventory</th><th>Area / City</th><th>Size</th><th>Media Type</th><th class="number">Duration</th><th class="number">Total Cost</th></tr></thead>
-      <tbody>${inventoryRows || '<tr><td colspan="7">No inventory items.</td></tr>'}</tbody>
-    </table>
-    <table class="pricing">
-      <tr><td>Subtotal</td><td class="number">${escapeHtml(formatCurrencyINR(data.pricing.subtotal))}</td></tr>
-      <tr><td>Tax (${number(data.pricing.taxPercentage)}%)</td><td class="number">${escapeHtml(formatCurrencyINR(data.pricing.taxAmount))}</td></tr>
-      <tr class="grand"><td>Grand Total</td><td class="number">${escapeHtml(formatCurrencyINR(data.pricing.grandTotal))}</td></tr>
-    </table>
-    ${data.clientNotes ? `<div class="client-note"><strong>Client Notes</strong><br>${escapeHtml(data.clientNotes)}</div>` : ''}
-    <div class="terms">Rates are subject to media availability and final confirmation. Production, permissions, taxes, and other terms apply as stated in the final commercial agreement.</div>
-    <div class="page-footer"><span>CONEKT ADS</span><span>Inventory Summary</span></div>
-  </section>
-
-  ${data.items.map(sitePage).join('')}
-</body>
-</html>`;
+${summarySections}
+  `;
 };
+
+const renderSitePagesBody = (items: PlanItem[], startIndex = 0) =>
+  items.map((item, index) => sitePage(item, startIndex + index)).join('');
+
+export const buildPlanProposalV2Html = (data: TemplatePlanData) =>
+  renderShell(`${renderFrontBody(data)}
+  ${renderSitePagesBody(data.items)}`);
+
+// Front matter only (cover, overview, inventory summary) — used by the chunked
+// renderer so a large plan can be rendered a few pages at a time and merged.
+export const buildPlanProposalV2FrontHtml = (
+  data: TemplatePlanData,
+  detailedSiteCount?: number,
+) => renderShell(renderFrontBody(data, detailedSiteCount));
+
+// A standalone document containing only the given site pages. `startIndex` keeps
+// the "LOCATION NN" numbering continuous across chunks.
+export const buildPlanProposalV2SitePagesHtml = (items: PlanItem[], startIndex = 0) =>
+  renderShell(renderSitePagesBody(items, startIndex));
