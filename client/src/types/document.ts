@@ -1,6 +1,7 @@
 export type PlanDocumentType =
   | 'PlanProposal'
   | 'PlanProposalV2'
+  | 'PlanDataSheet'
   | 'Quotation'
   | 'InternalCostSheet';
 export type OperationDocumentType = 'WorkOrder' | 'PurchaseOrder' | 'ExecutionReport';

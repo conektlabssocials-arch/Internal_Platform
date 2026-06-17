@@ -18,6 +18,7 @@ import {
   buildPlanProposalV2FrontHtml,
   buildPlanProposalV2SitePagesHtml,
 } from '../templates/planProposalV2.template.js';
+import { buildPlanDataSheetWorkbook } from '../templates/planDataSheet.template.js';
 import { buildPurchaseOrderHtml } from '../templates/purchaseOrder.template.js';
 import { buildQuotationHtml } from '../templates/quotation.template.js';
 import type {
@@ -51,6 +52,7 @@ export interface IDocumentService {
 const planDocumentTypes: DocumentType[] = [
   'PlanProposal',
   'PlanProposalV2',
+  'PlanDataSheet',
   'Quotation',
   'InternalCostSheet',
 ];
@@ -324,6 +326,7 @@ export class DocumentService implements IDocumentService {
       campaignCode: data.campaignCode,
       planVersionLabel: data.planVersionLabel,
       documentType,
+      extension: documentType === 'PlanDataSheet' ? 'xlsx' : 'pdf',
     });
 
     const document = await this.documents.create({
@@ -413,18 +416,26 @@ export class DocumentService implements IDocumentService {
 
     try {
       await setProgress(3);
-      if (documentType === 'PlanProposalV2') {
-        // Only the items that get a detailed photo page need their images fetched.
-        await this.inlineItemPhotos(data.items.slice(0, MAX_V2_SITE_PAGES), (fraction) =>
-          setProgress(5 + fraction * 65),
+      let outputBuffer: Buffer;
+      if (documentType === 'PlanDataSheet') {
+        // Spreadsheet export: just data + Drive links, so it's fast and tiny —
+        // no puppeteer, no image fetching.
+        await setProgress(30);
+        outputBuffer = await buildPlanDataSheetWorkbook(data);
+      } else {
+        if (documentType === 'PlanProposalV2') {
+          // Only the items that get a detailed photo page need their images fetched.
+          await this.inlineItemPhotos(data.items.slice(0, MAX_V2_SITE_PAGES), (fraction) =>
+            setProgress(5 + fraction * 65),
+          );
+        }
+        await setProgress(72);
+        outputBuffer = await this.renderPlanPdf(documentType, data, (fraction) =>
+          setProgress(72 + fraction * 18),
         );
       }
-      await setProgress(72);
-      const pdfBuffer = await this.renderPlanPdf(documentType, data, (fraction) =>
-        setProgress(72 + fraction * 18),
-      );
       await setProgress(90);
-      const upload = await this.pdf.uploadPdf(pdfBuffer, fileName);
+      const upload = await this.pdf.uploadPdf(outputBuffer, fileName);
 
       const document = await this.documents.findById(documentId);
       if (!document) {

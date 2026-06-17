@@ -70,13 +70,15 @@ export const buildDocumentFileName = ({
   campaignCode,
   planVersionLabel,
   documentType,
+  extension = 'pdf',
 }: {
   campaignCode: string;
   planVersionLabel: string;
   documentType: DocumentType;
+  extension?: string;
 }) => {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return `${safeSegment(campaignCode)}-${safeSegment(planVersionLabel)}-${documentType}-${timestamp}.pdf`;
+  return `${safeSegment(campaignCode)}-${safeSegment(planVersionLabel)}-${documentType}-${timestamp}.${extension}`;
 };
 
 export class PdfService {
@@ -163,7 +165,8 @@ export class PdfService {
 
   async uploadPdf(buffer: Buffer, fileName: string): Promise<CloudinaryPdfUpload> {
     this.ensureCloudinaryConfigured();
-    const publicId = fileName.replace(/\.pdf$/i, '');
+    const publicId = fileName.replace(/\.[^.]+$/, '');
+    const fileExtension = (fileName.match(/\.([^.]+)$/)?.[1] || 'pdf').toLowerCase();
     const deliveryType = documentDeliveryType();
 
     const result = await new Promise<CloudinaryUploadResult>((resolve, reject) => {
@@ -203,7 +206,7 @@ export class PdfService {
       secureUrl: result.secure_url,
       resourceType: result.resource_type,
       deliveryType: result.type || deliveryType,
-      format: result.format || 'pdf',
+      format: result.format || fileExtension,
       bytes: result.bytes,
     };
   }

@@ -4,6 +4,7 @@ import type { HydratedDocument, InferSchemaType } from 'mongoose';
 export const documentTypes = [
   'PlanProposal',
   'PlanProposalV2',
+  'PlanDataSheet',
   'Quotation',
   'InternalCostSheet',
   'WorkOrder',
