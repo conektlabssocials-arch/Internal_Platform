@@ -15,14 +15,14 @@ const PlanMapMarkerPopup = ({
       role="dialog"
       aria-label={item.title || item.inventoryCode || 'Site details'}
       onMouseDown={(event) => event.stopPropagation()}
-      className="absolute inset-x-3 bottom-3 z-10 overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-slate-900/10 sm:inset-x-auto sm:bottom-4 sm:left-4 sm:w-[330px]"
+      className="absolute inset-x-2 bottom-2 z-10 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl bg-white shadow-2xl ring-1 ring-slate-900/10 sm:inset-x-auto sm:bottom-4 sm:left-4 sm:w-[330px]"
     >
       <div className="relative">
         <InventoryImage
           src={item.photoUrl}
           alt={item.title || 'Outdoor inventory'}
           displaySize={800}
-          className="h-40 w-full object-cover"
+          className="h-32 w-full object-cover sm:h-40"
         />
         {item.subCategory ? (
           <span className="absolute left-2 top-2 rounded-full bg-slate-900/65 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
@@ -49,8 +49,8 @@ const PlanMapMarkerPopup = ({
         {item.inventoryCode ? (
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{item.inventoryCode}</p>
         ) : null}
-        <h3 className="mt-0.5 font-semibold leading-tight text-slate-900">{item.title}</h3>
-        <p className="mt-1 text-xs text-slate-500">{[item.city, item.area].filter(Boolean).join(' / ')}</p>
+        <h3 className="mt-0.5 break-words font-semibold leading-tight text-slate-900">{item.title}</h3>
+        <p className="mt-1 break-words text-xs text-slate-500">{[item.city, item.area].filter(Boolean).join(' / ')}</p>
 
         <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
           <Cell label="Size" value={formatSize(item)} />
@@ -59,9 +59,9 @@ const PlanMapMarkerPopup = ({
           {item.address ? <Cell label="Address" value={item.address} span /> : null}
         </dl>
 
-        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+        <div className="mt-3 flex items-start justify-between gap-3 border-t border-slate-100 pt-3">
           <span className="text-xs text-slate-500">Total price</span>
-          <span className="text-sm font-semibold text-slate-900">{currency(item.totalSellingPrice)}</span>
+          <span className="shrink-0 text-right text-sm font-semibold text-slate-900">{currency(item.totalSellingPrice)}</span>
         </div>
       </div>
     </div>
@@ -69,9 +69,9 @@ const PlanMapMarkerPopup = ({
 };
 
 const Cell = ({ label, value, span }: { label: string; value: string; span?: boolean }) => (
-  <div className={span ? 'col-span-2' : ''}>
+  <div className={`min-w-0 ${span ? 'col-span-2' : ''}`}>
     <dt className="text-slate-400">{label}</dt>
-    <dd className="mt-0.5 font-medium text-slate-700">{value || '-'}</dd>
+    <dd className="mt-0.5 break-words font-medium text-slate-700">{value || '-'}</dd>
   </div>
 );
 

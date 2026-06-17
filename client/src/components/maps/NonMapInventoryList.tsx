@@ -51,9 +51,9 @@ const NonMapInventoryList = ({
                       <p className="font-medium text-slate-900 break-words">{item.title}</p>
                       <p className="mt-1 text-xs text-slate-500 break-words">{item.subCategory} · {item.city} / {item.area}</p>
                     </div>
-                    <p className="shrink-0 text-base font-semibold sm:text-sm">{currency(item.totalSellingPrice)}</p>
+                    <p className="shrink-0 text-base font-semibold sm:text-right sm:text-sm">{currency(item.totalSellingPrice)}</p>
                   </div>
-                  <div className="mt-3 grid gap-1 text-xs text-slate-600">
+                  <div className="mt-3 grid gap-1 break-words text-xs text-slate-600">
                     {item.route ? <p><span className="font-medium">Route:</span> {item.route}</p> : null}
                     {item.depot ? <p><span className="font-medium">Depot:</span> {item.depot}</p> : null}
                     {item.itinerary ? <p><span className="font-medium">Itinerary:</span> {item.itinerary}</p> : null}
