@@ -9,6 +9,7 @@ import type { IDocumentRepository } from '../repositories/document.repository.js
 import type { IOperationCounterRepository } from '../repositories/operationCounter.repository.js';
 import type { IOperationRepository } from '../repositories/operation.repository.js';
 import type { IPlanRepository } from '../repositories/plan.repository.js';
+import type { IGoogleDrivePhotoService } from './googleDrivePhoto.service.js';
 import { buildExecutionReportHtml } from '../templates/executionReport.template.js';
 import { buildInternalCostSheetHtml } from '../templates/internalCostSheet.template.js';
 import { buildPlanProposalHtml } from '../templates/planProposal.template.js';
@@ -77,6 +78,25 @@ const mapDocument = (document: DocumentDocument) => ({
 
 const getClientName = (campaign: any) =>
   campaign.client?.displayName || campaign.client?.name || 'Client';
+
+// Stored plan photos are raw Google Drive URLs, which an <img> tag cannot load
+// directly (Google serves an HTML/redirect page, not image bytes). Extract the
+// Drive file id so we can fetch the bytes server-side and inline them.
+const driveFileIdPatterns = [
+  /drive\.google\.com\/uc\?(?:.*&)?id=([^&]+)/,
+  /drive\.google\.com\/file\/d\/([^/?]+)/,
+  /drive\.google\.com\/open\?(?:.*&)?id=([^&]+)/,
+  /drive\.usercontent\.google\.com\/download\?(?:.*&)?id=([^&]+)/,
+];
+
+const extractDriveFileId = (url?: string) => {
+  if (!url) return undefined;
+  for (const pattern of driveFileIdPatterns) {
+    const match = url.match(pattern);
+    if (match?.[1]) return decodeURIComponent(match[1]);
+  }
+  return undefined;
+};
 
 const toTemplateData = (plan: any, generatedAt: Date): TemplatePlanData => {
   const campaign = plan.campaign;
@@ -232,7 +252,32 @@ export class DocumentService implements IDocumentService {
     private readonly operationCounters: IOperationCounterRepository,
     @inject(TOKENS.PdfService)
     private readonly pdf: PdfService,
+    @inject(TOKENS.GoogleDrivePhotoService)
+    private readonly driveImages: IGoogleDrivePhotoService,
   ) {}
+
+  // Inline the first photo of each item as a base64 data URI so the PDF renderer
+  // (puppeteer) gets real image bytes instead of a Drive URL it cannot load.
+  private async inlineItemPhotos(data: TemplatePlanData) {
+    await Promise.all(
+      data.items.map(async (item) => {
+        const photo = item.photos?.find(Boolean);
+        const fileId = extractDriveFileId(photo);
+        if (!fileId) {
+          // Non-Drive URLs (already a direct image) are left as-is.
+          item.photos = photo ? [photo] : [];
+          return;
+        }
+        try {
+          const { buffer, contentType } = await this.driveImages.getImageFile(fileId, 1200);
+          item.photos = [`data:${contentType};base64,${buffer.toString('base64')}`];
+        } catch {
+          // Leave empty so the template falls back to the placeholder graphic.
+          item.photos = [];
+        }
+      }),
+    );
+  }
 
   async generate(planId: string, requestedType: string, actorId: string) {
     this.validateId(planId, 'planId');
@@ -245,6 +290,9 @@ export class DocumentService implements IDocumentService {
     const campaign = plan.campaign as any;
     const generatedAt = new Date();
     const data = toTemplateData(plan, generatedAt);
+    if (documentType === 'PlanProposalV2') {
+      await this.inlineItemPhotos(data);
+    }
     const fileName = buildDocumentFileName({
       campaignCode: data.campaignCode,
       planVersionLabel: data.planVersionLabel,
