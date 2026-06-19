@@ -1,12 +1,19 @@
-import type { ErrorRequestHandler } from 'express';
+import type { ErrorRequestHandler, RequestHandler } from 'express';
 import mongoose from 'mongoose';
+
+import { HttpError } from '../utils/httpError.js';
+import { logger } from '../utils/logger.js';
 
 type AppError = Error & {
   statusCode?: number;
   code?: number;
 };
 
-export const errorHandler: ErrorRequestHandler = (err: AppError, _req, res, _next) => {
+export const notFoundHandler: RequestHandler = (req, _res, next) => {
+  next(new HttpError(404, `Route not found: ${req.method} ${req.originalUrl}`));
+};
+
+export const errorHandler: ErrorRequestHandler = (err: AppError, req, res, _next) => {
   const production = process.env.NODE_ENV === 'production';
   let statusCode = err.statusCode || 500;
   let message = err.message || 'Something went wrong';
@@ -22,6 +29,17 @@ export const errorHandler: ErrorRequestHandler = (err: AppError, _req, res, _nex
     message = 'A record with this value already exists';
   } else if (production && statusCode >= 500) {
     message = 'Internal server error';
+  }
+
+  if (statusCode >= 500) {
+    logger.error('unhandled request error', {
+      requestId: req.id,
+      method: req.method,
+      path: req.originalUrl,
+      statusCode,
+      error: err.message,
+      stack: err.stack,
+    });
   }
 
   const response: { message: string; stack?: string } = { message };
