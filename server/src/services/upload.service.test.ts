@@ -51,6 +51,13 @@ test('upload validation accepts matching images and rejects unsupported or disgu
   );
 });
 
+test('upload validation accepts a valid image whose extension/MIME is wrong and corrects the type', () => {
+  const mislabeled = file('image/jpeg', png, 'AM_logo.jpg');
+  assert.doesNotThrow(() => validateUploadFiles('inventory_photo', [mislabeled]));
+  // The declared image/jpeg is corrected to the real detected type.
+  assert.equal(mislabeled.mimetype, 'image/png');
+});
+
 test('upload validation enforces category file size and request aggregate size', () => {
   const oversized = file(
     'image/jpeg',
