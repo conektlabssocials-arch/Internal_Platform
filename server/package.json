@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "test": "tsx --test --test-concurrency=1 src/services/*.test.ts src/mcp/*.test.ts tests/*.test.ts",
-    "test:unit": "tsx --test src/services/*.test.ts src/mcp/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 src/services/*.test.ts src/utils/*.test.ts src/mcp/*.test.ts tests/*.test.ts",
+    "test:unit": "tsx --test src/services/*.test.ts src/utils/*.test.ts src/mcp/*.test.ts",
     "test:integration": "tsx --test --test-concurrency=1 tests/*.test.ts",
     "test:watch": "tsx --test --watch src/services/*.test.ts tests/*.test.ts",
     "test:coverage": "tsx --test --experimental-test-coverage --test-concurrency=1 src/services/*.test.ts src/mcp/*.test.ts tests/*.test.ts",

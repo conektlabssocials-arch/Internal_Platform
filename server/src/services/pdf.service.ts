@@ -60,6 +60,24 @@ const getPuppeteerExecutablePath = () => {
   return candidates.find((candidate) => existsSync(candidate));
 };
 
+// Cloudinary's callback/stream errors are plain objects ({ message, http_code }),
+// not Error instances, so they get swallowed into a generic message upstream.
+// Wrap them in a real Error that keeps the message, HTTP code, and file size —
+// the size is the usual culprit (a large image-heavy PDF exceeding the account's
+// max raw-file limit).
+const toUploadError = (error: unknown, byteLength: number) => {
+  const sizeMb = (byteLength / (1024 * 1024)).toFixed(2);
+  const detail = error as { message?: unknown; http_code?: unknown } | undefined;
+  const reason =
+    error instanceof Error
+      ? error.message
+      : typeof detail?.message === 'string'
+        ? detail.message
+        : 'unknown error';
+  const code = detail?.http_code ? ` (http ${detail.http_code})` : '';
+  return new Error(`Cloudinary PDF upload failed${code}: ${reason} [file ${sizeMb} MB]`);
+};
+
 const safeSegment = (value: string) =>
   value
     .trim()
@@ -190,14 +208,14 @@ export class PdfService {
         },
         (error, uploadResult) => {
           if (error || !uploadResult) {
-            reject(error || new Error('Cloudinary PDF upload failed'));
+            reject(toUploadError(error, buffer.length));
             return;
           }
           resolve(uploadResult as CloudinaryUploadResult);
         },
       );
 
-      uploadStream.on('error', reject);
+      uploadStream.on('error', (error) => reject(toUploadError(error, buffer.length)));
       Readable.from(buffer).pipe(uploadStream);
     });
 
