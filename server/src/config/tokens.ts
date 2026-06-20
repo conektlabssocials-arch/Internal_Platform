@@ -19,6 +19,7 @@ export const TOKENS = {
   InventoryRepository: Symbol('InventoryRepository'),
   InventoryService: Symbol('InventoryService'),
   InventoryCommandService: Symbol('InventoryCommandService'),
+  InventoryPhotoUploadCommandService: Symbol('InventoryPhotoUploadCommandService'),
   ImportJobRepository: Symbol('ImportJobRepository'),
   ImportProcessorService: Symbol('ImportProcessorService'),
   ImportService: Symbol('ImportService'),
