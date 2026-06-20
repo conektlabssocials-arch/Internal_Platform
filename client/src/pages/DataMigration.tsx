@@ -13,6 +13,7 @@ import {
   validateImportJob,
 } from '../api/importApi';
 import type {
+  ImportIssue,
   ImportJob,
   ImportRow,
   ImportTemplate,
@@ -282,7 +283,7 @@ const DataMigration = ({ onClose, onImported }: DataMigrationProps) => {
         <div>
           <SectionHeading
             title="Validation Preview"
-            description="Only valid rows are committed. Invalid and duplicate rows remain in the report."
+            description="Only valid rows are committed. Every error and warning is listed below so you can fix the source file and re-validate."
           />
           <div className="mt-4 rounded-md border border-slate-200 bg-white">
             {activeJob ? (
@@ -530,6 +531,8 @@ const JobPreview = ({
         <Metric label="Skipped" value={job.skippedRows} />
       </div>
 
+      <ValidationIssues issues={job.errors || []} />
+
       {(job.previewRows || []).length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[850px] text-left text-xs">
@@ -540,7 +543,6 @@ const JobPreview = ({
                 {columns.map((column) => (
                   <th key={column} className="px-3 py-2 font-medium">{column}</th>
                 ))}
-                <th className="px-3 py-2 font-medium">Messages</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -560,20 +562,90 @@ const JobPreview = ({
 };
 
 const PreviewRow = ({ row, columns }: { row: ImportRow; columns: string[] }) => {
-  const messages = [...(row.errors || []), ...(row.warnings || [])];
+  const hasMessages = Boolean(row.errors?.length || row.warnings?.length);
   return (
-    <tr>
-      <td className="px-3 py-2 text-slate-500">{row.rowNumber}</td>
-      <td className="px-3 py-2"><RowStatus status={row.status} /></td>
-      {columns.map((column) => (
-        <td key={column} className="max-w-40 truncate px-3 py-2" title={displayValue(row.data[column])}>
-          {displayValue(row.data[column]) || '-'}
-        </td>
-      ))}
-      <td className="max-w-64 px-3 py-2 text-slate-600">
-        {messages.map((message) => message.message).join('; ') || '-'}
-      </td>
-    </tr>
+    <>
+      <tr className="align-top">
+        <td className="px-3 py-2 text-slate-500">{row.rowNumber}</td>
+        <td className="px-3 py-2"><RowStatus status={row.status} /></td>
+        {columns.map((column) => (
+          <td key={column} className="max-w-40 truncate px-3 py-2" title={displayValue(row.data[column])}>
+            {displayValue(row.data[column]) || '-'}
+          </td>
+        ))}
+      </tr>
+      {hasMessages ? (
+        <tr>
+          <td colSpan={columns.length + 2} className="px-3 pb-3 pt-0">
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                Messages
+              </p>
+              <div className="flex flex-wrap gap-x-8 gap-y-3">
+                {(row.errors || []).map((issue, index) => (
+                  <IssueLine key={`error-${index}`} issue={issue} tone="error" />
+                ))}
+                {(row.warnings || []).map((issue, index) => (
+                  <IssueLine key={`warning-${index}`} issue={issue} tone="warning" />
+                ))}
+              </div>
+            </div>
+          </td>
+        </tr>
+      ) : null}
+    </>
+  );
+};
+
+const IssueLine = ({ issue, tone }: { issue: ImportIssue; tone: 'error' | 'warning' }) => {
+  const styles =
+    tone === 'error'
+      ? { accent: 'border-red-300', field: 'text-red-700' }
+      : { accent: 'border-amber-300', field: 'text-amber-800' };
+  return (
+    <div className={`min-w-[180px] max-w-md border-l-2 pl-2 text-xs leading-snug ${styles.accent}`}>
+      <span className={`block font-semibold ${styles.field}`}>{issue.field}</span>
+      <span className="block break-words text-slate-600">{issue.message}</span>
+      {issue.value ? (
+        <span className="block break-words text-slate-400">({issue.value})</span>
+      ) : null}
+    </div>
+  );
+};
+
+const ValidationIssues = ({ issues }: { issues: ImportIssue[] }) => {
+  const grouped = useMemo(() => {
+    const byRow = new Map<number, ImportIssue[]>();
+    issues.forEach((issue) => {
+      byRow.set(issue.rowNumber, [...(byRow.get(issue.rowNumber) || []), issue]);
+    });
+    return [...byRow.entries()].sort((a, b) => a[0] - b[0]);
+  }, [issues]);
+
+  if (!issues.length) return null;
+
+  return (
+    <div className="border-b border-red-100 bg-red-50/60 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-red-800">
+          {issues.length} {issues.length === 1 ? 'error' : 'errors'} across {grouped.length}{' '}
+          {grouped.length === 1 ? 'row' : 'rows'}
+        </h3>
+        <p className="text-xs text-red-700/80">Fix these in your source file, then re-validate.</p>
+      </div>
+      <div className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
+        {grouped.map(([rowNumber, rowIssues]) => (
+          <div key={rowNumber} className="rounded-md border border-red-100 bg-white p-3">
+            <p className="text-xs font-semibold text-slate-700">Row {rowNumber}</p>
+            <div className="mt-1.5 flex flex-wrap gap-x-8 gap-y-2">
+              {rowIssues.map((issue, index) => (
+                <IssueLine key={index} issue={issue} tone="error" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
 

@@ -15,6 +15,7 @@ export type TemplatePlanData = {
     subCategory?: string;
     city?: string;
     area?: string;
+    illumination?: string;
     width?: number;
     height?: number;
     totalSqFt?: number;
@@ -166,6 +167,29 @@ export const formatSize = (item: TemplatePlanData['items'][number]) => {
   return '-';
 };
 
+// Reverse-geocoded addresses are long (street, locality, taluk, district, state,
+// pincode, country) and break the table layout. Keep only the first few
+// meaningful parts, dropping pincodes/country and duplicate segments.
+export const formatShortAddress = (address?: string, maxParts = 3) => {
+  if (!address) return '-';
+  const parts = address
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part && !/^\d+$/.test(part) && part.toLowerCase() !== 'india');
+  const seen = new Set<string>();
+  const unique = parts.filter((part) => {
+    const key = part.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const selected = unique.slice(0, maxParts);
+  return selected.length ? selected.join(', ') : address.trim();
+};
+
+export const formatCoordinate = (value?: number) =>
+  Number.isFinite(value) ? (value as number).toFixed(4) : '-';
+
 export const formatBoolean = (value?: boolean) => (value ? 'Yes' : 'No');
 
 export const formatDateRange = (start?: Date, end?: Date) =>
@@ -182,17 +206,19 @@ export const documentShell = ({
   subtitle,
   generatedAt,
   body,
+  landscape = false,
 }: {
   title: string;
   subtitle: string;
   generatedAt: Date;
   body: string;
+  landscape?: boolean;
 }) => `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <style>
-    @page { size: A4; margin: 18mm 14mm; background: #fbfaf6; }
+    @page { size: A4${landscape ? ' landscape' : ''}; margin: 18mm 14mm; background: #fbfaf6; }
     * { box-sizing: border-box; }
     html { background: #fbfaf6; }
     body {

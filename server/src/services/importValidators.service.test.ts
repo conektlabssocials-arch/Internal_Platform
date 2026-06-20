@@ -10,6 +10,9 @@ import type { IInventoryRepository } from '../repositories/inventory.repository.
 import type { IGeocodingService } from './geocoding.service.js';
 import { ImportValidatorsService } from './importValidators.service.js';
 
+// Keep the sequential Nominatim rate-limit delay out of the test runtime.
+process.env.IMPORT_GEOCODE_DELAY_MS = '0';
+
 const createService = ({
   inventory = [],
   entities = [],
@@ -65,6 +68,130 @@ test('Outdoor validation requires map fields and keeps imported inventory unconf
   assert.equal(valid.validRows, 1);
   assert.equal(valid.rows[0].data.confirmationStatus, 'never_confirmed');
   assert.equal(valid.rows[0].data.totalSqFt, 200);
+});
+
+test('Outdoor validation fills area and address from coordinates', async () => {
+  let geocodeCalls = 0;
+  const service = createService({
+    geocode: async () => {
+      geocodeCalls += 1;
+      return {
+        address: 'SH1, Kamalapura, Dharwad, Karnataka, 580001, India',
+        city: 'Dharwad',
+        area: 'Kamalapura',
+        pinCode: '580001',
+      };
+    },
+  });
+
+  const result = await service.validate('inventory', [
+    {
+      categoryGroup: 'Outdoor',
+      subCategory: 'Hoarding',
+      title: 'Highway Hoarding',
+      width: '20',
+      height: '10',
+      latitude: '15.4609',
+      longitude: '75.0114',
+    },
+  ]);
+
+  assert.equal(geocodeCalls, 1);
+  assert.equal(result.validRows, 1);
+  assert.equal(result.rows[0].data.area, 'Kamalapura');
+  assert.equal(result.rows[0].data.city, 'Dharwad');
+  assert.equal(
+    (result.rows[0].data.location as { address: string }).address,
+    'SH1, Kamalapura, Dharwad, Karnataka, 580001, India',
+  );
+  assert.equal(
+    result.warnings.some(
+      (warning) => warning.field === 'area' && warning.message.includes('latitude and longitude'),
+    ),
+    true,
+  );
+  assert.equal(
+    result.warnings.some(
+      (warning) => warning.field === 'address' && warning.message.includes('latitude and longitude'),
+    ),
+    true,
+  );
+});
+
+test('large Outdoor imports (>5 rows) still geocode area and address from coordinates', async () => {
+  let geocodeCalls = 0;
+  const service = createService({
+    geocode: async () => {
+      geocodeCalls += 1;
+      return { address: 'MG Road, Indiranagar, Bengaluru', city: 'Bengaluru', area: 'Indiranagar' };
+    },
+  });
+
+  const result = await service.validate(
+    'inventory',
+    Array.from({ length: 8 }, (_, index) => ({
+      categoryGroup: 'Outdoor',
+      subCategory: 'Hoarding',
+      title: `Hoarding ${index + 1}`,
+      width: '20',
+      height: '10',
+      // Distinct coordinates so each row is a unique geocode lookup.
+      latitude: String(12.97 + index * 0.001),
+      longitude: '77.64',
+    })),
+  );
+
+  assert.equal(geocodeCalls, 8);
+  assert.equal(result.validRows, 8);
+  assert.equal(result.rows[0].data.area, 'Indiranagar');
+  assert.equal(
+    (result.rows[0].data.location as { address: string }).address,
+    'MG Road, Indiranagar, Bengaluru',
+  );
+});
+
+test('Outdoor validation defaults area and address to NA when coordinates cannot be resolved', async () => {
+  const service = createService({ geocode: async () => ({}) });
+  const result = await service.validate('inventory', [
+    {
+      categoryGroup: 'Outdoor',
+      subCategory: 'Hoarding',
+      title: 'Highway Hoarding',
+      city: 'Hubli',
+      width: '20',
+      height: '10',
+      latitude: '15.4609',
+      longitude: '75.0114',
+    },
+  ]);
+
+  assert.equal(result.validRows, 1);
+  assert.equal(result.rows[0].data.area, 'NA');
+  assert.equal((result.rows[0].data.location as { address: string }).address, 'NA');
+  assert.equal(
+    result.warnings.some(
+      (warning) => warning.field === 'area' && warning.message.includes('defaulted to NA'),
+    ),
+    true,
+  );
+});
+
+test('Outdoor validation still requires city when it cannot be resolved', async () => {
+  const service = createService({ geocode: async () => ({}) });
+  const result = await service.validate('inventory', [
+    {
+      categoryGroup: 'Outdoor',
+      subCategory: 'Hoarding',
+      title: 'Highway Hoarding',
+      width: '20',
+      height: '10',
+      latitude: '15.4609',
+      longitude: '75.0114',
+    },
+  ]);
+
+  assert.equal(result.invalidRows, 1);
+  assert.equal(result.errors.some((error) => error.field === 'city'), true);
 });
 
 test('inventory validation detects database and in-file duplicates', async () => {
@@ -203,11 +330,9 @@ test('A3 Screens bulk validation fills address and PIN code from coordinates', a
   assert.equal(result.warnings.length, 2);
 });
 
-test('large A3 imports use address fallback when bulk geocoding is unavailable', async () => {
+test('large A3 imports use address fallback when geocoding returns nothing', async () => {
   const service = createService({
-    geocode: async () => {
-      throw new Error('Geocoder should not be called for a large Nominatim batch');
-    },
+    geocode: async () => ({}),
   });
   const baseRow = {
     categoryGroup: 'A3 Screens',
