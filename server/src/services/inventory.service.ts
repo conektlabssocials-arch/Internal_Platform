@@ -106,6 +106,36 @@ const normalizeStringArray = (value: unknown) => {
     .filter(Boolean);
 };
 
+const normalizeDimensionPanels = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+    .map((item) => ({
+      label: trimString(item.label),
+      width: optionalNumber(item.width),
+      height: optionalNumber(item.height),
+      unit: trimString(item.unit) ?? 'in',
+    }))
+    .filter((panel) => panel.label || panel.width !== undefined || panel.height !== undefined);
+};
+
+const normalizeGuideLinks = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+    .map((item) => ({
+      label: trimString(item.label),
+      url: trimString(item.url),
+    }))
+    .filter((link) => link.label || link.url);
+};
+
 const validateEnum = <T extends string>(
   value: unknown,
   allowedValues: readonly T[],
@@ -453,6 +483,8 @@ export class InventoryService implements IInventoryService {
       internalNotes: trimString(input.internalNotes),
       width: optionalNumber(input.width),
       height: optionalNumber(input.height),
+      dimensionPanels: normalizeDimensionPanels(input.dimensionPanels),
+      guideLinks: normalizeGuideLinks(input.guideLinks),
       illumination,
       facingDirection: trimString(input.facingDirection),
       trafficDirection: trimString(input.trafficDirection),

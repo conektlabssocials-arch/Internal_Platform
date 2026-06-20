@@ -78,6 +78,7 @@ export const mapPlanToDto = (plan: PlanDocument) => ({
     itinerary: item.itinerary,
     screenSize: item.screenSize,
     numberOfScreens: item.numberOfScreens,
+    numberOfVehicles: item.numberOfVehicles,
     households: item.households,
     approxReach: item.approxReach,
     monthlyImpressions: item.monthlyImpressions,

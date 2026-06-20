@@ -273,6 +273,73 @@ test('draft updates preserve A3 property audience data in the plan snapshot', as
   assert.equal(result.items[0].totalInternalCost, 9100);
 });
 
+test('Auto plan items use the vehicle count as quantity with a flat lot price', async () => {
+  const planId = new Types.ObjectId();
+  const campaignId = new Types.ObjectId();
+  const inventoryId = new Types.ObjectId();
+  const now = new Date();
+  const plan = {
+    _id: planId,
+    campaign: campaignId,
+    versionNumber: 1,
+    versionLabel: 'v1',
+    title: 'Auto plan',
+    status: 'Draft',
+    isLocked: false,
+    items: [],
+    pricing: { taxPercentage: 0 },
+    createdAt: now,
+    updatedAt: now,
+  };
+  const planService = service({
+    plans: {
+      findById: async () => plan as never,
+      findByIdPopulated: async () => plan as never,
+      save: async (document) => document,
+    },
+    inventory: {
+      findById: async () =>
+        ({
+          _id: inventoryId,
+          inventoryCode: 'AUTO-BLR-IND-0001',
+          title: 'Auto Back Panel Bangalore',
+          categoryGroup: 'Auto',
+          subCategory: 'Auto Back Panel',
+          city: 'Bangalore',
+          area: 'Indiranagar',
+          numberOfVehicles: 50,
+          route: 'Indiranagar - MG Road',
+          status: 'active',
+          availabilityStatus: 'available',
+          lastConfirmedAt: now,
+        }) as never,
+    },
+  });
+
+  // Selling price is the lot price for all 50 vehicles; the user-sent quantity
+  // is ignored in favour of the inventory vehicle count and must not multiply.
+  const result = (await planService.update(planId.toString(), {
+    items: [{
+      inventory: inventoryId.toString(),
+      quantity: 1,
+      unitSellingPrice: 10000,
+      unitInternalCost: 7000,
+    }],
+  })) as {
+    items: Array<{
+      numberOfVehicles?: number;
+      quantity?: number;
+      totalSellingPrice?: number;
+      totalInternalCost?: number;
+    }>;
+  };
+
+  assert.equal(result.items[0].numberOfVehicles, 50);
+  assert.equal(result.items[0].quantity, 50);
+  assert.equal(result.items[0].totalSellingPrice, 10000);
+  assert.equal(result.items[0].totalInternalCost, 7000);
+});
+
 test('plan statuses cannot skip the documented workflow', async () => {
   const planId = new Types.ObjectId();
   const planService = service({

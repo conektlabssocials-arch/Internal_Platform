@@ -22,6 +22,7 @@ export type PlanItem = {
   itinerary?: string;
   screenSize?: string;
   numberOfScreens?: number;
+  numberOfVehicles?: number;
   households?: number;
   approxReach?: number;
   monthlyImpressions?: number;

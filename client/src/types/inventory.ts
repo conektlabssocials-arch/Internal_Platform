@@ -4,6 +4,18 @@ export type InventoryStatus = 'active' | 'inactive';
 export type ConfirmationStatus = 'fresh' | 'stale' | 'never_confirmed';
 export type IlluminationType = 'Lit' | 'Non-lit' | 'Backlit' | 'Frontlit' | 'NA';
 
+export type DimensionPanel = {
+  label?: string;
+  width?: number;
+  height?: number;
+  unit?: string;
+};
+
+export type GuideLink = {
+  label?: string;
+  url?: string;
+};
+
 export type InventoryItem = {
   id: string;
   inventoryCode: string;
@@ -39,6 +51,8 @@ export type InventoryItem = {
   width?: number;
   height?: number;
   totalSqFt?: number;
+  dimensionPanels?: DimensionPanel[];
+  guideLinks?: GuideLink[];
   illumination?: IlluminationType;
   facingDirection?: string;
   trafficDirection?: string;

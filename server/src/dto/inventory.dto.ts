@@ -8,6 +8,18 @@ import type {
   InventorySubCategory,
 } from '../models/inventory.model.js';
 
+export type DimensionPanelDto = {
+  label?: string;
+  width?: number;
+  height?: number;
+  unit?: string;
+};
+
+export type GuideLinkDto = {
+  label?: string;
+  url?: string;
+};
+
 export type InventoryDto = {
   id: string;
   inventoryCode: string;
@@ -44,6 +56,8 @@ export type InventoryDto = {
   width?: number;
   height?: number;
   totalSqFt?: number;
+  dimensionPanels?: DimensionPanelDto[];
+  guideLinks?: GuideLinkDto[];
   illumination?: IlluminationType;
   facingDirection?: string;
   trafficDirection?: string;
@@ -197,6 +211,16 @@ export const mapInventoryToDto = (
   width: item.width ?? undefined,
   height: item.height ?? undefined,
   totalSqFt: item.totalSqFt ?? undefined,
+  dimensionPanels: (item.dimensionPanels || []).map((panel) => ({
+    label: panel.label ?? undefined,
+    width: panel.width ?? undefined,
+    height: panel.height ?? undefined,
+    unit: panel.unit ?? undefined,
+  })),
+  guideLinks: (item.guideLinks || []).map((link) => ({
+    label: link.label ?? undefined,
+    url: link.url ?? undefined,
+  })),
   illumination: item.illumination ?? undefined,
   facingDirection: item.facingDirection ?? undefined,
   trafficDirection: item.trafficDirection ?? undefined,
