@@ -135,6 +135,7 @@ const toTemplateData = (plan: any, generatedAt: Date): TemplatePlanData => {
       subCategory: item.subCategory,
       city: item.city,
       area: item.area,
+      illumination: item.illumination ?? inventory?.illumination,
       width: item.width,
       height: item.height,
       totalSqFt: item.totalSqFt,

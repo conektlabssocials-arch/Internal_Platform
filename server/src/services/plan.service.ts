@@ -260,6 +260,7 @@ export class PlanService implements IPlanService {
           itinerary: inventory.itinerary,
           screenSize: inventory.screenSize,
           numberOfScreens: inventory.numberOfScreens,
+          numberOfVehicles: inventory.numberOfVehicles,
           households: inventory.households,
           approxReach: inventory.approxReach,
           monthlyImpressions: inventory.monthlyImpressions,
@@ -269,7 +270,9 @@ export class PlanService implements IPlanService {
           quantity:
             getEffectiveCategoryGroup(inventory) === 'A3 Screens'
               ? numberValue(inventory.numberOfScreens, 1)
-              : numberValue(input.quantity, 1),
+              : getEffectiveCategoryGroup(inventory) === 'Auto'
+                ? numberValue(inventory.numberOfVehicles, numberValue(input.quantity, 1))
+                : numberValue(input.quantity, 1),
           unitSellingPrice: numberValue(input.unitSellingPrice),
           unitInternalCost: numberValue(input.unitInternalCost),
           notes: trim(input.notes),

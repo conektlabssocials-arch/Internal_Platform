@@ -102,39 +102,46 @@ const objectId = (value: string) => new Types.ObjectId(value);
 const internalUrl = (id: string) => `/api/uploads/${id}/download`;
 const publicUrl = (id: string) => `/api/public/uploads/${id}`;
 
-export const matchesUploadSignature = (file: Express.Multer.File) => {
-  const buffer = file.buffer;
-  if (file.mimetype === 'image/jpeg') {
-    return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+/**
+ * Inspect the file's leading bytes (magic numbers) and return the MIME type its
+ * content actually represents, ignoring the declared `mimetype` (which the
+ * browser derives from the file extension and is therefore unreliable, e.g. a
+ * PNG saved as `logo.jpg`). Returns `undefined` when the bytes match no
+ * supported signature.
+ */
+export const detectMimeFromSignature = (buffer: Buffer): string | undefined => {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
   }
-  if (file.mimetype === 'image/png') {
-    return buffer.length >= 8 && buffer.subarray(0, 8).equals(
-      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    );
+  if (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return 'image/png';
   }
-  if (file.mimetype === 'image/webp') {
-    return (
-      buffer.length >= 12 &&
-      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
-      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
-    );
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'image/webp';
   }
-  if (file.mimetype === 'application/pdf') {
-    return buffer.length >= 5 && buffer.subarray(0, 5).toString('ascii') === '%PDF-';
+  if (buffer.length >= 5 && buffer.subarray(0, 5).toString('ascii') === '%PDF-') {
+    return 'application/pdf';
   }
-  if (file.mimetype === 'video/mp4') {
-    return buffer.length >= 12 && buffer.subarray(4, 8).toString('ascii') === 'ftyp';
+  if (buffer.length >= 12 && buffer.subarray(4, 8).toString('ascii') === 'ftyp') {
+    return 'video/mp4';
   }
-  if (['application/zip', 'application/x-zip-compressed'].includes(file.mimetype)) {
-    return (
-      buffer.length >= 4 &&
-      buffer[0] === 0x50 &&
-      buffer[1] === 0x4b &&
-      [0x03, 0x05, 0x07].includes(buffer[2]) &&
-      [0x04, 0x06, 0x08].includes(buffer[3])
-    );
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x50 &&
+    buffer[1] === 0x4b &&
+    [0x03, 0x05, 0x07].includes(buffer[2]) &&
+    [0x04, 0x06, 0x08].includes(buffer[3])
+  ) {
+    return 'application/zip';
   }
-  return false;
+  return undefined;
 };
 
 export const validateUploadFiles = (
@@ -156,9 +163,15 @@ export const validateUploadFiles = (
         `${file.originalname} exceeds the ${Math.round(rule.maxFileBytes / 1024 / 1024)} MB limit`,
       );
     }
-    if (!matchesUploadSignature(file)) {
+    // Trust the file's actual bytes, not its (extension-derived) declared type.
+    // This lets correctly-formatted files with a mismatched extension through
+    // (e.g. a PNG named `logo.jpg`) while still rejecting unsupported content.
+    const detected = detectMimeFromSignature(file.buffer);
+    if (!detected || !rule.allowedMimeTypes.includes(detected)) {
       throw new HttpError(400, `${file.originalname} content does not match its file type`);
     }
+    // Correct the declared type so the real format is what gets stored.
+    file.mimetype = detected;
   }
 };
 

@@ -31,6 +31,7 @@ const planItemSchema = new Schema(
     itinerary: String,
     screenSize: String,
     numberOfScreens: Number,
+    numberOfVehicles: Number,
     households: Number,
     approxReach: Number,
     monthlyImpressions: Number,

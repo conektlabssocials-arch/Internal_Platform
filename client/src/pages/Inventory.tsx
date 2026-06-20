@@ -34,6 +34,8 @@ import type {
   CategoryGroup,
   ConfirmationStatus,
   ConfirmInventoryPayload,
+  DimensionPanel,
+  GuideLink,
   InventoryFilters,
   InventoryItem,
   InventoryPayload,
@@ -46,6 +48,61 @@ import { updateA3ScreenDimensions } from '../utils/a3ScreenDimensions';
 const availabilityStatuses: AvailabilityStatus[] = ['available', 'booked', 'hold', 'unknown'];
 const inventoryStatuses: InventoryStatus[] = ['active', 'inactive'];
 const confirmationStatuses: ConfirmationStatus[] = ['fresh', 'stale', 'never_confirmed'];
+
+type DimensionPanelForm = {
+  label: string;
+  width: string;
+  height: string;
+  unit: string;
+};
+
+type GuideLinkForm = {
+  label: string;
+  url: string;
+};
+
+const DIMENSION_PANEL_PRESETS: Record<string, DimensionPanelForm[]> = {
+  'Auto Hood': [
+    { label: 'Back Side', width: '38', height: '18', unit: 'in' },
+    { label: 'Left Side', width: '16', height: '16', unit: 'in' },
+    { label: 'Right Side', width: '16', height: '16', unit: 'in' },
+    { label: 'Top Side', width: '25', height: '5', unit: 'in' },
+  ],
+  'Auto Back Panel': [
+    { label: 'Dimension Type-1', width: '30', height: '20', unit: 'in' },
+    { label: 'Dimension Type-2', width: '24', height: '7', unit: 'in' },
+  ],
+  'Full Bus Exterior': [
+    { label: 'Left Side', width: '450', height: '48', unit: 'in' },
+    { label: 'Right Side', width: '450', height: '48', unit: 'in' },
+    { label: 'Back Panel', width: '103', height: '58', unit: 'in' },
+  ],
+  'Combo Panel': [
+    { label: 'Left Side', width: '450', height: '48', unit: 'in' },
+    { label: 'Right Side', width: '450', height: '48', unit: 'in' },
+    { label: 'Back Panel', width: '103', height: '58', unit: 'in' },
+  ],
+  'Bus Panel': [
+    { label: 'Left Side', width: '450', height: '48', unit: 'in' },
+    { label: 'Right Side', width: '450', height: '48', unit: 'in' },
+  ],
+};
+
+const GUIDE_LINK_LABEL_SUGGESTIONS = [
+  'Detailed Dimension',
+  'Campaign Guidelines',
+  'SOP',
+  'Creative Spec',
+];
+
+const emptyDimensionPanel = (): DimensionPanelForm => ({
+  label: '',
+  width: '',
+  height: '',
+  unit: 'in',
+});
+
+const emptyGuideLink = (): GuideLinkForm => ({ label: '', url: '' });
 
 type InventoryFormState = {
   categoryGroup: CategoryGroup;
@@ -72,6 +129,8 @@ type InventoryFormState = {
   internalNotes: string;
   width: string;
   height: string;
+  dimensionPanels: DimensionPanelForm[];
+  guideLinks: GuideLinkForm[];
   illumination: string;
   facingDirection: string;
   trafficDirection: string;
@@ -142,6 +201,8 @@ const createEmptyForm = (categoryGroup: CategoryGroup = 'Outdoor'): InventoryFor
   internalNotes: '',
   width: '',
   height: '',
+  dimensionPanels: [],
+  guideLinks: [],
   illumination: 'NA',
   facingDirection: '',
   trafficDirection: '',
@@ -254,6 +315,16 @@ const itemToForm = (item: InventoryItem): InventoryFormState => ({
   internalNotes: item.internalNotes || '',
   width: item.width?.toString() || '',
   height: item.height?.toString() || '',
+  dimensionPanels: (item.dimensionPanels || []).map((panel) => ({
+    label: panel.label || '',
+    width: panel.width?.toString() || '',
+    height: panel.height?.toString() || '',
+    unit: panel.unit || 'in',
+  })),
+  guideLinks: (item.guideLinks || []).map((link) => ({
+    label: link.label || '',
+    url: link.url || '',
+  })),
   illumination: item.illumination || 'NA',
   facingDirection: item.facingDirection || '',
   trafficDirection: item.trafficDirection || '',
@@ -323,6 +394,24 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
   internalNotes: form.internalNotes,
   width: numberOrUndefined(form.width),
   height: numberOrUndefined(form.height),
+  dimensionPanels: form.dimensionPanels
+    .map(
+      (panel): DimensionPanel => ({
+        label: panel.label.trim(),
+        width: numberOrUndefined(panel.width),
+        height: numberOrUndefined(panel.height),
+        unit: panel.unit.trim() || 'in',
+      }),
+    )
+    .filter((panel) => panel.label || panel.width !== undefined || panel.height !== undefined),
+  guideLinks: form.guideLinks
+    .map(
+      (link): GuideLink => ({
+        label: link.label.trim(),
+        url: link.url.trim(),
+      }),
+    )
+    .filter((link) => link.label || link.url),
   illumination: form.illumination as InventoryPayload['illumination'],
   facingDirection: form.facingDirection,
   trafficDirection: form.trafficDirection,
@@ -1327,6 +1416,44 @@ const InventoryDetailModal = ({
             ) : null}
           </InventoryDetailSection>
         ) : null}
+        {item.dimensionPanels && item.dimensionPanels.length > 0 ? (
+          <InventoryDetailSection title="Dimension Panels">
+            {item.dimensionPanels.map((panel, index) => (
+              <InventoryDetail
+                key={index}
+                label={panel.label || `Panel ${index + 1}`}
+                value={
+                  panel.width !== undefined && panel.height !== undefined
+                    ? `${panel.width} W x ${panel.height} H ${panel.unit || 'in'} (${panel.width * panel.height} ${panel.unit || 'in'}²)`
+                    : undefined
+                }
+              />
+            ))}
+          </InventoryDetailSection>
+        ) : null}
+        {item.guideLinks && item.guideLinks.length > 0 ? (
+          <InventoryDetailSection title="Guide Links">
+            {item.guideLinks.map((link, index) => (
+              <div key={index} className="sm:col-span-2">
+                <dt className="text-xs font-medium text-slate-500">{link.label || `Link ${index + 1}`}</dt>
+                <dd className="mt-1">
+                  {link.url ? (
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-medium text-emerald-700 hover:text-emerald-900 hover:underline"
+                    >
+                      Open link
+                    </a>
+                  ) : (
+                    <span className="text-sm text-slate-400">—</span>
+                  )}
+                </dd>
+              </div>
+            ))}
+          </InventoryDetailSection>
+        ) : null}
         <InventoryDetailSection title="Owner & Supplier">
           <InventoryDetail label="Owner" value={item.ownerName} />
           <InventoryDetail label="Owner Phone" value={item.ownerPhone} />
@@ -1637,6 +1764,20 @@ const InventoryFormModal = ({
           </FormSection>
         ) : null}
 
+        {form.categoryGroup === 'Auto' || form.categoryGroup === 'Bus' ? (
+          <>
+            <DimensionPanelsEditor
+              subCategory={form.subCategory}
+              panels={form.dimensionPanels}
+              onChange={(dimensionPanels) => onFormChange({ ...form, dimensionPanels })}
+            />
+            <GuideLinksEditor
+              links={form.guideLinks}
+              onChange={(guideLinks) => onFormChange({ ...form, guideLinks })}
+            />
+          </>
+        ) : null}
+
         {form.categoryGroup === 'Mobile Van' ? (
           <FormSection title="Mobile Van Details">
             <TextField label="Itinerary" value={form.itinerary} onChange={(value) => onFormChange({ ...form, itinerary: value })} required />
@@ -1774,15 +1915,17 @@ type TextFieldProps = {
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  list?: string;
 };
 
-const TextField = ({ label, value, onChange, required }: TextFieldProps) => (
+const TextField = ({ label, value, onChange, required, list }: TextFieldProps) => (
   <label className="block">
     <span className="text-sm font-medium text-slate-700">{label}</span>
     <input
       value={value}
       onChange={(event) => onChange(event.target.value)}
       required={required}
+      list={list}
       className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
     />
   </label>
@@ -2000,5 +2143,136 @@ const FormSection = ({ title, children }: FormSectionProps) => (
     <div className="grid gap-4 md:grid-cols-3">{children}</div>
   </div>
 );
+
+const panelArea = (panel: DimensionPanelForm) => {
+  const width = numberOrUndefined(panel.width);
+  const height = numberOrUndefined(panel.height);
+  if (width === undefined || height === undefined) {
+    return null;
+  }
+  return `${width * height} ${panel.unit || 'in'}²`;
+};
+
+type DimensionPanelsEditorProps = {
+  subCategory: string;
+  panels: DimensionPanelForm[];
+  onChange: (panels: DimensionPanelForm[]) => void;
+};
+
+const DimensionPanelsEditor = ({ subCategory, panels, onChange }: DimensionPanelsEditorProps) => {
+  const preset = DIMENSION_PANEL_PRESETS[subCategory];
+
+  const updatePanel = (index: number, patch: Partial<DimensionPanelForm>) => {
+    onChange(panels.map((panel, i) => (i === index ? { ...panel, ...patch } : panel)));
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-slate-900">Dimension Panels</h3>
+        <div className="flex flex-wrap gap-2">
+          {preset ? (
+            <button
+              type="button"
+              onClick={() => onChange(preset.map((panel) => ({ ...panel })))}
+              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+            >
+              Load {subCategory} preset
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onChange([...panels, emptyDimensionPanel()])}
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+          >
+            + Add panel
+          </button>
+        </div>
+      </div>
+      <p className="mb-3 text-xs text-slate-500">
+        Add each panel separately (e.g. Back Side, Left Side) or each dimension type. Area is calculated automatically.
+      </p>
+      {panels.length === 0 ? (
+        <p className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-4 text-center text-xs text-slate-500">
+          No dimension panels added yet.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {panels.map((panel, index) => (
+            <div key={index} className="grid items-end gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[2fr,1fr,1fr,1fr,auto,auto]">
+              <TextField label="Label" value={panel.label} onChange={(value) => updatePanel(index, { label: value })} />
+              <TextField label="Width" value={panel.width} onChange={(value) => updatePanel(index, { width: value })} />
+              <TextField label="Height" value={panel.height} onChange={(value) => updatePanel(index, { height: value })} />
+              <TextField label="Unit" value={panel.unit} onChange={(value) => updatePanel(index, { unit: value })} />
+              <ReadOnlyField label="Area" value={panelArea(panel) || '—'} />
+              <button
+                type="button"
+                onClick={() => onChange(panels.filter((_, i) => i !== index))}
+                className="mb-1 rounded-md border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+type GuideLinksEditorProps = {
+  links: GuideLinkForm[];
+  onChange: (links: GuideLinkForm[]) => void;
+};
+
+const GuideLinksEditor = ({ links, onChange }: GuideLinksEditorProps) => {
+  const updateLink = (index: number, patch: Partial<GuideLinkForm>) => {
+    onChange(links.map((link, i) => (i === index ? { ...link, ...patch } : link)));
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-slate-900">Guide Links</h3>
+        <button
+          type="button"
+          onClick={() => onChange([...links, emptyGuideLink()])}
+          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+        >
+          + Add link
+        </button>
+      </div>
+      <p className="mb-3 text-xs text-slate-500">
+        Reference links such as Detailed Dimension, Campaign Guidelines, or SOP.
+      </p>
+      {links.length === 0 ? (
+        <p className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-4 text-center text-xs text-slate-500">
+          No guide links added yet.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {links.map((link, index) => (
+            <div key={index} className="grid items-end gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr,2fr,auto]">
+              <TextField label="Label" value={link.label} onChange={(value) => updateLink(index, { label: value })} list={`guide-link-labels-${index}`} />
+              <TextField label="URL" value={link.url} onChange={(value) => updateLink(index, { url: value })} />
+              <button
+                type="button"
+                onClick={() => onChange(links.filter((_, i) => i !== index))}
+                className="mb-1 rounded-md border border-rose-200 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50"
+              >
+                Remove
+              </button>
+              <datalist id={`guide-link-labels-${index}`}>
+                {GUIDE_LINK_LABEL_SUGGESTIONS.map((suggestion) => (
+                  <option key={suggestion} value={suggestion} />
+                ))}
+              </datalist>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default Inventory;

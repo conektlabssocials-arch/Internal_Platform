@@ -1,8 +1,10 @@
 import {
   documentShell,
   escapeHtml,
+  formatCoordinate,
   formatCurrencyINR,
   formatDate,
+  formatShortAddress,
   formatSize,
 } from './template.utils.js';
 import type { TemplatePlanData } from './template.utils.js';
@@ -15,6 +17,7 @@ export const buildPlanProposalHtml = (data: TemplatePlanData) => {
         <td>${escapeHtml(item.categoryGroup)}<br><span class="muted">${escapeHtml(item.subCategory)}</span></td>
         <td>${escapeHtml(item.city)} / ${escapeHtml(item.area)}</td>
         <td>${escapeHtml(formatSize(item))}</td>
+        <td>${escapeHtml(item.illumination || '-')}</td>
         <td>${escapeHtml(formatDate(item.startDate))}<br>${escapeHtml(formatDate(item.endDate))}</td>
         <td class="number">${item.quantity}</td>
         <td class="number">${escapeHtml(formatCurrencyINR(item.totalSellingPrice))}</td>
@@ -36,9 +39,9 @@ export const buildPlanProposalHtml = (data: TemplatePlanData) => {
         <td>${escapeHtml(item.subCategory)}</td>
         <td>${escapeHtml(item.city)}</td>
         <td>${escapeHtml(item.area)}</td>
-        <td>${escapeHtml(item.location?.address || '-')}</td>
-        <td>${escapeHtml(item.location?.latitude)}</td>
-        <td>${escapeHtml(item.location?.longitude)}</td>
+        <td>${escapeHtml(formatShortAddress(item.location?.address))}</td>
+        <td class="number">${escapeHtml(formatCoordinate(item.location?.latitude))}</td>
+        <td class="number">${escapeHtml(formatCoordinate(item.location?.longitude))}</td>
       </tr>`,
     )
     .join('');
@@ -47,6 +50,7 @@ export const buildPlanProposalHtml = (data: TemplatePlanData) => {
     title: data.campaignTitle,
     subtitle: 'Media Plan Proposal',
     generatedAt: data.generatedAt,
+    landscape: true,
     body: `
       <div class="meta">
         <div><div class="label">Client</div><div class="value">${escapeHtml(data.clientName)}</div></div>
@@ -57,8 +61,8 @@ export const buildPlanProposalHtml = (data: TemplatePlanData) => {
       <p>${escapeHtml(data.campaignBrief || '-')}</p>
       <h2>Selected Media</h2>
       <table>
-        <thead><tr><th>Inventory</th><th>Category</th><th>Location</th><th>Size</th><th>Dates</th><th class="number">Qty</th><th class="number">Selling Price</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="7">No inventory items.</td></tr>'}</tbody>
+        <thead><tr><th>Inventory</th><th>Category</th><th>Location</th><th>Size</th><th>Illumination</th><th>Dates</th><th class="number">Qty</th><th class="number">Selling Price</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="8">No inventory items.</td></tr>'}</tbody>
       </table>
       <table class="summary">
         <tr><td>Subtotal</td><td class="number">${escapeHtml(formatCurrencyINR(data.pricing.subtotal))}</td></tr>

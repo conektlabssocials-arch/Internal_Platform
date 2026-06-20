@@ -48,6 +48,37 @@ const locationSchema = new Schema(
   { _id: false },
 );
 
+const dimensionPanelSchema = new Schema(
+  {
+    label: {
+      type: String,
+      trim: true,
+    },
+    width: Number,
+    height: Number,
+    unit: {
+      type: String,
+      trim: true,
+      default: 'in',
+    },
+  },
+  { _id: false },
+);
+
+const guideLinkSchema = new Schema(
+  {
+    label: {
+      type: String,
+      trim: true,
+    },
+    url: {
+      type: String,
+      trim: true,
+    },
+  },
+  { _id: false },
+);
+
 const inventorySchema = new Schema(
   {
     inventoryCode: {
@@ -158,6 +189,14 @@ const inventorySchema = new Schema(
     width: Number,
     height: Number,
     totalSqFt: Number,
+    dimensionPanels: {
+      type: [dimensionPanelSchema],
+      default: [],
+    },
+    guideLinks: {
+      type: [guideLinkSchema],
+      default: [],
+    },
     illumination: {
       type: String,
       enum: illuminationTypes,
@@ -279,6 +318,8 @@ export type AvailabilityStatus = (typeof availabilityStatuses)[number];
 export type InventoryStatus = (typeof inventoryStatuses)[number];
 export type ConfirmationStatus = (typeof confirmationStatuses)[number];
 export type IlluminationType = (typeof illuminationTypes)[number];
+export type DimensionPanel = InferSchemaType<typeof dimensionPanelSchema>;
+export type GuideLink = InferSchemaType<typeof guideLinkSchema>;
 export type InventorySchema = InferSchemaType<typeof inventorySchema>;
 export type InventoryDocument = HydratedDocument<InventorySchema>;
 

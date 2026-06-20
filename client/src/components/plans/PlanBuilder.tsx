@@ -48,7 +48,13 @@ type BuilderItem = PlanItemPayload & {
   itinerary?: string;
   screenSize?: string;
   numberOfScreens?: number;
+  numberOfVehicles?: number;
 };
+
+// Groups whose selling price is a flat lot price (covers all screens / all
+// vehicles), so the plan quantity must not multiply the price.
+const FLAT_PRICED_GROUPS = ['A3 Screens', 'Auto'];
+const isFlatPriced = (categoryGroup?: string) => FLAT_PRICED_GROUPS.includes(categoryGroup || '');
 
 const toBuilderItem = (item: PlanItem): BuilderItem => ({
   inventory: item.inventory,
@@ -68,12 +74,15 @@ const toBuilderItem = (item: PlanItem): BuilderItem => ({
   itinerary: item.itinerary,
   screenSize: item.screenSize,
   numberOfScreens: item.numberOfScreens,
+  numberOfVehicles: item.numberOfVehicles,
   startDate: item.startDate?.slice(0, 10),
   endDate: item.endDate?.slice(0, 10),
   quantity:
     item.categoryGroup === 'A3 Screens'
       ? item.numberOfScreens || item.quantity || 1
-      : item.quantity,
+      : item.categoryGroup === 'Auto'
+        ? item.numberOfVehicles || item.quantity || 1
+        : item.quantity,
   unitSellingPrice: item.unitSellingPrice,
   unitInternalCost: item.unitInternalCost,
   notes: item.notes,
@@ -97,8 +106,13 @@ const buildItemFromInventory = (inventory: InventoryItem): BuilderItem => ({
   itinerary: inventory.itinerary,
   screenSize: inventory.screenSize,
   numberOfScreens: inventory.numberOfScreens,
+  numberOfVehicles: inventory.numberOfVehicles,
   quantity:
-    inventory.categoryGroup === 'A3 Screens' ? inventory.numberOfScreens || 1 : 1,
+    inventory.categoryGroup === 'A3 Screens'
+      ? inventory.numberOfScreens || 1
+      : inventory.categoryGroup === 'Auto'
+        ? inventory.numberOfVehicles || 1
+        : 1,
   unitSellingPrice: inventory.sellingPrice || 0,
   unitInternalCost: inventory.internalCost || 0,
   notes: '',
@@ -178,7 +192,7 @@ const PlanBuilder = ({
   const preview = useMemo(() => {
     const calculated = items.map((item) => {
       const quantity = Number(item.quantity) > 0 ? Number(item.quantity) : 1;
-      const pricingQuantity = item.categoryGroup === 'A3 Screens' ? 1 : quantity;
+      const pricingQuantity = isFlatPriced(item.categoryGroup) ? 1 : quantity;
       const selling = Number(item.unitSellingPrice) || 0;
       const cost = Number(item.unitInternalCost) || 0;
       const totalSellingPrice = selling * pricingQuantity;
@@ -373,6 +387,13 @@ const PlanBuilder = ({
                             </p>
                             <p className="mt-1 text-[10px] leading-3 text-slate-500">No. of Screens</p>
                           </div>
+                        ) : item.categoryGroup === 'Auto' ? (
+                          <div className="w-20">
+                            <p className="rounded-md border border-slate-200 bg-slate-100 px-2 py-1.5 text-xs font-semibold text-slate-700">
+                              {item.numberOfVehicles || item.quantity || 1}
+                            </p>
+                            <p className="mt-1 text-[10px] leading-3 text-slate-500">No. of Vehicles</p>
+                          </div>
                         ) : (
                           <input type="number" min="1" disabled={!editable} value={item.quantity || 1} onChange={(event) => updateItem(item.inventory, 'quantity', event.target.value)} className={smallInput} />
                         )}
@@ -400,10 +421,14 @@ const PlanBuilder = ({
                       {editable ? <button type="button" onClick={() => removeItem(item.inventory)} className="text-xs font-medium text-red-600">Remove</button> : null}
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3">
-                      <PlanField label={item.categoryGroup === 'A3 Screens' ? 'No. of Screens' : 'Quantity'}>
+                      <PlanField label={item.categoryGroup === 'A3 Screens' ? 'No. of Screens' : item.categoryGroup === 'Auto' ? 'No. of Vehicles' : 'Quantity'}>
                         {item.categoryGroup === 'A3 Screens' ? (
                           <p className={`${mobileInput} bg-slate-100 font-semibold text-slate-700`}>
                             {item.numberOfScreens || item.quantity || 1}
+                          </p>
+                        ) : item.categoryGroup === 'Auto' ? (
+                          <p className={`${mobileInput} bg-slate-100 font-semibold text-slate-700`}>
+                            {item.numberOfVehicles || item.quantity || 1}
                           </p>
                         ) : (
                           <input type="number" min="1" disabled={!editable} value={item.quantity || 1} onChange={(event) => updateItem(item.inventory, 'quantity', event.target.value)} className={mobileInput} />

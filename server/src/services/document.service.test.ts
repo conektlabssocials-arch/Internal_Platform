@@ -31,10 +31,11 @@ const data: TemplatePlanData = {
       subCategory: 'Hoarding',
       city: 'Bengaluru',
       area: 'Koramangala',
+      illumination: 'Backlit',
       location: {
-        address: '80 Feet Road, Koramangala',
-        latitude: 12.9352,
-        longitude: 77.6245,
+        address: '80 Feet Road, Koramangala, Bengaluru, Karnataka, 560034, India',
+        latitude: 12.935212345,
+        longitude: 77.624598765,
       },
       photos: ['https://example.com/site.jpg'],
       width: 20,
@@ -193,11 +194,19 @@ test('document file names are sanitized and versioned', () => {
 
 test('plan proposal includes a client-safe fixed-site location fallback table', () => {
   const html = buildPlanProposalHtml(data);
-  assert.match(html, /@page \{ size: A4; margin: 18mm 14mm; background: #fbfaf6; \}/);
+  assert.match(html, /@page \{ size: A4 landscape; margin: 18mm 14mm; background: #fbfaf6; \}/);
   assert.match(html, /body \{[\s\S]*background: #fbfaf6/);
   assert.match(html, /Fixed Site Locations/);
-  assert.match(html, /80 Feet Road, Koramangala/);
+  // Long reverse-geocoded address is trimmed to a few key parts (no pincode/country).
+  assert.match(html, /80 Feet Road, Koramangala, Bengaluru/);
+  assert.equal(html.includes('560034'), false);
+  assert.equal(html.includes('India'), false);
+  // Coordinates are limited to 4 decimal places.
   assert.match(html, /12\.9352/);
+  assert.equal(html.includes('12.935212345'), false);
+  // Illumination type is surfaced to the client.
+  assert.match(html, /Illumination/);
+  assert.match(html, /Backlit/);
   assert.match(html, /Interactive map view is available/);
   assert.equal(html.includes('SECRET_INTERNAL_NOTE'), false);
 });

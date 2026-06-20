@@ -10,55 +10,80 @@ import helmet from 'helmet';
 import hpp from 'hpp';
 import mongoose from 'mongoose';
 import passport from 'passport';
+import type { CorsOptions } from 'cors';
 import type { Request, Response } from 'express';
 
 import { configureGoogleStrategy } from './config/google.strategy.js';
-import { errorHandler } from './middleware/errorHandler.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { generalApiLimiter } from './middleware/rateLimit.middleware.js';
+import { requestLogger } from './middleware/requestLogger.middleware.js';
 import mcpRoutes from './mcp/mcp.routes.js';
 import { createMcpOAuthRouter } from './mcp/mcpOAuth.js';
 import apiRoutes from './routes/index.js';
 import { HttpError } from './utils/httpError.js';
 
 const app = express();
+
+/* -------------------------------------------------------------------------- */
+/* Configuration                                                              */
+/* -------------------------------------------------------------------------- */
+
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const corsOptions: CorsOptions = {
+  credentials: true,
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new HttpError(403, 'Origin is not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 configureGoogleStrategy();
+
+/* -------------------------------------------------------------------------- */
+/* Global middleware                                                          */
+/* -------------------------------------------------------------------------- */
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+
+app.use(requestLogger);
 app.use(helmet());
 app.use(compression());
-app.use(
-  cors({
-    credentials: true,
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new HttpError(403, 'Origin is not allowed by CORS'));
-    },
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }),
-);
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(passport.initialize());
+
+/* -------------------------------------------------------------------------- */
+/* MCP routes (mounted before the API body parsers)                          */
+/* -------------------------------------------------------------------------- */
 
 if (process.env.MCP_ENABLED === 'true' && process.env.MCP_AUTH_MODE === 'oauth') {
   app.use(createMcpOAuthRouter());
 }
 app.use('/mcp', express.json({ limit: '10mb' }), mcpRoutes);
 
+/* -------------------------------------------------------------------------- */
+/* API middleware                                                            */
+/* -------------------------------------------------------------------------- */
+
 app.use('/api', generalApiLimiter);
 app.use('/api', express.json({ limit: '2mb' }));
 app.use('/api', express.urlencoded({ extended: true, limit: '2mb' }));
 app.use('/api', mongoSanitize());
 app.use('/api', hpp());
+
+/* -------------------------------------------------------------------------- */
+/* Routes                                                                    */
+/* -------------------------------------------------------------------------- */
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.status(200).json({
@@ -70,6 +95,12 @@ app.get('/api/health', (_req: Request, res: Response) => {
 });
 
 app.use('/api', apiRoutes);
+
+/* -------------------------------------------------------------------------- */
+/* Error handling (must be registered last)                                  */
+/* -------------------------------------------------------------------------- */
+
+app.use(notFoundHandler);
 app.use(errorHandler);
 
 export default app;

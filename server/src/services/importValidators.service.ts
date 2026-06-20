@@ -10,7 +10,7 @@ import type {
 import type { IContactRepository } from '../repositories/contact.repository.js';
 import type { ICrmEntityRepository } from '../repositories/crmEntity.repository.js';
 import type { IInventoryRepository } from '../repositories/inventory.repository.js';
-import type { IGeocodingService } from './geocoding.service.js';
+import type { IGeocodingService, ReverseGeocodeResult } from './geocoding.service.js';
 import { completeA3ScreenDimensions } from '../utils/a3ScreenDimensions.js';
 
 export type ImportValidationResult = {
@@ -151,11 +151,16 @@ export class ImportValidatorsService {
       ),
     );
     const fileKeys = new Set<string>();
-    const a3RowsNeedingGeocoding = rawRows.filter(
-      (row) =>
-        text(row.categoryGroup) === 'A3 Screens' &&
-        (!text(row.address) || !text(row.pinCode)),
-    ).length;
+    // Map-based categories (Outdoor, A3 Screens) can fill missing location
+    // fields from coordinates via reverse geocoding.
+    const rowNeedsGeocoding = (row: Record<string, unknown>) => {
+      const category = text(row.categoryGroup);
+      if (category === 'A3 Screens') return !text(row.address) || !text(row.pinCode);
+      if (category === 'Outdoor') {
+        return !text(row.address) || !text(row.area) || !text(row.city);
+      }
+      return false;
+    };
     const geocodingProvider = (process.env.GEOCODING_PROVIDER || 'nominatim').toLowerCase();
     const canUseMapbox =
       geocodingProvider === 'mapbox' &&
@@ -163,8 +168,18 @@ export class ImportValidatorsService {
         process.env.MAPBOX_ACCESS_TOKEN &&
           !process.env.MAPBOX_ACCESS_TOKEN.startsWith('your_'),
       );
-    const shouldAttemptBulkGeocoding =
-      a3RowsNeedingGeocoding <= 5 || canUseMapbox;
+
+    // Reverse geocoding is resolved up front, once per unique coordinate, so the
+    // per-row pass below stays synchronous. Nominatim's public API allows ~1
+    // request/second, so non-Mapbox lookups run sequentially with a delay; the
+    // total number of lookups is capped to bound the request time.
+    const coordKey = (latitude: number, longitude: number) => `${latitude},${longitude}`;
+    const geocodeCache = await this.buildGeocodeCache(
+      rawRows,
+      rowNeedsGeocoding,
+      coordKey,
+      canUseMapbox,
+    );
 
     const rows = await Promise.all(rawRows.map(async (raw, index): Promise<ImportStoredRow> => {
       const rowNumber = index + 2;
@@ -174,12 +189,12 @@ export class ImportValidatorsService {
       const subCategory = requiredText(raw, rowNumber, 'subCategory', errors);
       const propertyName = text(raw.propertyName);
       const title = text(raw.title) || (categoryGroup === 'A3 Screens' ? propertyName : undefined);
-      const city = text(raw.city) || (categoryGroup === 'A3 Screens' ? text(raw.zone) : undefined);
-      const area = text(raw.area) || (categoryGroup === 'A3 Screens' ? text(raw.locality) : undefined);
+      // city/area can be filled from reverse geocoding for map categories, so
+      // their "required" checks run after the geocoding step below.
+      let city = text(raw.city) || (categoryGroup === 'A3 Screens' ? text(raw.zone) : undefined);
+      let area = text(raw.area) || (categoryGroup === 'A3 Screens' ? text(raw.locality) : undefined);
 
       if (!title) errors.push(issue(rowNumber, 'title', 'title is required', raw.title));
-      if (!city) errors.push(issue(rowNumber, 'city', 'city is required', raw.city || raw.zone));
-      if (!area) errors.push(issue(rowNumber, 'locality', categoryGroup === 'A3 Screens' ? 'locality is required' : 'area is required', raw.area || raw.locality));
 
       const screenSize = text(raw.screenSize);
       const parsedWidth = parseNumber(
@@ -274,33 +289,38 @@ export class ImportValidatorsService {
         errors,
         categoryGroup === 'Outdoor' || categoryGroup === 'A3 Screens',
       );
-      const suppliedAddress =
-        categoryGroup === 'Outdoor'
-          ? requiredText(raw, rowNumber, 'address', errors)
-          : text(raw.address);
+      const isMapCategory =
+        categoryGroup === 'Outdoor' || categoryGroup === 'A3 Screens';
+      const suppliedAddress = text(raw.address);
       let address = suppliedAddress;
       let pinCode = text(raw.pinCode);
 
-      if (
-        categoryGroup === 'A3 Screens' &&
-        latitude !== undefined &&
-        longitude !== undefined &&
-        (!address || !pinCode) &&
-        shouldAttemptBulkGeocoding
-      ) {
-        const geocoded = await this.geocodingService.reverseGeocode(
-          latitude,
-          longitude,
-        );
-        address = address || geocoded.address;
-        pinCode = pinCode || geocoded.pinCode;
+      const geocoded =
+        isMapCategory && latitude !== undefined && longitude !== undefined
+          ? geocodeCache.get(coordKey(latitude, longitude))
+          : undefined;
 
-        if (!suppliedAddress && address) {
+      if (geocoded) {
+        if (!area && geocoded.area) {
+          area = geocoded.area;
+          warnings.push(
+            issue(rowNumber, 'area', 'area was filled from latitude and longitude', area),
+          );
+        }
+        if (!city && geocoded.city) {
+          city = geocoded.city;
+          warnings.push(
+            issue(rowNumber, 'city', 'city was filled from latitude and longitude', city),
+          );
+        }
+        if (!address && geocoded.address) {
+          address = geocoded.address;
           warnings.push(
             issue(rowNumber, 'address', 'address was filled from latitude and longitude', address),
           );
         }
-        if (!text(raw.pinCode) && pinCode) {
+        if (!pinCode && geocoded.pinCode) {
+          pinCode = geocoded.pinCode;
           warnings.push(
             issue(rowNumber, 'pinCode', 'pinCode was filled from latitude and longitude', pinCode),
           );
@@ -326,6 +346,48 @@ export class ImportValidatorsService {
             'pinCode could not be resolved automatically; add it later if required',
           ),
         );
+      }
+
+      // Outdoor inventory is located by its coordinates, so when reverse
+      // geocoding cannot resolve the area/address, fall back to "NA" instead of
+      // rejecting the row.
+      if (
+        categoryGroup === 'Outdoor' &&
+        latitude !== undefined &&
+        longitude !== undefined
+      ) {
+        if (!area) {
+          area = 'NA';
+          warnings.push(
+            issue(rowNumber, 'area', 'area could not be resolved from coordinates; defaulted to NA'),
+          );
+        }
+        if (!address) {
+          address = 'NA';
+          warnings.push(
+            issue(rowNumber, 'address', 'address could not be resolved from coordinates; defaulted to NA'),
+          );
+        }
+      }
+
+      // Required-field checks for the location fields that geocoding may have
+      // filled. Run here (after geocoding) so a row that supplies coordinates
+      // but omits area/address is not rejected before we try to resolve them.
+      if (!city) {
+        errors.push(issue(rowNumber, 'city', 'city is required', raw.city || raw.zone));
+      }
+      if (!area) {
+        errors.push(
+          issue(
+            rowNumber,
+            categoryGroup === 'A3 Screens' ? 'locality' : 'area',
+            categoryGroup === 'A3 Screens' ? 'locality is required' : 'area is required',
+            raw.area || raw.locality,
+          ),
+        );
+      }
+      if (categoryGroup === 'Outdoor' && !address) {
+        errors.push(issue(rowNumber, 'address', 'address is required', raw.address));
       }
 
       if (latitude !== undefined && (latitude < -90 || latitude > 90)) {
@@ -547,6 +609,60 @@ export class ImportValidatorsService {
     }));
 
     return this.summarize(rows);
+  }
+
+  // Resolves every unique coordinate that needs geocoding into a cache, once per
+  // location. Mapbox tolerates parallel requests; Nominatim is throttled to ~1
+  // request/second, so those lookups run sequentially with a delay. The total
+  // number of lookups is capped (IMPORT_GEOCODE_MAX_ROWS) to bound request time.
+  private async buildGeocodeCache(
+    rawRows: Record<string, unknown>[],
+    rowNeedsGeocoding: (row: Record<string, unknown>) => boolean,
+    coordKey: (latitude: number, longitude: number) => string,
+    canUseMapbox: boolean,
+  ) {
+    const cache = new Map<string, ReverseGeocodeResult>();
+    const coordinates = new Map<string, { latitude: number; longitude: number }>();
+    for (const row of rawRows) {
+      if (!rowNeedsGeocoding(row)) continue;
+      const latitude = Number(text(row.latitude));
+      const longitude = Number(text(row.longitude));
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+      coordinates.set(coordKey(latitude, longitude), { latitude, longitude });
+    }
+    if (!coordinates.size) return cache;
+
+    const maxLookups = Number(process.env.IMPORT_GEOCODE_MAX_ROWS) || 100;
+    const delayMs = canUseMapbox
+      ? 0
+      : Number(process.env.IMPORT_GEOCODE_DELAY_MS ?? 1000);
+    const pending = [...coordinates.entries()].slice(0, maxLookups);
+
+    if (canUseMapbox) {
+      await Promise.all(
+        pending.map(async ([key, point]) => {
+          cache.set(key, await this.safeReverseGeocode(point.latitude, point.longitude));
+        }),
+      );
+      return cache;
+    }
+
+    for (let index = 0; index < pending.length; index += 1) {
+      const [key, point] = pending[index];
+      if (index > 0 && delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      cache.set(key, await this.safeReverseGeocode(point.latitude, point.longitude));
+    }
+    return cache;
+  }
+
+  private async safeReverseGeocode(latitude: number, longitude: number) {
+    try {
+      return await this.geocodingService.reverseGeocode(latitude, longitude);
+    } catch {
+      return {} as ReverseGeocodeResult;
+    }
   }
 
   private async validateCrmEntities(rawRows: Record<string, unknown>[]) {

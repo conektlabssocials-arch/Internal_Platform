@@ -8,6 +8,11 @@ export type PlanPricingItemInput = {
   [key: string]: unknown;
 };
 
+// Groups whose selling price is a flat lot price for the whole inventory item
+// (e.g. the rate already covers all screens / all vehicles), so the plan
+// quantity must not multiply the price.
+export const FLAT_PRICED_GROUPS = new Set(['A3 Screens', 'Auto']);
+
 export const calculateDurationDays = (startDate?: Date, endDate?: Date) => {
   if (!startDate || !endDate) return 1;
   const milliseconds = endDate.getTime() - startDate.getTime();
@@ -16,7 +21,7 @@ export const calculateDurationDays = (startDate?: Date, endDate?: Date) => {
 
 export const calculatePlanItem = <T extends PlanPricingItemInput>(item: T) => {
   const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1;
-  const pricingQuantity = item.categoryGroup === 'A3 Screens' ? 1 : quantity;
+  const pricingQuantity = FLAT_PRICED_GROUPS.has(item.categoryGroup || '') ? 1 : quantity;
   const unitSellingPrice = item.unitSellingPrice || 0;
   const unitInternalCost = item.unitInternalCost || 0;
   const totalSellingPrice = unitSellingPrice * pricingQuantity;

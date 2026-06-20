@@ -2,6 +2,7 @@ import {
   escapeHtml,
   formatCurrencyINR,
   formatDate,
+  formatShortAddress,
   formatSize,
 } from './template.utils.js';
 import type { TemplatePlanData } from './template.utils.js';
@@ -32,7 +33,7 @@ const mediaLabel = (item: PlanItem) =>
   [item.categoryGroup, item.subCategory].filter(Boolean).join(' · ') || 'Media';
 
 const itemLocation = (item: PlanItem) =>
-  item.location?.address ||
+  (item.location?.address ? formatShortAddress(item.location.address) : undefined) ||
   [item.area, item.city].filter(Boolean).join(', ') ||
   item.route ||
   item.depot ||
@@ -121,6 +122,7 @@ const sitePage = (item: PlanItem, index: number) => {
             <div><dt>City / Area</dt><dd>${escapeHtml([item.city, item.area].filter(Boolean).join(' / ') || '-')}</dd></div>
             <div><dt>Location</dt><dd>${escapeHtml(itemLocation(item))}</dd></div>
             <div><dt>Size</dt><dd>${escapeHtml(formatSize(item))}</dd></div>
+            <div><dt>Illumination</dt><dd>${escapeHtml(item.illumination || '-')}</dd></div>
             <div><dt>Units</dt><dd>${escapeHtml(item.quantity || 1)}</dd></div>
             <div><dt>Campaign Dates</dt><dd>${escapeHtml(formatDate(item.startDate))} - ${escapeHtml(formatDate(item.endDate))}</dd></div>
             <div><dt>Duration</dt><dd>${durationDays(item)} days</dd></div>
