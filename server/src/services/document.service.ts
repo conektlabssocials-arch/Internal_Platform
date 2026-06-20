@@ -36,6 +36,7 @@ import {
   getPurchaseOrderCounterKey,
 } from '../utils/operationCode.js';
 import { HttpError } from '../utils/httpError.js';
+import { optimizeCloudinaryImageUrl } from '../utils/imageUrl.js';
 
 export interface IDocumentService {
   generate(planId: string, documentType: string, actorId: string): Promise<unknown>;
@@ -90,6 +91,25 @@ const mapDocument = (document: DocumentDocument) => ({
   metadata: document.metadata,
   createdAt: document.createdAt,
 });
+
+// Extracts a useful message from anything thrown — Error instances, Cloudinary's
+// plain `{ message, http_code }` objects, or strings — so the failure reason is
+// persisted on the document instead of a generic placeholder.
+const describeError = (error: unknown): string => {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object') {
+    const detail = error as { message?: unknown; http_code?: unknown };
+    if (typeof detail.message === 'string' && detail.message) {
+      return detail.http_code ? `${detail.message} (http ${detail.http_code})` : detail.message;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Document generation failed';
+    }
+  }
+  return typeof error === 'string' && error ? error : 'Document generation failed';
+};
 
 const getClientName = (campaign: any) =>
   campaign.client?.displayName || campaign.client?.name || 'Client';
@@ -291,8 +311,10 @@ export class DocumentService implements IDocumentService {
           const photo = item.photos?.find(Boolean);
           const fileId = extractDriveFileId(photo);
           if (!fileId) {
-            // Non-Drive URLs (already a direct image) are left as-is.
-            item.photos = photo ? [photo] : [];
+            // Non-Drive URLs are already directly loadable. Cloudinary URLs are
+            // downscaled via an on-the-fly transformation so a full-resolution
+            // photo doesn't bloat the PDF; other hosts are left untouched.
+            item.photos = photo ? [optimizeCloudinaryImageUrl(photo)] : [];
             return;
           }
           try {
@@ -456,13 +478,14 @@ export class DocumentService implements IDocumentService {
       document.error = undefined;
       await this.documents.save(document);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Document generation failed';
+      const message = describeError(error);
       // Log the full error so the cause is findable in the server logs, not just
       // the short message stored on the record.
       console.error('[document] generation failed', {
         documentId,
         documentType,
         itemCount: data.items.length,
+        progressReached: lastWritten,
         error,
       });
       const document = await this.documents.findById(documentId).catch(() => null);
