@@ -36,7 +36,7 @@ import {
   getPurchaseOrderCounterKey,
 } from '../utils/operationCode.js';
 import { HttpError } from '../utils/httpError.js';
-import { optimizeCloudinaryImageUrl } from '../utils/imageUrl.js';
+import { isCloudinaryImageUrl, optimizeCloudinaryImageUrl } from '../utils/imageUrl.js';
 
 export interface IDocumentService {
   generate(planId: string, documentType: string, actorId: string): Promise<unknown>;
@@ -109,6 +109,24 @@ const describeError = (error: unknown): string => {
     }
   }
   return typeof error === 'string' && error ? error : 'Document generation failed';
+};
+
+// Fetch a (already-downscaled) remote image and return it as a base64 data URI,
+// or `undefined` if it can't be loaded. A short timeout keeps one slow/broken
+// image from stalling the whole generation.
+const fetchImageAsDataUri = async (url: string): Promise<string | undefined> => {
+  try {
+    const response = await fetch(url, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15_000),
+    });
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok || !contentType.startsWith('image/')) return undefined;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return `data:${contentType};base64,${buffer.toString('base64')}`;
+  } catch {
+    return undefined;
+  }
 };
 
 const getClientName = (campaign: any) =>
@@ -293,10 +311,11 @@ export class DocumentService implements IDocumentService {
   ) {}
 
   // Inline the first photo of each item as a base64 data URI so the PDF renderer
-  // (puppeteer) gets real image bytes instead of a Drive URL it cannot load.
-  // Processed in bounded batches so a large plan (1000+ items) doesn't fire that
-  // many concurrent Drive fetches at once (which triggers Google 429s and large
-  // memory spikes).
+  // (puppeteer) embeds a small, pre-compressed image instead of fetching a
+  // full-resolution original. This keeps the PDF well under Cloudinary's raw
+  // upload limit. Processed in bounded batches so a large plan (1000+ items)
+  // doesn't fire that many concurrent image fetches at once (which triggers 429s
+  // and large memory spikes).
   private async inlineItemPhotos(
     items: TemplatePlanData['items'],
     onProgress?: (fraction: number) => Promise<void> | void,
@@ -308,27 +327,43 @@ export class DocumentService implements IDocumentService {
       const batch = items.slice(start, start + concurrency);
       await Promise.all(
         batch.map(async (item) => {
-          const photo = item.photos?.find(Boolean);
-          const fileId = extractDriveFileId(photo);
-          if (!fileId) {
-            // Non-Drive URLs are already directly loadable. Cloudinary URLs are
-            // downscaled via an on-the-fly transformation so a full-resolution
-            // photo doesn't bloat the PDF; other hosts are left untouched.
-            item.photos = photo ? [optimizeCloudinaryImageUrl(photo)] : [];
-            return;
-          }
-          try {
-            const { buffer, contentType } = await this.driveImages.getImageFile(fileId, 800);
-            item.photos = [`data:${contentType};base64,${buffer.toString('base64')}`];
-          } catch {
-            // Leave empty so the template falls back to the placeholder graphic.
-            item.photos = [];
-          }
+          item.photos = [await this.inlineItemPhoto(item.photos?.find(Boolean))].filter(
+            (value): value is string => Boolean(value),
+          );
         }),
       );
       processed += batch.length;
       await onProgress?.(total ? processed / total : 1);
     }
+  }
+
+  // Resolve one photo URL to a compact, inline-able image. Returns a base64 data
+  // URI on success, or `undefined` so the template falls back to its placeholder.
+  private async inlineItemPhoto(photo?: string): Promise<string | undefined> {
+    if (!photo) return undefined;
+
+    const fileId = extractDriveFileId(photo);
+    if (fileId) {
+      try {
+        const { buffer, contentType } = await this.driveImages.getImageFile(fileId, 800);
+        return `data:${contentType};base64,${buffer.toString('base64')}`;
+      } catch {
+        return undefined;
+      }
+    }
+
+    // Cloudinary photos are downscaled to a compressed JPEG (via an on-the-fly
+    // transformation) and inlined, so the PDF embeds a small image rather than a
+    // multi-MB original that would blow past Cloudinary's raw upload limit.
+    if (isCloudinaryImageUrl(photo)) {
+      const optimized = optimizeCloudinaryImageUrl(photo);
+      const inlined = await fetchImageAsDataUri(optimized);
+      // Fall back to the optimized URL so the renderer can still try to load it.
+      return inlined || optimized;
+    }
+
+    // Other hosts: leave the direct URL for the renderer to load as-is.
+    return photo;
   }
 
   async generate(planId: string, requestedType: string, actorId: string) {
