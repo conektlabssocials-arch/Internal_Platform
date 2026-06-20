@@ -258,12 +258,13 @@ test('Phase 4 scopes expose document generation and proof upload tools', async (
 
   const tools = await client.listTools();
   const names = new Set(tools.tools.map((tool) => tool.name));
-  assert.equal(tools.tools.length, 47);
+  assert.equal(tools.tools.length, 48);
   assert.equal(names.has('list_plan_documents'), true);
   assert.equal(names.has('list_operation_documents'), true);
   assert.equal(names.has('generate_plan_document'), true);
   assert.equal(names.has('generate_operation_document'), true);
   assert.equal(names.has('upload_operation_proof_image'), true);
+  assert.equal(names.has('upload_inventory_photo'), true);
   assert.equal(names.has('create_draft_plan'), true);
   assert.equal(names.has('update_draft_plan'), true);
   assert.equal(names.has('clone_plan_to_draft'), true);

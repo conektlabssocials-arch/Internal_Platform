@@ -25,6 +25,7 @@ import type { IPlanService } from '../services/plan.service.js';
 import type { IPlanCommandService } from '../services/planCommand.service.js';
 import type { IPlanAuthoringCommandService } from '../services/planAuthoringCommand.service.js';
 import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
+import type { IInventoryPhotoUploadCommandService } from '../services/inventoryPhotoUploadCommand.service.js';
 import type { IReportService } from '../services/report.service.js';
 import type { IShareService } from '../services/share.service.js';
 import type { IShareCommandService } from '../services/shareCommand.service.js';
@@ -1583,6 +1584,60 @@ export const createPhase1McpServer = (
               base64Data,
               notes,
             },
+            actor,
+          ),
+        ),
+    );
+  }
+
+  if (
+    scopes.includes(MCP_SCOPES.UploadsWrite) &&
+    scopes.includes(MCP_SCOPES.InventoryWrite)
+  ) {
+    const inventoryPhotoUploads =
+      container.resolve<IInventoryPhotoUploadCommandService>(
+        TOKENS.InventoryPhotoUploadCommandService,
+      );
+
+    server.registerTool(
+      'upload_inventory_photo',
+      {
+        title: 'Upload inventory photo',
+        description:
+          'Uploads one JPEG, PNG, or WebP photo to Cloudinary and attaches it to one inventory item. Read the inventory first, explain the file and current photos, then obtain explicit confirmation. Maximum raw image size is 6 MB.',
+        inputSchema: {
+          inventoryId: z.string().min(1),
+          expectedUpdatedAt: z
+            .string()
+            .datetime({ offset: true })
+            .describe(
+              'Inventory updatedAt value from the most recent get_inventory_item call',
+            ),
+          fileName: z.string().trim().min(1).max(180),
+          mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+          base64Data: z
+            .string()
+            .min(4)
+            .max(8_500_000)
+            .describe('Base64-encoded image bytes, without markdown'),
+          confirm: z
+            .literal(true)
+            .describe('Must be true after the user explicitly confirms'),
+        },
+        annotations: statusWriteAnnotations,
+      },
+      ({
+        inventoryId,
+        expectedUpdatedAt,
+        fileName,
+        mimeType,
+        base64Data,
+        confirm: _confirm,
+      }) =>
+        runTool('upload_inventory_photo', actor, () =>
+          inventoryPhotoUploads.uploadAndAttach(
+            inventoryId,
+            { expectedUpdatedAt, fileName, mimeType, base64Data },
             actor,
           ),
         ),

@@ -81,6 +81,8 @@ import { UploadRepository } from '../repositories/upload.repository.js';
 import type { IUploadRepository } from '../repositories/upload.repository.js';
 import { ProofUploadCommandService } from '../services/proofUploadCommand.service.js';
 import type { IProofUploadCommandService } from '../services/proofUploadCommand.service.js';
+import { InventoryPhotoUploadCommandService } from '../services/inventoryPhotoUploadCommand.service.js';
+import type { IInventoryPhotoUploadCommandService } from '../services/inventoryPhotoUploadCommand.service.js';
 import { ReportService } from '../services/report.service.js';
 import type { IReportService } from '../services/report.service.js';
 import { TOKENS } from './tokens.js';
@@ -196,6 +198,10 @@ container.registerSingleton<IPlanAuthoringCommandService>(
 container.registerSingleton<IProofUploadCommandService>(
   TOKENS.ProofUploadCommandService,
   ProofUploadCommandService,
+);
+container.registerSingleton<IInventoryPhotoUploadCommandService>(
+  TOKENS.InventoryPhotoUploadCommandService,
+  InventoryPhotoUploadCommandService,
 );
 container.registerSingleton<IReportService>(TOKENS.ReportService, ReportService);
 container.registerSingleton<PdfService>(TOKENS.PdfService, PdfService);
