@@ -95,6 +95,17 @@ const optionalBoolean = (value: unknown) => {
   return undefined;
 };
 
+const optionalDate = (value: unknown) => {
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : value;
+  }
+  const date = new Date(value as string | number);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
 const normalizeStringArray = (value: unknown) => {
   if (!Array.isArray(value)) {
     return undefined;
@@ -521,6 +532,11 @@ export class InventoryService implements IInventoryService {
       buildingAge: optionalNumber(input.buildingAge),
       propertyType: trimString(input.propertyType),
       nccsClass: trimString(input.nccsClass),
+      materialType: trimString(input.materialType),
+      siteLocationLabel: trimString(input.siteLocationLabel),
+      unitNumber: trimString(input.unitNumber),
+      visibilityNote: trimString(input.visibilityNote),
+      availabilityDate: optionalDate(input.availabilityDate),
       updatedBy: toObjectId(input.updatedBy),
     };
 
@@ -607,7 +623,10 @@ export class InventoryService implements IInventoryService {
   private validateRequiredFields(data: Record<string, unknown>) {
     const requiredFields = ['categoryGroup', 'subCategory', 'title', 'city', 'area'];
 
-    requiredFields.push('width', 'height');
+    // Mall / SOH records size only when known, so width/height stay optional.
+    if (data.categoryGroup !== 'Mall / SOH') {
+      requiredFields.push('width', 'height');
+    }
 
     for (const field of requiredFields) {
       if (data[field] === undefined || data[field] === '') {

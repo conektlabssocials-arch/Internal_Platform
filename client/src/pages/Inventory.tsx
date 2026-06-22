@@ -167,6 +167,11 @@ type InventoryFormState = {
   buildingAge: string;
   propertyType: string;
   nccsClass: string;
+  materialType: string;
+  siteLocationLabel: string;
+  unitNumber: string;
+  visibilityNote: string;
+  availabilityDate: string;
 };
 
 type ConfirmFormState = {
@@ -239,6 +244,11 @@ const createEmptyForm = (categoryGroup: CategoryGroup = 'Outdoor'): InventoryFor
   buildingAge: '',
   propertyType: '',
   nccsClass: '',
+  materialType: '',
+  siteLocationLabel: '',
+  unitNumber: '',
+  visibilityNote: '',
+  availabilityDate: '',
 });
 
 const emptyConfirmForm: ConfirmFormState = {
@@ -361,6 +371,11 @@ const itemToForm = (item: InventoryItem): InventoryFormState => ({
   buildingAge: item.buildingAge?.toString() || '',
   propertyType: item.propertyType || '',
   nccsClass: item.nccsClass || '',
+  materialType: item.materialType || '',
+  siteLocationLabel: item.siteLocationLabel || '',
+  unitNumber: item.unitNumber || '',
+  visibilityNote: item.visibilityNote || '',
+  availabilityDate: item.availabilityDate ? item.availabilityDate.slice(0, 10) : '',
 });
 
 const formToPayload = (form: InventoryFormState): InventoryPayload => ({
@@ -448,6 +463,11 @@ const formToPayload = (form: InventoryFormState): InventoryPayload => ({
   buildingAge: numberOrUndefined(form.buildingAge),
   propertyType: form.propertyType,
   nccsClass: form.nccsClass,
+  materialType: form.materialType,
+  siteLocationLabel: form.siteLocationLabel,
+  unitNumber: form.unitNumber,
+  visibilityNote: form.visibilityNote,
+  availabilityDate: form.availabilityDate || undefined,
 });
 
 const Inventory = () => {
@@ -638,7 +658,10 @@ const Inventory = () => {
       return 'City and area are required';
     }
 
-    if (!form.width.trim() || !form.height.trim()) {
+    if (
+      form.categoryGroup !== 'Mall / SOH' &&
+      (!form.width.trim() || !form.height.trim())
+    ) {
       return 'Width and height are required';
     }
 
@@ -1416,6 +1439,19 @@ const InventoryDetailModal = ({
             ) : null}
           </InventoryDetailSection>
         ) : null}
+        {item.categoryGroup === 'Mall / SOH' ? (
+          <InventoryDetailSection title="Mall / SOH Details">
+            <InventoryDetail label="Site Location" value={item.siteLocationLabel} />
+            <InventoryDetail label="Unit Number" value={item.unitNumber} />
+            <InventoryDetail label="Illumination" value={item.illumination} />
+            <InventoryDetail label="Material Type" value={item.materialType} />
+            <InventoryDetail label="Visibility" value={item.visibilityNote} wide />
+            <InventoryDetail
+              label="Available From"
+              value={item.availabilityDate ? new Date(item.availabilityDate).toLocaleDateString('en-IN') : undefined}
+            />
+          </InventoryDetailSection>
+        ) : null}
         {item.dimensionPanels && item.dimensionPanels.length > 0 ? (
           <InventoryDetailSection title="Dimension Panels">
             {item.dimensionPanels.map((panel, index) => (
@@ -1686,7 +1722,7 @@ const InventoryFormModal = ({
                   : { ...form, width: value },
               )
             }
-            required
+            required={form.categoryGroup !== 'Mall / SOH'}
           />
           <TextField
             label={form.categoryGroup === 'A3 Screens' ? 'Height (ft)' : 'Height'}
@@ -1698,7 +1734,7 @@ const InventoryFormModal = ({
                   : { ...form, height: value },
               )
             }
-            required
+            required={form.categoryGroup !== 'Mall / SOH'}
           />
           <ReadOnlyField
             label="Total Sq.Ft."
@@ -1740,6 +1776,17 @@ const InventoryFormModal = ({
             <TextField label="Loop Length Seconds" value={form.loopLengthSeconds} onChange={(value) => onFormChange({ ...form, loopLengthSeconds: value })} />
             <TextField label="Spots Per Hour" value={form.spotsPerHour} onChange={(value) => onFormChange({ ...form, spotsPerHour: value })} />
             <TextField label="Screen Specs" value={form.screenSpecs} onChange={(value) => onFormChange({ ...form, screenSpecs: value })} />
+          </FormSection>
+        ) : null}
+
+        {form.categoryGroup === 'Mall / SOH' ? (
+          <FormSection title="Mall / SOH Details">
+            <TextField label="Site Location" value={form.siteLocationLabel} onChange={(value) => onFormChange({ ...form, siteLocationLabel: value })} />
+            <TextField label="Unit Number" value={form.unitNumber} onChange={(value) => onFormChange({ ...form, unitNumber: value })} />
+            <SelectField label="Illumination" value={form.illumination} options={['Lit', 'Non-lit', 'Backlit', 'Frontlit', 'NA']} onChange={(value) => onFormChange({ ...form, illumination: value })} />
+            <TextField label="Material Type" value={form.materialType} onChange={(value) => onFormChange({ ...form, materialType: value })} />
+            <TextField label="Visibility Note" value={form.visibilityNote} onChange={(value) => onFormChange({ ...form, visibilityNote: value })} />
+            <TextField label="Available From (date)" type="date" value={form.availabilityDate} onChange={(value) => onFormChange({ ...form, availabilityDate: value })} />
           </FormSection>
         ) : null}
 
@@ -1916,12 +1963,14 @@ type TextFieldProps = {
   onChange: (value: string) => void;
   required?: boolean;
   list?: string;
+  type?: string;
 };
 
-const TextField = ({ label, value, onChange, required, list }: TextFieldProps) => (
+const TextField = ({ label, value, onChange, required, list, type }: TextFieldProps) => (
   <label className="block">
     <span className="text-sm font-medium text-slate-700">{label}</span>
     <input
+      type={type}
       value={value}
       onChange={(event) => onChange(event.target.value)}
       required={required}

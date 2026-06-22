@@ -94,6 +94,11 @@ export type InventoryDto = {
   buildingAge?: number;
   propertyType?: string;
   nccsClass?: string;
+  materialType?: string;
+  siteLocationLabel?: string;
+  unitNumber?: string;
+  visibilityNote?: string;
+  availabilityDate?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -112,10 +117,15 @@ export type InventoryFiltersDto = {
 };
 
 export type InventoryMutationDto = Partial<
-  Omit<InventoryDto, 'id' | 'createdAt' | 'updatedAt' | 'ownerEntity' | 'supplierEntity'>
+  Omit<
+    InventoryDto,
+    'id' | 'createdAt' | 'updatedAt' | 'ownerEntity' | 'supplierEntity' | 'availabilityDate'
+  >
 > & {
   ownerEntity?: string | null;
   supplierEntity?: string | null;
+  // Accepts an ISO string (MCP/CSV import) or a Date; normalized in the service.
+  availabilityDate?: string | Date | null;
   createdBy?: string;
   updatedBy?: string;
 };
@@ -257,6 +267,11 @@ export const mapInventoryToDto = (
   buildingAge: item.buildingAge ?? undefined,
   propertyType: item.propertyType ?? undefined,
   nccsClass: item.nccsClass ?? undefined,
+  materialType: item.materialType ?? undefined,
+  siteLocationLabel: item.siteLocationLabel ?? undefined,
+  unitNumber: item.unitNumber ?? undefined,
+  visibilityNote: item.visibilityNote ?? undefined,
+  availabilityDate: item.availabilityDate ?? undefined,
   createdAt: item.createdAt,
   updatedAt: item.updatedAt,
 });

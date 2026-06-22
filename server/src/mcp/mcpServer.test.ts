@@ -595,6 +595,71 @@ test('create inventory requires confirmation and forwards category fields', asyn
   await server.close();
 });
 
+test('create inventory accepts the Mall / SOH category and its fields', async () => {
+  let received: Record<string, unknown> | undefined;
+  const commands = {
+    create: async (input: Record<string, unknown>) => {
+      received = input;
+      return {
+        id: '000000000000000000000011',
+        inventoryCode: 'MALL-BLR-WHF-0001',
+        ...input,
+        status: 'active',
+        confirmationStatus: 'never_confirmed',
+      };
+    },
+  } as unknown as IInventoryCommandService;
+  container.registerInstance(TOKENS.InventoryCommandService, commands);
+  const actor = {
+    userId: '000000000000000000000001',
+    email: 'admin@conektads.com',
+    name: 'Admin',
+    role: 'admin' as const,
+  };
+  const server = createPhase1McpServer(actor, [
+    MCP_SCOPES.PlatformRead,
+    MCP_SCOPES.InventoryWrite,
+  ]);
+  const client = new Client({ name: 'mcp-mall-soh-regression', version: '1.0.0' });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+
+  const mallInput = {
+    categoryGroup: 'Mall / SOH',
+    subCategory: 'Mall Façade Signage',
+    title: 'Mall Façade Signage - Unit 1',
+    city: 'Bengaluru',
+    area: 'Whitefield',
+    width: 29.36,
+    height: 22.9,
+    illumination: 'Frontlit',
+    materialType: 'Star Flex',
+    siteLocationLabel: 'Mall Façade',
+    unitNumber: '01',
+    visibilityNote: 'Main Road, Mall Entry',
+    availabilityDate: '2026-02-13',
+    sellingPrice: 200000,
+    availabilityStatus: 'hold',
+  };
+  const accepted = await client.callTool({
+    name: 'create_inventory',
+    arguments: { ...mallInput, confirm: true },
+  });
+  assert.equal(accepted.isError, undefined);
+  assert.deepEqual(received, mallInput);
+
+  // An invalid subCategory for the category is still rejected by the schema enum.
+  const rejected = await client.callTool({
+    name: 'create_inventory',
+    arguments: { ...mallInput, subCategory: 'Not A Real Subcategory', confirm: true },
+  });
+  assert.equal(rejected.isError, true);
+
+  await client.close();
+  await server.close();
+});
+
 test('report scope exposes four member reports but hides profitability', async () => {
   const server = createPhase1McpServer(
     {

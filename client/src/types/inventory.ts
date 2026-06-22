@@ -1,4 +1,10 @@
-export type CategoryGroup = 'Outdoor' | 'Auto' | 'Bus' | 'Mobile Van' | 'A3 Screens';
+export type CategoryGroup =
+  | 'Outdoor'
+  | 'Auto'
+  | 'Bus'
+  | 'Mobile Van'
+  | 'A3 Screens'
+  | 'Mall / SOH';
 export type AvailabilityStatus = 'available' | 'booked' | 'hold' | 'unknown';
 export type InventoryStatus = 'active' | 'inactive';
 export type ConfirmationStatus = 'fresh' | 'stale' | 'never_confirmed';
@@ -89,6 +95,11 @@ export type InventoryItem = {
   buildingAge?: number;
   propertyType?: string;
   nccsClass?: string;
+  materialType?: string;
+  siteLocationLabel?: string;
+  unitNumber?: string;
+  visibilityNote?: string;
+  availabilityDate?: string;
 };
 
 export type InventoryFilters = {
