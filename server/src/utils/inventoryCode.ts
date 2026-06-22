@@ -6,6 +6,7 @@ const categoryCodeMap: Record<CategoryGroup, string> = {
   Bus: 'BUS',
   'Mobile Van': 'MV',
   'A3 Screens': 'A3',
+  'Mall / SOH': 'MALL',
 };
 
 const cityCodeMap: Record<string, string> = {

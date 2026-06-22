@@ -196,6 +196,7 @@ const inventoryCategory = z.enum([
   'Bus',
   'Mobile Van',
   'A3 Screens',
+  'Mall / SOH',
 ]);
 const inventorySubCategory = z.enum([
   'Bus Shelter',
@@ -212,6 +213,9 @@ const inventorySubCategory = z.enum([
   '3D Digital Screen',
   'Corporate',
   'Residential',
+  'Mall Façade Signage',
+  'Mall Lobby Signage',
+  'Mall Standee',
 ]);
 const optionalPositiveNumber = z.preprocess(
   emptyToUndefined,
@@ -789,6 +793,29 @@ export const createPhase1McpServer = (
           buildingAge: optionalPositiveNumber,
           propertyType: optionalShortText,
           nccsClass: optionalShortText,
+          materialType: optionalShortText.describe(
+            'Mall / SOH material, e.g. Star Flex or Fabric',
+          ),
+          siteLocationLabel: optionalShortText.describe(
+            'Mall / SOH site location within the mall, e.g. Mall Façade, Basement 2 (car Parking)',
+          ),
+          unitNumber: optionalShortText.describe('Mall / SOH unit number, e.g. 01'),
+          visibilityNote: optionalPlanText.describe(
+            'Mall / SOH visibility note, e.g. Main Road, Mall Entry',
+          ),
+          availabilityDate: z.preprocess(
+            emptyToUndefined,
+            z
+              .string()
+              .refine(
+                (value) => !Number.isNaN(new Date(value).getTime()),
+                'availabilityDate must be a valid date',
+              )
+              .optional()
+              .describe(
+                'Mall / SOH date the unit becomes available (e.g. 2026-02-13). Omit for "Immediate" or "Not Available".',
+              ),
+          ),
           confirm: z
             .literal(true)
             .describe('Must be true after the user explicitly confirms'),

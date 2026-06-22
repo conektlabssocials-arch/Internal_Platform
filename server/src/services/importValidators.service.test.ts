@@ -194,6 +194,70 @@ test('Outdoor validation still requires city when it cannot be resolved', async 
   assert.equal(result.errors.some((error) => error.field === 'city'), true);
 });
 
+test('Mall / SOH validation maps subcategory and category fields and parses availability date', async () => {
+  const service = createService();
+  const result = await service.validate('inventory', [
+    {
+      categoryGroup: 'Mall / SOH',
+      subCategory: 'Mall Façade Signage',
+      title: 'Mall Façade Signage - Unit 1',
+      city: 'Bangalore',
+      area: 'Whitefield',
+      siteLocationLabel: 'Mall Façade',
+      unitNumber: '01',
+      width: '29.36',
+      height: '22.9',
+      illumination: 'Frontlit',
+      materialType: 'Star Flex',
+      visibilityNote: 'Main Road, Mall Entry',
+      availabilityDate: '2026-02-13',
+      availabilityStatus: 'hold',
+      sellingPrice: '200000',
+    },
+    {
+      // "Not Available" is free text, not a date, so availabilityDate stays unset.
+      categoryGroup: 'Mall / SOH',
+      subCategory: 'Mall Lobby Signage',
+      title: 'Lobby - Unit 02',
+      city: 'Bangalore',
+      area: 'Whitefield',
+      illumination: 'Backlit',
+      materialType: 'Fabric',
+      availabilityDate: 'Not Available',
+      sellingPrice: '75000',
+    },
+  ]);
+
+  assert.equal(result.validRows, 2);
+  assert.equal(result.rows[0].data.subCategory, 'Mall Façade Signage');
+  assert.equal(result.rows[0].data.siteLocationLabel, 'Mall Façade');
+  assert.equal(result.rows[0].data.unitNumber, '01');
+  assert.equal(result.rows[0].data.materialType, 'Star Flex');
+  assert.equal(result.rows[0].data.visibilityNote, 'Main Road, Mall Entry');
+  assert.equal(result.rows[0].data.illumination, 'Frontlit');
+  assert.equal(
+    (result.rows[0].data.availabilityDate as string).slice(0, 10),
+    '2026-02-13',
+  );
+  assert.equal(result.rows[1].data.availabilityDate, undefined);
+});
+
+test('Mall / SOH validation rejects a subcategory from another category', async () => {
+  const service = createService();
+  const result = await service.validate('inventory', [
+    {
+      categoryGroup: 'Mall / SOH',
+      subCategory: 'Hoarding',
+      title: 'Bad Mall Row',
+      city: 'Bangalore',
+      area: 'Whitefield',
+    },
+  ]);
+
+  assert.equal(result.invalidRows, 1);
+  assert.equal(result.errors.some((error) => error.field === 'subCategory'), true);
+});
+
 test('inventory validation detects database and in-file duplicates', async () => {
   const service = createService({
     inventory: [

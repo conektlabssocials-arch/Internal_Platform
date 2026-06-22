@@ -197,20 +197,12 @@ export class ImportValidatorsService {
       if (!title) errors.push(issue(rowNumber, 'title', 'title is required', raw.title));
 
       const screenSize = text(raw.screenSize);
-      const parsedWidth = parseNumber(
-        raw.width,
-        rowNumber,
-        'width',
-        errors,
-        categoryGroup !== 'A3 Screens',
-      );
-      const parsedHeight = parseNumber(
-        raw.height,
-        rowNumber,
-        'height',
-        errors,
-        categoryGroup !== 'A3 Screens',
-      );
+      // Width/height are required for fixed-size media but optional for A3 Screens
+      // (derived from screen size) and Mall / SOH (size is given only when known).
+      const sizeRequired =
+        categoryGroup !== 'A3 Screens' && categoryGroup !== 'Mall / SOH';
+      const parsedWidth = parseNumber(raw.width, rowNumber, 'width', errors, sizeRequired);
+      const parsedHeight = parseNumber(raw.height, rowNumber, 'height', errors, sizeRequired);
       const completedScreen =
         categoryGroup === 'A3 Screens'
           ? completeA3ScreenDimensions({
@@ -490,6 +482,16 @@ export class ImportValidatorsService {
         categoryGroup === 'A3 Screens',
       );
 
+      // Mall / SOH availability date: a real future date resolves to ISO; free
+      // text like "Immediate" or "Not Available" stays unset (status carries it).
+      const availabilityDateValue = text(raw.availabilityDate);
+      const availabilityDate = availabilityDateValue
+        ? (() => {
+            const date = new Date(availabilityDateValue);
+            return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+          })()
+        : undefined;
+
       const data = cleanObject({
         categoryGroup,
         subCategory,
@@ -577,6 +579,11 @@ export class ImportValidatorsService {
         buildingAge: parseNumber(raw.buildingAge, rowNumber, 'buildingAge', errors),
         propertyType: text(raw.propertyType),
         nccsClass: text(raw.nccsClass),
+        materialType: text(raw.materialType),
+        siteLocationLabel: text(raw.siteLocationLabel),
+        unitNumber: text(raw.unitNumber),
+        visibilityNote: text(raw.visibilityNote),
+        availabilityDate,
       });
 
       if (errors.length > 0) {

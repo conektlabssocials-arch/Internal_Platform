@@ -1,7 +1,14 @@
 import mongoose, { Schema } from 'mongoose';
 import type { HydratedDocument, InferSchemaType } from 'mongoose';
 
-export const categoryGroups = ['Outdoor', 'Auto', 'Bus', 'Mobile Van', 'A3 Screens'] as const;
+export const categoryGroups = [
+  'Outdoor',
+  'Auto',
+  'Bus',
+  'Mobile Van',
+  'A3 Screens',
+  'Mall / SOH',
+] as const;
 export const inventorySubCategories = [
   'Bus Shelter',
   'Hoarding',
@@ -18,6 +25,9 @@ export const inventorySubCategories = [
   'Corporate',
   'Residential',
   'Residential Screen',
+  'Mall Façade Signage',
+  'Mall Lobby Signage',
+  'Mall Standee',
 ] as const;
 export const inventorySubCategoriesByGroup = {
   Outdoor: ['Bus Shelter', 'Hoarding', 'Digital OOH', 'Digital Bus Shelter'],
@@ -25,6 +35,7 @@ export const inventorySubCategoriesByGroup = {
   Bus: ['Bus Panel', 'Combo Panel', 'Full Bus Interior', 'Full Bus Exterior'],
   'Mobile Van': ['Hoarding', 'Van LED Screen', '3D Digital Screen'],
   'A3 Screens': ['Corporate', 'Residential'],
+  'Mall / SOH': ['Mall Façade Signage', 'Mall Lobby Signage', 'Mall Standee'],
 } as const;
 export const availabilityStatuses = ['available', 'booked', 'hold', 'unknown'] as const;
 export const inventoryStatuses = ['active', 'inactive'] as const;
@@ -290,6 +301,24 @@ const inventorySchema = new Schema(
       type: String,
       trim: true,
     },
+    // Mall / SOH (Space on Hire) specific fields.
+    materialType: {
+      type: String,
+      trim: true,
+    },
+    siteLocationLabel: {
+      type: String,
+      trim: true,
+    },
+    unitNumber: {
+      type: String,
+      trim: true,
+    },
+    visibilityNote: {
+      type: String,
+      trim: true,
+    },
+    availabilityDate: Date,
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
