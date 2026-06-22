@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { getPublicShare, PublicShareError } from '../api/shareApi';
-import NonMapInventoryList from '../components/maps/NonMapInventoryList';
 import PlanItemDetailModal, { type PlanItemDetail } from '../components/maps/PlanItemDetailModal';
 import SharedPlanMap from '../components/maps/SharedPlanMap';
 import Pagination from '../components/ui/Pagination';
@@ -11,7 +10,21 @@ import InventoryImage from '../components/ui/InventoryImage';
 
 const ALL_CITIES = 'all';
 const ALL_AREAS = 'all';
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 12;
+
+type PublicPlanItem = PublicSharedPlanData['plan']['items'][number];
+type FilterableItem = PlanItemDetail & {
+  city?: string;
+  area?: string;
+  categoryGroup?: string;
+  subCategory?: string;
+  width?: number;
+  height?: number;
+  totalSqFt?: number;
+  totalSellingPrice?: number;
+};
+type ViewMode = 'grid' | 'map';
+type SortMode = 'recommended' | 'price-low' | 'price-high' | 'title';
 
 const pendingRequests = new Map<string, Promise<PublicSharedPlanData>>();
 
@@ -32,7 +45,11 @@ const PublicSharedPlan = () => {
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [cityFilter, setCityFilter] = useState<string>(ALL_CITIES);
   const [areaFilter, setAreaFilter] = useState<string>(ALL_AREAS);
-  const [areasOpen, setAreasOpen] = useState(false);
+  const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set());
+  const [subCategoryFilters, setSubCategoryFilters] = useState<Set<string>>(new Set());
+  const [dimensionFilters, setDimensionFilters] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sortMode, setSortMode] = useState<SortMode>('recommended');
   const [selectedItem, setSelectedItem] = useState<PlanItemDetail | null>(null);
   const [page, setPage] = useState(1);
 
@@ -61,56 +78,108 @@ const PublicSharedPlan = () => {
     };
   }, [token]);
 
-  const cities = useMemo(() => {
+  const allFilterItems = useMemo<FilterableItem[]>(() => {
     if (!data) return [];
-    const all = [
+    return [
       ...data.plan.items,
       ...(data.mapItems || []),
       ...(data.nonMapItems || []),
-    ]
-      .map((item) => item.city?.trim())
-      .filter((city): city is string => Boolean(city));
-    return Array.from(new Set(all)).sort((a, b) => a.localeCompare(b));
+    ];
   }, [data]);
 
-  const matchesCity = (city?: string) => cityFilter === ALL_CITIES || city === cityFilter;
-  const matchesArea = (area?: string) => areaFilter === ALL_AREAS || area === areaFilter;
+  const cities = useMemo(() => uniqueSorted(allFilterItems.map((item) => item.city)), [allFilterItems]);
 
-  // Areas depend on the selected city so the area chips only show areas that exist there.
+  const matchesCity = (city?: string) => cityFilter === ALL_CITIES || city?.trim() === cityFilter;
+  const matchesArea = (area?: string) => areaFilter === ALL_AREAS || area?.trim() === areaFilter;
+  const matchesSet = (value: string | undefined, filters: Set<string>) =>
+    !filters.size || (value ? filters.has(value.trim()) : false);
+  const matchesDimension = (item: FilterableItem) => {
+    if (!dimensionFilters.size) return true;
+    const dimension = dimensionLabel(item);
+    return Boolean(dimension) && dimensionFilters.has(dimension);
+  };
+
   const areas = useMemo(() => {
-    if (!data) return [];
-    const all = [
-      ...data.plan.items,
-      ...(data.mapItems || []),
-      ...(data.nonMapItems || []),
-    ]
-      .filter((item) => matchesCity(item.city))
-      .map((item) => item.area?.trim())
-      .filter((area): area is string => Boolean(area));
-    return Array.from(new Set(all)).sort((a, b) => a.localeCompare(b));
+    return uniqueSorted(allFilterItems.filter((item) => matchesCity(item.city)).map((item) => item.area));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, cityFilter]);
+  }, [allFilterItems, cityFilter]);
 
-  const matchesFilters = (item: { city?: string; area?: string }) =>
-    matchesCity(item.city) && matchesArea(item.area);
-  const planItems = (data?.plan.items || []).filter(matchesFilters);
-  const mapItems = (data?.mapItems || []).filter(matchesFilters);
-  const nonMapItems = (data?.nonMapItems || []).filter(matchesFilters);
+  const categoryOptions = useMemo(
+    () => optionCounts(allFilterItems.filter((item) => matchesCity(item.city) && matchesArea(item.area)), 'categoryGroup'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allFilterItems, cityFilter, areaFilter],
+  );
 
-  // Changing city resets the area selection (the previous area may not exist in the new city).
+  const subCategoryOptions = useMemo(
+    () => optionCounts(allFilterItems.filter((item) => matchesCity(item.city) && matchesArea(item.area)), 'subCategory'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allFilterItems, cityFilter, areaFilter],
+  );
+
+  const dimensionOptions = useMemo(() => {
+    const scopedItems = allFilterItems.filter((item) => matchesCity(item.city) && matchesArea(item.area));
+    const counts = new Map<string, number>();
+    scopedItems.forEach((item) => {
+      const dimension = dimensionLabel(item);
+      if (dimension) counts.set(dimension, (counts.get(dimension) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allFilterItems, cityFilter, areaFilter]);
+
+  const matchesFilters = (item: FilterableItem) =>
+    matchesCity(item.city) &&
+    matchesArea(item.area) &&
+    matchesSet(item.categoryGroup, categoryFilters) &&
+    matchesSet(item.subCategory, subCategoryFilters) &&
+    matchesDimension(item);
+
+  const filteredPlanItems = useMemo(() => {
+    const items = (data?.plan.items || []).filter(matchesFilters);
+    return sortItems(items, sortMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, cityFilter, areaFilter, categoryFilters, subCategoryFilters, dimensionFilters, sortMode]);
+
+  const mapItems = useMemo(
+    () => (data?.mapItems || []).filter(matchesFilters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data, cityFilter, areaFilter, categoryFilters, subCategoryFilters, dimensionFilters],
+  );
+
+  const nonMapItems = useMemo(
+    () => (data?.nonMapItems || []).filter(matchesFilters),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data, cityFilter, areaFilter, categoryFilters, subCategoryFilters, dimensionFilters],
+  );
+
   useEffect(() => {
     setAreaFilter(ALL_AREAS);
-    setAreasOpen(false);
   }, [cityFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [cityFilter, areaFilter]);
+  }, [cityFilter, areaFilter, categoryFilters, subCategoryFilters, dimensionFilters, sortMode, viewMode]);
 
-  const totalPages = Math.max(1, Math.ceil(planItems.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredPlanItems.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const pagedItems = planItems.slice(pageStart, pageStart + PAGE_SIZE);
+  const pagedItems = filteredPlanItems.slice(pageStart, pageStart + PAGE_SIZE);
+  const activeFilterCount =
+    (cityFilter !== ALL_CITIES ? 1 : 0) +
+    (areaFilter !== ALL_AREAS ? 1 : 0) +
+    categoryFilters.size +
+    subCategoryFilters.size +
+    dimensionFilters.size;
+
+  const clearFilters = () => {
+    setCityFilter(ALL_CITIES);
+    setAreaFilter(ALL_AREAS);
+    setCategoryFilters(new Set());
+    setSubCategoryFilters(new Set());
+    setDimensionFilters(new Set());
+  };
 
   if (loading) {
     return (
@@ -141,226 +210,235 @@ const PublicSharedPlan = () => {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f7f7f2] text-slate-900">
-      <header className="border-b border-emerald-900/10 bg-emerald-800 text-white">
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-9">
-          <p className="text-xs font-bold tracking-wide text-emerald-100 sm:text-sm">CONEKT ADS</p>
-          <div className="mt-4 flex flex-col gap-3 sm:mt-5 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+      <header className="border-b border-emerald-900/10 bg-[#173f35] text-white">
+        <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
-              <h1 className="max-w-4xl break-words text-xl font-semibold leading-tight sm:text-3xl">{data.campaign.title}</h1>
-              <p className="mt-1.5 break-words text-sm text-emerald-100 sm:mt-2 sm:text-base">{data.campaign.clientName}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-100">Conekt Ads</p>
+              <h1 className="mt-3 max-w-4xl break-words text-2xl font-semibold leading-tight sm:text-4xl">
+                {data.campaign.title}
+              </h1>
+              <p className="mt-2 break-words text-sm text-emerald-50 sm:text-base">{data.campaign.clientName}</p>
             </div>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-emerald-100 sm:block sm:shrink-0 sm:text-right">
-              <p>Plan {data.plan.versionLabel}</p>
-              <span className="text-emerald-300 sm:hidden">·</span>
-              <p className="sm:mt-1">{data.plan.status}</p>
+            <div className="grid grid-cols-3 gap-2 text-sm lg:w-[390px]">
+              <HeroStat label="Media" value={String(data.plan.items.length)} />
+              <HeroStat label="Plan" value={data.plan.versionLabel} />
+              <HeroStat label="Status" value={data.plan.status} />
             </div>
           </div>
         </div>
       </header>
 
-      {cities.length > 1 || (cityFilter !== ALL_CITIES && areas.length > 1) ? (
-        <div className="sticky top-0 z-30 border-b border-slate-200 bg-[#f7f7f2]/95 backdrop-blur">
-          <div className="mx-auto max-w-6xl space-y-3 px-4 py-3 sm:px-8">
-            {cities.length > 1 ? (
-              <div className="flex items-center gap-2">
-                <span className="w-12 shrink-0 text-xs font-semibold uppercase text-emerald-700 sm:w-14">City</span>
-                <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-                <CityChip label="All cities" active={cityFilter === ALL_CITIES} onClick={() => setCityFilter(ALL_CITIES)} />
-                {cities.map((city) => (
-                  <CityChip key={city} label={city} active={cityFilter === city} onClick={() => setCityFilter(city)} />
+      <div className="mx-auto grid max-w-[1440px] gap-0 lg:grid-cols-[286px_minmax(0,1fr)]">
+        <aside className="border-b border-slate-200 bg-white lg:min-h-[calc(100vh-116px)] lg:border-b-0 lg:border-r lg:border-slate-200">
+          <div className="lg:sticky lg:top-0">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6 lg:px-5">
+              <div>
+                <h2 className="text-lg font-semibold">Filters</h2>
+                <p className="mt-0.5 text-xs text-slate-500">{activeFilterCount || 'No'} active</p>
+              </div>
+              {activeFilterCount ? (
+                <button type="button" onClick={clearFilters} className="text-sm font-medium text-emerald-700 hover:text-emerald-900">
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            <div className="max-h-none overflow-visible lg:max-h-[calc(100vh-72px)] lg:overflow-y-auto">
+              <FilterSection title="Location">
+                <label className="block text-xs font-semibold text-slate-500" htmlFor="city-filter">City</label>
+                <select
+                  id="city-filter"
+                  value={cityFilter}
+                  onChange={(event) => setCityFilter(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                >
+                  <option value={ALL_CITIES}>All cities</option>
+                  {cities.map((city) => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+
+                <label className="mt-4 block text-xs font-semibold text-slate-500" htmlFor="area-filter">Area</label>
+                <select
+                  id="area-filter"
+                  value={areaFilter}
+                  onChange={(event) => setAreaFilter(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                >
+                  <option value={ALL_AREAS}>All areas</option>
+                  {areas.map((area) => (
+                    <option key={area} value={area}>{area}</option>
+                  ))}
+                </select>
+              </FilterSection>
+
+              <FilterSection title="Ad Options">
+                <CheckboxList options={categoryOptions} selected={categoryFilters} onChange={setCategoryFilters} />
+              </FilterSection>
+
+              <FilterSection title="Media Type">
+                <CheckboxList options={subCategoryOptions} selected={subCategoryFilters} onChange={setSubCategoryFilters} />
+              </FilterSection>
+
+              <FilterSection title="Dimensions">
+                <CheckboxList options={dimensionOptions} selected={dimensionFilters} onChange={setDimensionFilters} />
+              </FilterSection>
+
+              <section className="border-b border-slate-200 px-4 py-5 sm:px-6 lg:px-5">
+                <h3 className="text-sm font-semibold uppercase text-slate-700">Pricing Summary</h3>
+                <dl className="mt-4 space-y-3 text-sm">
+                  <Price label="Subtotal" value={data.plan.pricing.subtotal} />
+                  <Price label={`Tax (${data.plan.pricing.taxPercentage}%)`} value={data.plan.pricing.taxAmount} />
+                  <div className="flex items-start justify-between gap-4 border-t-2 border-emerald-600 pt-4 text-base font-semibold">
+                    <dt className="min-w-0">Grand Total</dt>
+                    <dd className="shrink-0 text-right">{currency(data.plan.pricing.grandTotal)}</dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
+          </div>
+        </aside>
+
+        <div className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0">
+              <nav className="text-sm text-slate-500" aria-label="Breadcrumb">
+                <span className="font-medium text-emerald-700">Home</span>
+                <span className="px-2 text-slate-300">/</span>
+                <span>Outdoor</span>
+              </nav>
+              <h2 className="mt-2 break-words text-2xl font-semibold text-slate-950 sm:text-3xl">Outdoor Advertising Agency</h2>
+              <p className="mt-2 max-w-4xl whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
+                {data.campaign.brief || 'No campaign brief provided.'}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center xl:shrink-0">
+              <div className="inline-flex w-full rounded-md border border-slate-300 bg-white p-1 sm:w-auto" aria-label="View mode">
+                <ViewButton active={viewMode === 'grid'} label="Grid" icon="▦" onClick={() => setViewMode('grid')} />
+                <ViewButton active={viewMode === 'map'} label="Map" icon="⌖" onClick={() => setViewMode('map')} />
+              </div>
+              <label className="flex items-center gap-2 rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm text-slate-600">
+                <span className="shrink-0 font-medium">Sort by</span>
+                <select
+                  value={sortMode}
+                  onChange={(event) => setSortMode(event.target.value as SortMode)}
+                  className="min-w-0 bg-transparent font-semibold text-slate-900 outline-none"
+                >
+                  <option value="recommended">Recommended</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                  <option value="title">Title</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-500">
+              <span className="font-semibold text-slate-900">{filteredPlanItems.length}</span> selected media
+              {mapItems.length ? <span> · {mapItems.length} mapped</span> : null}
+              {nonMapItems.length ? <span> · {nonMapItems.length} transit/mobile</span> : null}
+            </p>
+            {activeFilterCount ? (
+              <div className="flex flex-wrap gap-2">
+                {cityFilter !== ALL_CITIES ? <ActiveFilter label={cityFilter} onClear={() => setCityFilter(ALL_CITIES)} /> : null}
+                {areaFilter !== ALL_AREAS ? <ActiveFilter label={areaFilter} onClear={() => setAreaFilter(ALL_AREAS)} /> : null}
+                {[...categoryFilters].map((value) => (
+                  <ActiveFilter key={`category-${value}`} label={value} onClear={() => toggleSetValue(categoryFilters, value, setCategoryFilters)} />
                 ))}
-                </div>
+                {[...subCategoryFilters].map((value) => (
+                  <ActiveFilter key={`sub-${value}`} label={value} onClear={() => toggleSetValue(subCategoryFilters, value, setSubCategoryFilters)} />
+                ))}
+                {[...dimensionFilters].map((value) => (
+                  <ActiveFilter key={`dimension-${value}`} label={value} onClear={() => toggleSetValue(dimensionFilters, value, setDimensionFilters)} />
+                ))}
               </div>
             ) : null}
-            {cityFilter !== ALL_CITIES && areas.length > 1 ? (
-              <div className="flex flex-wrap items-start gap-2">
-                <span className="w-12 shrink-0 pt-1.5 text-xs font-semibold uppercase text-emerald-700 sm:w-14">Area</span>
-                <div className="min-w-0 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => setAreasOpen((open) => !open)}
-                    aria-expanded={areasOpen}
-                    className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:border-emerald-400 hover:text-emerald-700"
-                  >
-                    <span className="min-w-0 truncate">{areaFilter === ALL_AREAS ? `All areas (${areas.length})` : areaFilter}</span>
-                    <span className={`text-xs transition-transform ${areasOpen ? 'rotate-180' : ''}`}>▾</span>
-                  </button>
-                  {areasOpen ? (
-                    <div className="mt-2 flex max-h-36 flex-wrap items-center gap-2 overflow-y-auto pr-1 sm:max-h-none sm:overflow-visible sm:pr-0">
-                      <CityChip
-                        label="All areas"
-                        active={areaFilter === ALL_AREAS}
-                        onClick={() => {
-                          setAreaFilter(ALL_AREAS);
-                          setAreasOpen(false);
-                        }}
+          </div>
+
+          {viewMode === 'map' ? (
+            <section className="mt-5">
+              <SharedPlanMap mapItems={mapItems} shareToken={token} publicMode />
+              {nonMapItems.length ? (
+                <div className="mt-5">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="text-base font-semibold">Transit and Mobile Inventory</h3>
+                    <span className="text-sm text-slate-500">{nonMapItems.length} items</span>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {nonMapItems.map((item) => (
+                      <InventoryCard key={item.planItemId} item={item} onSelect={() => setSelectedItem(item)} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : (
+            <section className="mt-5">
+              {filteredPlanItems.length ? (
+                <>
+                  <div className="grid gap-x-6 gap-y-9 md:grid-cols-2 xl:grid-cols-3">
+                    {pagedItems.map((item, index) => (
+                      <InventoryCard
+                        key={`${item.title}-${pageStart + index}`}
+                        item={item}
+                        onSelect={() => setSelectedItem(item)}
                       />
-                      {areas.map((area) => (
-                        <CityChip
-                          key={area}
-                          label={area}
-                          active={areaFilter === area}
-                          onClick={() => {
-                            setAreaFilter(area);
-                            setAreasOpen(false);
-                          }}
-                        />
-                      ))}
+                    ))}
+                  </div>
+                  {filteredPlanItems.length > PAGE_SIZE ? (
+                    <div className="mt-7 overflow-hidden rounded-md border border-slate-200 bg-white">
+                      <Pagination
+                        page={currentPage}
+                        totalPages={totalPages}
+                        rangeStart={pageStart + 1}
+                        rangeEnd={pageStart + pagedItems.length}
+                        total={filteredPlanItems.length}
+                        onChange={setPage}
+                        label="media"
+                      />
                     </div>
                   ) : null}
+                </>
+              ) : (
+                <div className="border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+                  <h3 className="text-base font-semibold text-slate-900">
+                    {data.plan.items.length ? 'No media items match these filters.' : 'No media items included.'}
+                  </h3>
+                  {activeFilterCount ? (
+                    <button type="button" onClick={clearFilters} className="mt-3 text-sm font-medium text-emerald-700 hover:text-emerald-900">
+                      Clear filters
+                    </button>
+                  ) : null}
                 </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+              )}
+            </section>
+          )}
 
-      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-8 sm:py-8">
-        <section>
-          <h2 className="text-lg font-semibold">Campaign Brief</h2>
-          <p className="mt-2 max-w-4xl whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
-            {data.campaign.brief || 'No campaign brief provided.'}
-          </p>
-        </section>
-
-        <section>
-          <div className="mb-3">
-            <p className="text-xs font-semibold uppercase text-emerald-700">Outdoor locations</p>
-            <h2 className="mt-1 text-lg font-semibold">Map View</h2>
-            <p className="mt-1 text-sm text-slate-500">Click a pin to view site details.</p>
-          </div>
-          <SharedPlanMap mapItems={mapItems} shareToken={token} publicMode />
-        </section>
-
-        {nonMapItems.length ? (
-          <section>
-            <p className="text-xs font-semibold uppercase text-emerald-700">Flexible media</p>
-            <h2 className="mt-1 text-lg font-semibold">Mobile / Transit Inventory</h2>
-            <p className="mt-1 text-sm text-slate-500">Click a card to view photos and details.</p>
-            <div className="mt-3">
-              <NonMapInventoryList items={nonMapItems} onSelect={setSelectedItem} />
+          <section className="mt-8 grid gap-6 border-t border-slate-200 pt-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold">Client Notes</h2>
+              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
+                {data.plan.clientNotes || 'No additional notes.'}
+              </p>
+            </div>
+            <div className="min-w-0 border-l-4 border-emerald-700 bg-white p-4 shadow-sm sm:p-5">
+              <h2 className="font-semibold">Plan Snapshot</h2>
+              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <PublicItemInfo label="Version" value={data.plan.versionLabel} />
+                <PublicItemInfo label="Status" value={data.plan.status} />
+                <PublicItemInfo label="Items" value={String(data.plan.items.length)} />
+                <PublicItemInfo label="Total" value={currency(data.plan.pricing.grandTotal)} strong />
+              </dl>
             </div>
           </section>
-        ) : null}
 
-        <section>
-          <h2 className="text-lg font-semibold">Selected Media</h2>
-          <p className="mt-1 text-sm text-slate-500">Click a row to view photos and details.</p>
-          <div className="mt-3 overflow-hidden border border-slate-200 bg-white">
-            <div className="overflow-x-auto">
-            <table className="hidden w-full min-w-[850px] text-left text-sm md:table">
-              <thead className="bg-emerald-50 text-emerald-900">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Inventory</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">Location</th>
-                  <th className="px-4 py-3 font-medium">Size</th>
-                  <th className="px-4 py-3 font-medium">Dates</th>
-                  <th className="px-4 py-3 text-right font-medium">Qty</th>
-                  <th className="px-4 py-3 text-right font-medium">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {pagedItems.map((item, index) => (
-                  <tr
-                    key={`${item.title}-${pageStart + index}`}
-                    onClick={() => setSelectedItem(item)}
-                    className="cursor-pointer transition hover:bg-emerald-50/60"
-                  >
-                    <td className="px-4 py-4">
-                      <div className="flex items-start gap-3">
-                        <InventoryImage
-                          src={item.photoUrl}
-                          alt={item.title}
-                          className="h-14 w-14 shrink-0 rounded-md object-cover"
-                        />
-                        <div>
-                          <p className="font-medium">{item.title}</p>
-                          {item.notes ? <p className="mt-1 text-xs text-slate-500">{item.notes}</p> : null}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-slate-600">{item.categoryGroup} / {item.subCategory}</td>
-                    <td className="px-4 py-4 text-slate-600">{item.city} / {item.area}</td>
-                    <td className="px-4 py-4 text-slate-600">{formatSize(item)}</td>
-                    <td className="px-4 py-4 text-slate-600">{formatDate(item.startDate)} - {formatDate(item.endDate)}</td>
-                    <td className="px-4 py-4 text-right">{item.quantity}</td>
-                    <td className="px-4 py-4 text-right font-medium">{currency(item.totalSellingPrice)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-            <div className="divide-y divide-slate-100 md:hidden">
-              {pagedItems.map((item, index) => (
-                <article
-                  key={`${item.title}-${pageStart + index}`}
-                  className="cursor-pointer p-3 transition hover:bg-emerald-50/60 sm:p-4"
-                  onClick={() => setSelectedItem(item)}
-                >
-                  <div className="flex items-start gap-3">
-                    <InventoryImage
-                      src={item.photoUrl}
-                      alt={item.title}
-                      className="h-16 w-16 shrink-0 rounded-md object-cover sm:h-20 sm:w-20"
-                    />
-                    <div className="min-w-0">
-                      <h3 className="break-words font-semibold text-slate-900">{item.title}</h3>
-                      <p className="mt-1 break-words text-xs text-slate-500">{item.categoryGroup} / {item.subCategory}</p>
-                      <p className="mt-1 break-words text-xs text-slate-500">{item.city} / {item.area}</p>
-                    </div>
-                  </div>
-                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <PublicItemInfo label="Size" value={formatSize(item)} />
-                    <PublicItemInfo label="Quantity" value={String(item.quantity)} />
-                    <PublicItemInfo label="Dates" value={`${formatDate(item.startDate)} - ${formatDate(item.endDate)}`} />
-                    <PublicItemInfo label="Amount" value={currency(item.totalSellingPrice)} strong />
-                  </dl>
-                  {item.notes ? <p className="mt-3 break-words text-sm leading-6 text-slate-600">{item.notes}</p> : null}
-                </article>
-              ))}
-            </div>
-            {!planItems.length ? (
-              <p className="p-6 text-center text-sm text-slate-500">
-                {data.plan.items.length ? 'No media items match these filters.' : 'No media items included.'}
-              </p>
-            ) : null}
-            {planItems.length > PAGE_SIZE ? (
-              <Pagination
-                page={currentPage}
-                totalPages={totalPages}
-                rangeStart={pageStart + 1}
-                rangeEnd={pageStart + pagedItems.length}
-                total={planItems.length}
-                onChange={setPage}
-              />
-            ) : null}
-          </div>
-        </section>
-
-        <section className="grid gap-6 border-t border-slate-200 pt-6 sm:gap-8 sm:pt-8 md:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold">Client Notes</h2>
-            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">
-              {data.plan.clientNotes || 'No additional notes.'}
-            </p>
-          </div>
-          <div className="min-w-0 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="font-semibold">Pricing Summary</h2>
-            <dl className="mt-4 space-y-3 text-sm">
-              <Price label="Subtotal" value={data.plan.pricing.subtotal} />
-              <Price label={`Tax (${data.plan.pricing.taxPercentage}%)`} value={data.plan.pricing.taxAmount} />
-              <div className="flex items-start justify-between gap-4 border-t-2 border-emerald-600 pt-4 text-base font-semibold">
-                <dt className="min-w-0">Grand Total</dt>
-                <dd className="shrink-0 text-right">{currency(data.plan.pricing.grandTotal)}</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-
-        <footer className="border-t border-slate-200 py-5 text-center text-xs text-slate-500">
-          This shared plan is read-only.
-        </footer>
+          <footer className="border-t border-slate-200 py-5 text-center text-xs text-slate-500">
+            This shared plan is read-only.
+          </footer>
+        </div>
       </div>
 
       <PlanItemDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
@@ -368,27 +446,151 @@ const PublicSharedPlan = () => {
   );
 };
 
-const CityChip = ({
-  label,
+const HeroStat = ({ label, value }: { label: string; value: string }) => (
+  <div className="min-w-0 rounded-md border border-white/15 bg-white/10 px-3 py-2">
+    <dt className="text-xs text-emerald-100">{label}</dt>
+    <dd className="mt-0.5 truncate text-sm font-semibold text-white">{value}</dd>
+  </div>
+);
+
+const FilterSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <section className="border-b border-slate-200 px-4 py-5 sm:px-6 lg:px-5">
+    <h3 className="text-sm font-semibold uppercase text-slate-700">{title}</h3>
+    <div className="mt-4">{children}</div>
+  </section>
+);
+
+const CheckboxList = ({
+  options,
+  selected,
+  onChange,
+}: {
+  options: { label: string; count: number }[];
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+}) => {
+  if (!options.length) return <p className="text-sm text-slate-400">No options</p>;
+
+  return (
+    <div className="space-y-3">
+      {options.map((option) => (
+        <label key={option.label} className="flex min-w-0 items-start gap-3 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={selected.has(option.label)}
+            onChange={() => toggleSetValue(selected, option.label, onChange)}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+          />
+          <span className="min-w-0 flex-1 break-words">{option.label}</span>
+          <span className="shrink-0 text-xs text-slate-400">({option.count})</span>
+        </label>
+      ))}
+    </div>
+  );
+};
+
+const ViewButton = ({
   active,
+  label,
+  icon,
   onClick,
 }: {
-  label: string;
   active: boolean;
+  label: string;
+  icon: string;
   onClick: () => void;
 }) => (
   <button
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    className={`max-w-[14rem] shrink-0 truncate rounded-full border px-3 py-1.5 text-sm transition sm:max-w-full ${
-      active
-        ? 'border-emerald-600 bg-emerald-600 text-white'
-        : 'border-slate-300 bg-white text-slate-600 hover:border-emerald-400 hover:text-emerald-700'
+    className={`inline-flex flex-1 items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-semibold transition sm:flex-none ${
+      active ? 'bg-emerald-800 text-white shadow-sm' : 'text-slate-600 hover:bg-emerald-50 hover:text-emerald-800'
     }`}
   >
+    <span aria-hidden="true">{icon}</span>
     {label}
   </button>
+);
+
+const ActiveFilter = ({ label, onClear }: { label: string; onClear: () => void }) => (
+  <span className="inline-flex max-w-[14rem] items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
+    <span className="truncate">{label}</span>
+    <button type="button" onClick={onClear} aria-label={`Remove ${label}`} className="text-sm leading-none text-emerald-700 hover:text-emerald-950">
+      ×
+    </button>
+  </span>
+);
+
+const InventoryCard = ({ item, onSelect }: { item: PlanItemDetail; onSelect: () => void }) => {
+  const location = [item.city, item.area].filter(Boolean).join(', ');
+  const subtitle = [item.categoryGroup, item.subCategory].filter(Boolean).join(' / ');
+  const photoCount = item.photos?.length || (item.photoUrl ? 1 : 0);
+
+  return (
+    <article
+      className="group min-w-0 cursor-pointer"
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+    >
+      <div className="relative overflow-hidden rounded-md border border-slate-200 bg-slate-100 shadow-sm transition group-hover:border-emerald-400 group-hover:shadow-md">
+        <InventoryImage
+          src={item.photoUrl}
+          alt={item.title || 'Outdoor inventory'}
+          displaySize={1200}
+          className="aspect-[16/9] w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+        />
+        {item.subCategory ? (
+          <span className="absolute left-3 top-3 max-w-[70%] truncate rounded-full bg-slate-950/70 px-2.5 py-1 text-xs font-medium text-white backdrop-blur">
+            {item.subCategory}
+          </span>
+        ) : null}
+        {photoCount > 1 ? (
+          <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm">
+            {photoCount} photos
+          </span>
+        ) : null}
+      </div>
+      <div className="px-2 pt-4">
+        <p className="text-xs font-semibold uppercase text-emerald-700">{item.inventoryCode || subtitle || 'Media'}</p>
+        <h3 className="mt-1 line-clamp-2 break-words text-lg font-semibold leading-snug text-slate-950 group-hover:text-emerald-900">
+          {item.title || 'Untitled media'}
+        </h3>
+        <p className="mt-2 line-clamp-2 min-h-10 break-words text-sm leading-5 text-slate-600">{location || item.address || 'Location unavailable'}</p>
+        <dl className="mt-4 grid gap-2 text-sm text-slate-700">
+          <CardMetric icon="●" label="Size" value={formatSize(item)} />
+          <CardMetric icon="◆" label="Spend" value={currency(item.totalSellingPrice || 0)} strong />
+        </dl>
+      </div>
+    </article>
+  );
+};
+
+const CardMetric = ({
+  icon,
+  label,
+  value,
+  strong,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  strong?: boolean;
+}) => (
+  <div className="flex min-w-0 items-center gap-2">
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[10px] text-emerald-700" aria-hidden="true">
+      {icon}
+    </span>
+    <span className="sr-only">{label}</span>
+    <span className={`min-w-0 break-words ${strong ? 'font-semibold text-slate-950' : 'text-slate-700'}`}>{value}</span>
+  </div>
 );
 
 const Price = ({ label, value }: { label: string; value: number }) => (
@@ -407,11 +609,42 @@ const PublicItemInfo = ({
   value: string;
   strong?: boolean;
 }) => (
-  <div className={`min-w-0 ${label === 'Dates' ? 'col-span-2' : ''}`}>
+  <div className="min-w-0">
     <dt className="text-xs text-slate-500">{label}</dt>
     <dd className={`mt-0.5 break-words ${strong ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>{value}</dd>
   </div>
 );
+
+const toggleSetValue = (selected: Set<string>, value: string, onChange: (next: Set<string>) => void) => {
+  const next = new Set(selected);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  onChange(next);
+};
+
+const uniqueSorted = (values: Array<string | undefined>) =>
+  Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+const optionCounts = (items: FilterableItem[], key: 'categoryGroup' | 'subCategory') => {
+  const counts = new Map<string, number>();
+  items.forEach((item) => {
+    const value = item[key]?.trim();
+    if (value) counts.set(value, (counts.get(value) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+};
+
+const sortItems = (items: PublicPlanItem[], sortMode: SortMode) => {
+  const sorted = [...items];
+  if (sortMode === 'price-low') return sorted.sort((a, b) => (a.totalSellingPrice || 0) - (b.totalSellingPrice || 0));
+  if (sortMode === 'price-high') return sorted.sort((a, b) => (b.totalSellingPrice || 0) - (a.totalSellingPrice || 0));
+  if (sortMode === 'title') return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  return sorted;
+};
 
 const currency = (value: number) =>
   new Intl.NumberFormat('en-IN', {
@@ -429,10 +662,16 @@ const formatDate = (value?: string) =>
       }).format(new Date(value))
     : '-';
 
-const formatSize = (item: PublicSharedPlanData['plan']['items'][number]) => {
+const dimensionLabel = (item: FilterableItem) => {
+  if (item.width && item.height) return `${item.width}W x ${item.height}H`;
+  if (item.totalSqFt) return `${item.totalSqFt} sq ft`;
+  return '';
+};
+
+const formatSize = (item: PlanItemDetail) => {
   if (item.width && item.height) return `${item.width} x ${item.height} ft`;
   if (item.totalSqFt) return `${item.totalSqFt} sq ft`;
-  return '-';
+  return 'Size on request';
 };
 
 export default PublicSharedPlan;
