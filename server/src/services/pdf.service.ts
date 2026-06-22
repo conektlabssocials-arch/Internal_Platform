@@ -188,12 +188,13 @@ export class PdfService {
     const deliveryType = documentDeliveryType();
 
     const result = await new Promise<CloudinaryUploadResult>((resolve, reject) => {
-      // Use chunked upload: a large multi-hundred-page proposal PDF exceeds the
-      // single-request size limit and `upload_stream` rejects it with a 413.
-      // `upload_chunked_stream` sends the file in parts. The chunk size must stay
-      // below the account's per-request max (10 MB here, Cloudinary's minimum
-      // chunk is 5 MB), so each part is accepted and the full file is assembled
-      // server-side.
+      // Use chunked upload so a large multi-hundred-page proposal PDF isn't
+      // rejected with a 413 for exceeding the single-request body limit;
+      // `upload_chunked_stream` sends the file in parts (min 5 MB / part).
+      // NOTE: chunking does NOT raise the account's *maximum file size* cap
+      // (10 MB for raw files on the default plan) — a file over that cap is still
+      // rejected with "File size too large". Keeping the PDF small enough is
+      // handled upstream by downscaling/compressing inlined photos (see imageUrl).
       const uploadStream = cloudinary.uploader.upload_chunked_stream(
         {
           resource_type: 'raw',

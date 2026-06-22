@@ -8,7 +8,7 @@ test('inserts a downscaling JPEG transformation into versioned Cloudinary image 
     'https://res.cloudinary.com/do1w46bzr/image/upload/v1781872571/inventory/inventory_photo/abc/screenshot.png';
   assert.equal(
     optimizeCloudinaryImageUrl(url),
-    'https://res.cloudinary.com/do1w46bzr/image/upload/c_limit,w_900,q_auto,f_jpg/v1781872571/inventory/inventory_photo/abc/screenshot.png',
+    'https://res.cloudinary.com/do1w46bzr/image/upload/c_limit,w_560,q_auto:eco,f_jpg/v1781872571/inventory/inventory_photo/abc/screenshot.png',
   );
 });
 
@@ -18,7 +18,7 @@ test('honours DOCUMENT_IMAGE_MAX_WIDTH override', () => {
     const url = 'https://res.cloudinary.com/demo/image/upload/v1/photo.png';
     assert.equal(
       optimizeCloudinaryImageUrl(url),
-      'https://res.cloudinary.com/demo/image/upload/c_limit,w_600,q_auto,f_jpg/v1/photo.png',
+      'https://res.cloudinary.com/demo/image/upload/c_limit,w_600,q_auto:eco,f_jpg/v1/photo.png',
     );
   } finally {
     delete process.env.DOCUMENT_IMAGE_MAX_WIDTH;
