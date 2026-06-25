@@ -17,7 +17,7 @@ export interface IGoogleDrivePhotoService {
   getImageFile(fileId: string, size?: unknown): Promise<DriveImageProxyResult>;
 }
 
-const driveFolderPathPattern = /\/drive\/folders\/([a-zA-Z0-9_-]+)/;
+const driveFolderPathPattern = /\/folders\/([a-zA-Z0-9_-]+)/;
 const driveFileIdPattern = /^[a-zA-Z0-9_-]{10,}$/;
 const defaultImageSize = 1600;
 const maxImageSize = 2400;
