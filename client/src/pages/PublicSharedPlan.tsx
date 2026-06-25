@@ -80,11 +80,9 @@ const PublicSharedPlan = () => {
 
   const allFilterItems = useMemo<FilterableItem[]>(() => {
     if (!data) return [];
-    return [
-      ...data.plan.items,
-      ...(data.mapItems || []),
-      ...(data.nonMapItems || []),
-    ];
+    // mapItems / nonMapItems are derived subsets of plan.items, so including
+    // them here would double-count those categories in the filter options.
+    return data.plan.items;
   }, [data]);
 
   const cities = useMemo(() => uniqueSorted(allFilterItems.map((item) => item.city)), [allFilterItems]);
